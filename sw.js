@@ -1,10 +1,10 @@
 // Lets OI1 open without internet once it has been visited.
 // Network first, so updates show up right away; the cache is the fallback.
-const CACHE = 'oi1-v1';
+const CACHE = 'oi1-v2';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest',
   'shell/shell.css', 'shell/shell.js', 'shell/modules.js',
-  'modules/letter/index.js', 'icons/icon.svg', 'icons/icon-192.png',
+  'modules/letter/index.js', 'modules/prodfos/index.js', 'icons/icon.svg', 'icons/icon-192.png',
 ];
 
 self.addEventListener('install', e => {

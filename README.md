@@ -6,7 +6,7 @@ One office suite, one app:
 | --- | --- | --- |
 | **Office Letter** | Word | Prototype works |
 | **Office Class** | Excel | Planned (Phase 2) |
-| **Office ProDFos** | PDF tools | Exists separately, joins in Phase 3 |
+| **Office ProDFos** | PDF reader and tools | Opens inside OI1 from its web version ([fisbal/prodfos](https://github.com/fisbal/prodfos), Flutter) |
 | **Office Stage** | PowerPoint | Planned (Phase 4) |
 | **Office Assistant** | Copilot | Planned (Phase 6): AI help inside every module |
 | **Office Notes** | OneNote | Planned (Phase 6) |

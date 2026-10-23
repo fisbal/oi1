@@ -5,7 +5,7 @@ export const modules = [
   { id: 'letter',    name: 'Office Letter',    kind: 'Documents',          color: '#2b579a', load: () => import('../modules/letter/index.js') },
   { id: 'class',     name: 'Office Class',     kind: 'Spreadsheets',       color: '#217346', load: null },
   { id: 'stage',     name: 'Office Stage',     kind: 'Presentations',      color: '#b7472a', load: null },
-  { id: 'prodfos',   name: 'Office ProDFos',   kind: 'PDF tools',          color: '#a4262c', load: null },
+  { id: 'prodfos',   name: 'Office ProDFos',   kind: 'PDF reader and tools', color: '#a4262c', load: () => import('../modules/prodfos/index.js') },
   { id: 'assistant', name: 'Office Assistant', kind: 'AI help in every app', color: '#5c2d91', load: null },
   { id: 'notes',     name: 'Office Notes',     kind: 'Quick notes',        color: '#7719aa', load: null },
   { id: 'plan',      name: 'Office Plan',      kind: 'Calendar and tasks', color: '#0078d4', load: null },
