@@ -38,10 +38,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: none; border: 0; padding: 4px 0;
   font-weight: 700; font-size: 17px; color: var(--brand);
 }
+.tabs { display: flex; align-items: flex-end; gap: 2px; height: 100%; overflow-x: auto; min-width: 0; flex: 1; }
 .tab {
-  padding: 6px 12px; border-radius: 6px;
-  border-bottom: 3px solid var(--accent); font-size: 14px;
+  display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+  height: 36px; padding: 0 4px 0 12px; max-width: 200px;
+  border-radius: 8px 8px 0 0; font-size: 14px; cursor: pointer;
+  color: var(--muted); border-bottom: 3px solid transparent;
 }
+.tab:hover { background: var(--bg); }
+.tab.active { color: var(--ink); background: var(--bg); border-bottom-color: var(--accent); }
+.tab-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab-close, .tab-new {
+  width: 24px; height: 24px; border: 0; border-radius: 4px; background: none;
+  font-size: 16px; line-height: 1; color: var(--muted);
+}
+.tab-close:hover, .tab-new:hover { background: var(--line); color: var(--ink); }
+.tab-new { align-self: center; flex-shrink: 0; font-size: 20px; }
+[hidden] { display: none !important; }
 #stage { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
 /* Home screen */
@@ -111,8 +124,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 
 /* Print only the page (used by the PDF button) */
+@page { margin: 2cm; }
 @media print {
-  .topbar, .ribbon, .status { display: none !important; }
-  body, .canvas { background: #fff; padding: 0; overflow: visible; }
+  .topbar, .ribbon, .status, .home { display: none !important; }
+  html, body, #stage, .module-host, .letter, .canvas { height: auto; min-height: 0; display: block; overflow: visible; }
+  body, .canvas { background: #fff; padding: 0; }
   .page { box-shadow: none; padding: 0; max-width: none; min-height: 0; color: #000; background: #fff; }
 }

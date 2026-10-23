@@ -23,7 +23,7 @@ const TOOLBAR = [
 
 const EXTENSIONS = ['.html', '.htm', '.txt'];
 
-const BLANK = '<h1>Untitled letter</h1><p>Start writing here…</p>';
+const BLANK = '<h1>Untitled letter</h1><p><br></p>';
 
 export default {
   id: 'letter',
@@ -40,7 +40,7 @@ export default {
             <button data-act="new">New</button>
             <button data-act="open">Open</button>
             <button data-act="save">Save</button>
-            <button data-act="pdf">PDF</button>
+            <button data-act="pdf" title="Save as PDF">PDF</button>
           </div>
           <div class="group format">
             ${TOOLBAR.map((t, i) => t.sep ? '<span class="sep"></span>'
@@ -57,10 +57,16 @@ export default {
 
     page.innerHTML = shell.storage.get('doc') || BLANK;
 
+    // A letter that was never opened or saved under a name is called after its first heading.
+    const title = () => fileName !== 'letter.html'
+      ? fileName.replace(/\.html?$/, '')
+      : (page.querySelector('h1, h2')?.innerText.trim() || 'Untitled letter').slice(0, 60);
+
     const refresh = () => {
       const words = (page.innerText.trim().match(/\S+/g) || []).length;
       count.textContent = `${words} word${words === 1 ? '' : 's'}`;
       fname.textContent = fileName;
+      shell.setTitle(title());
     };
     const autosave = () => { shell.storage.set('doc', page.innerHTML); shell.storage.set('name', fileName); refresh(); };
 
@@ -77,10 +83,7 @@ export default {
     });
 
     const actions = {
-      new() {
-        if (!confirm('Start a new letter? Unsaved changes will be lost.')) return;
-        page.innerHTML = BLANK; fileName = 'letter.html'; autosave();
-      },
+      new() { shell.openModule('letter'); },
       async open() {
         const file = await shell.openFile(EXTENSIONS);
         if (!file) return;
@@ -88,9 +91,18 @@ export default {
         fileName = file.name.replace(/\.txt$/, '.html'); autosave();
       },
       save() {
-        shell.saveFile(fileName, wrapHtml(fileName, page.innerHTML), 'text/html');
+        if (fileName === 'letter.html') fileName = `${title().replace(/[\\/:*?"<>|]+/g, '').trim() || 'letter'}.html`;
+        shell.saveFile(fileName, wrapHtml(title(), page.innerHTML), 'text/html');
+        autosave();
       },
-      pdf() { window.print(); },
+      // The browser's print engine makes a sharp, text-based PDF ("Save as PDF").
+      // Setting the title names the PDF file after the letter.
+      pdf() {
+        const before = document.title;
+        document.title = title();
+        window.print();
+        document.title = before;
+      },
     };
     el.querySelector('.file').addEventListener('click', e => {
       const act = e.target.closest('button')?.dataset.act;

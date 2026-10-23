@@ -25,8 +25,13 @@ export default {
 | --- | --- |
 | `shell.openFile(extensions)` | Asks the user to pick a file. Resolves to `{ name, text }` or `null`. |
 | `shell.saveFile(name, content, mimeType)` | Saves a file to the user's computer. |
-| `shell.storage.get(key)` / `set(key, value)` | Small storage for autosave and settings, kept separate per module. |
+| `shell.storage.get(key)` / `set(key, value)` | Small storage for autosave, kept separate for each tab. |
+| `shell.setTitle(title)` | Changes the label on this module's tab. |
+| `shell.openModule(id)` | Opens a module in a new tab (for example, Letter's New button). |
 | `shell.goHome()` | Returns to the home screen. |
+
+Each open tab is its own `mount()` call, so a module can be open in several tabs at once.
+The shell remembers open tabs and brings them back after a reload.
 
 ## Adding a module
 
