@@ -10,7 +10,7 @@ function showHome() {
   stage.innerHTML = `
     <section class="home">
       <h1>Welcome to Office In 1</h1>
-      <p class="sub">One office for letters, sheets, slides and PDFs.</p>
+      <p class="sub">One office for letters, sheets, slides, PDFs, notes, mail and more.</p>
       <div class="cards">
         ${modules.map(m => `
           <button class="card ${m.load ? '' : 'soon'}" data-id="${m.id}" style="--accent:${m.color}">

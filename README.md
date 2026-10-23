@@ -8,6 +8,12 @@ One office suite, one app:
 | **Office Class** | Excel | Planned (Phase 2) |
 | **Office ProDFos** | PDF tools | Exists separately, joins in Phase 3 |
 | **Office Stage** | PowerPoint | Planned (Phase 4) |
+| **Office Assistant** | Copilot | Planned (Phase 6): AI help inside every module |
+| **Office Notes** | OneNote | Planned (Phase 6) |
+| **Office Plan** | Outlook calendar, To Do | Planned (Phase 6) |
+| **Office Mail** | Outlook mail | Planned (Phase 7) |
+| **Office Draw** | Visio, whiteboard | Planned (Phase 7) |
+| **Office Form** | Microsoft Forms | Planned (Phase 7) |
 
 ## Try it
 
@@ -44,3 +50,5 @@ The full plan (architecture, stack choice, roadmap, sources) is in the blueprint
 3. ProDFos joins the suite
 4. Stage v1: slides, .pptx
 5. Desktop app with Tauri, then cloud save and co-editing
+6. Office Assistant, Notes and Plan
+7. Office Mail, Draw and Form
