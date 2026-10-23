@@ -19,7 +19,7 @@ One office suite, one app:
 
 It is a plain web page with no build step.
 
-- **Online:** turn on GitHub Pages (Settings → Pages → Deploy from branch `main`, folder `/`), then open the link GitHub gives you.
+- **Online:** https://fisbal.github.io/oi1/ (updated automatically on every push to `main`).
 - **On your computer:** in this folder run `python3 -m http.server 8000` and open http://localhost:8000.
   (Opening `index.html` by double-click does not work, because browsers block modules from `file://`.)
 
