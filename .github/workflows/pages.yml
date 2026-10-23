@@ -1,0 +1,21 @@
+name: Publish OI1 to GitHub Pages
+
+# OI1 has no build step yet, so the site is the repo itself.
+# Every push to main copies it to the gh-pages branch, which GitHub Pages serves.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Update gh-pages
+        run: git push -f origin HEAD:gh-pages
