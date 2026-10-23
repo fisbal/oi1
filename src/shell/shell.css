@@ -19,7 +19,8 @@
   }
 }
 * { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; }
+html, body, #root { height: 100%; margin: 0; }
+#root { display: flex; flex-direction: column; }
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
@@ -36,9 +37,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .brand {
   background: none; border: 0; padding: 4px 0;
-  font-weight: 700; font-size: 17px; color: var(--brand);
+  font-weight: 700; font-size: 17px; color: var(--brand); white-space: nowrap; flex-shrink: 0;
 }
-.tabs { display: flex; align-items: flex-end; gap: 2px; height: 100%; overflow-x: auto; min-width: 0; flex: 1; }
+@media (max-width: 640px) {
+  .topbar { gap: 8px; padding: 0 8px; }
+  .brand { font-size: 15px; }
+  .lang { max-width: 96px; }
+}
+.tabs { display: flex; align-items: flex-end; gap: 2px; height: 100%; overflow-x: auto; min-width: 0; flex: 1 1 auto; }
 .tab {
   display: flex; align-items: center; gap: 4px; flex-shrink: 0;
   height: 36px; padding: 0 4px 0 12px; max-width: 200px;
@@ -58,9 +64,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #stage { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
 /* Home screen */
-.home { max-width: 960px; width: 100%; margin: 0 auto; padding: 48px 16px; }
+.home { flex: 1; min-height: 0; max-width: 960px; width: 100%; margin: 0 auto; padding: 48px 16px; overflow-y: auto; }
 .home h1 { margin: 0 0 4px; font-size: 28px; }
-.home .sub { margin: 0 0 32px; color: var(--muted); }
+.home .sub { color: var(--muted); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
 .card {
   position: relative; text-align: left;
@@ -84,6 +90,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
   border: 1px solid var(--line); border-radius: 99px; padding: 2px 8px;
 }
 .card.soon { opacity: .6; cursor: default; }
+.home-head { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; margin-bottom: 32px; }
+.home-head .sub { margin: 0; }
+.open-file {
+  padding: 10px 18px; border-radius: 8px; border: 1px solid var(--brand);
+  background: var(--brand); color: #fff; font-weight: 600;
+}
+.lang {
+  margin-left: auto; flex-shrink: 0; height: 32px; padding: 0 8px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; font-size: 14px;
+}
 .card.soon:hover { transform: none; box-shadow: none; }
 
 /* Module host */
@@ -97,45 +113,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .embed-bar a { color: var(--brand); }
 .embed { flex: 1; width: 100%; border: 0; background: var(--panel); }
 
-/* Office Letter */
-.letter { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.ribbon {
-  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
-  padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
-}
-.ribbon .group { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; }
-.ribbon button {
-  min-width: 32px; height: 32px; padding: 0 8px;
-  background: none; border: 1px solid transparent; border-radius: 6px;
-}
-.ribbon button:hover { background: var(--bg); border-color: var(--line); }
-.ribbon .file button { font-size: 14px; }
-.ribbon .sep { width: 1px; height: 20px; background: var(--line); margin: 0 6px; }
-.canvas { flex: 1; overflow: auto; padding: 32px 16px; }
-.page {
-  max-width: 816px; min-height: 1056px; margin: 0 auto;
-  padding: 72px 80px; background: var(--page);
-  box-shadow: 0 1px 4px rgba(0,0,0,.15);
-  font-family: Georgia, "Times New Roman", serif; font-size: 16px; line-height: 1.6;
-  outline: none;
-}
-.page h1 { font-size: 28px; margin: 0 0 16px; }
-.page h2 { font-size: 21px; margin: 24px 0 8px; }
-.status {
-  display: flex; justify-content: space-between;
-  padding: 4px 16px; font-size: 12px; color: var(--muted);
-  background: var(--panel); border-top: 1px solid var(--line);
-}
-@media (max-width: 640px) {
-  .page { padding: 32px 20px; min-height: 70vh; }
-  .canvas { padding: 12px 8px; }
-}
-
-/* Print only the page (used by the PDF button) */
 @page { margin: 2cm; }
 @media print {
-  .topbar, .ribbon, .status, .home { display: none !important; }
-  html, body, #stage, .module-host, .letter, .canvas { height: auto; min-height: 0; display: block; overflow: visible; }
+  .topbar, .ribbon, .status, .home, .embed-bar { display: none !important; }
+  html, body, #root, #stage, .module-host, .letter, .canvas { height: auto; min-height: 0; display: block; overflow: visible; }
   body, .canvas { background: #fff; padding: 0; }
   .page { box-shadow: none; padding: 0; max-width: none; min-height: 0; color: #000; background: #fff; }
 }

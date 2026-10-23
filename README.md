@@ -17,17 +17,19 @@ One office suite, one app:
 
 ## Try it
 
-It is a plain web page with no build step.
-
-- **Online:** https://fisbal.github.io/oi1/ (updated automatically on every push to `main`).
-- **On your computer:** in this folder run `python3 -m http.server 8000` and open http://localhost:8000.
-  (Opening `index.html` by double-click does not work, because browsers block modules from `file://`.)
+- **Online:** https://fisbal.github.io/oi1/ (built and published automatically on every push to `main`).
+- **On your computer:** install Node.js 22, then in this folder run `npm install` and `npm run dev`,
+  and open the address it prints. `npm test` runs the tests, `npm run build` makes the site in `dist/`.
 
 ## What works today
 
 - **Tabs:** open several letters at once, switch and close them; tabs come back after a reload.
-- **Office Letter:** write and format text (bold, italic, underline, headings, lists, alignment, undo/redo),
-  open `.html` and `.txt` files, save as `.html`, and autosave so nothing is lost.
+- **Office Letter** (TipTap / ProseMirror editor): headings, bold, italic, underline, strikethrough, text color,
+  highlight, lists, quotes, alignment, links, images and tables. Opens `.docx`, `.html` and `.txt`;
+  saves real Word `.docx` files and `.html`; autosaves so nothing is lost.
+- **Languages:** English, Français, Español, Português and Deutsch, picked automatically from the browser
+  and changeable in the top bar.
+- **Open any file:** the "Open a file" button on the home screen, or drag a file onto the window.
 - **Letter to PDF:** the PDF button opens the print dialog; choose "Save as PDF". The text stays sharp and selectable.
 - **Phones:** OI1 is an installable web app. On a phone, open the link and choose "Add to Home Screen".
   After the first visit it also opens without internet.
@@ -35,21 +37,27 @@ It is a plain web page with no build step.
 ## How it is built
 
 ```
-index.html          the page
-manifest.webmanifest, sw.js   make OI1 installable and usable offline
-shell/              the launcher: home screen, tabs, shared services
-  modules.js        list of modules (add one line per new module)
-modules/letter/     Office Letter
-docs/               module contract and notes
+index.html               the page
+public/                  icons, manifest and service worker (installable, works offline)
+src/shell/               the launcher: home screen, tabs, languages, shared services
+  contract.ts            the module contract (types)
+  modules.ts             list of modules
+  i18n.ts                interface text in every language
+src/modules/letter/      Office Letter (React + TipTap; docx.ts = Word open/save)
+src/modules/prodfos/     Office ProDFos (its Flutter web app in a tab)
+docs/                    module contract and notes
 ```
+
+Built with TypeScript, React and Vite. Main libraries: [TipTap](https://tiptap.dev) (MIT, on ProseMirror),
+[mammoth](https://github.com/mwilliamson/mammoth.js) (BSD-2, reads .docx), [docx](https://github.com/dolanmiu/docx) (MIT, writes .docx).
 
 Every module plugs in through one small contract: see [docs/module-contract.md](docs/module-contract.md).
 The full plan (architecture, stack choice, roadmap, sources) is in the blueprint document.
 
 ## Roadmap
 
-0. Prototype: launcher + Letter (this)
-1. Letter v1: ProseMirror editor, .docx open/save
+0. Prototype: launcher + Letter (done)
+1. Letter v1: ProseMirror editor, .docx open/save, languages (this)
 2. Class v1: Univer grid and formulas, .xlsx
 3. ProDFos joins the suite
 4. Stage v1: slides, .pptx
