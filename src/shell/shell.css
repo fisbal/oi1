@@ -117,6 +117,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media print {
   .topbar, .ribbon, .status, .home, .embed-bar { display: none !important; }
   html, body, #root, #stage, .module-host, .letter, .canvas { height: auto; min-height: 0; display: block; overflow: visible; }
-  body, .canvas { background: #fff; padding: 0; }
-  .page { box-shadow: none; padding: 0; max-width: none; min-height: 0; color: #000; background: #fff; }
+  html, body { background: #fff; margin: 0; }
 }
+
+/* Recent files on the home screen */
+.recent { margin: 0 0 28px; }
+.recent h2 { font-size: 15px; font-weight: 600; margin: 0 0 8px; color: var(--muted); }
+.recent ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
+.recent li { display: flex; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.recent-open {
+  flex: 1; min-width: 0; display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px;
+  padding: 8px 10px; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+}
+.recent-open .badge { width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; }
+.recent-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.recent-time { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.recent-remove { border: 0; background: none; color: var(--muted); font-size: 18px; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; }
+.recent-remove:hover { background: var(--bg); color: var(--ink); }

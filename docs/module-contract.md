@@ -23,16 +23,17 @@ export default letter;
 
 | Service | What it does |
 | --- | --- |
-| `shell.openFile(extensions)` | Asks the user to pick a file. Resolves to `{ name, type, text(), arrayBuffer() }` or `null`. |
-| `shell.saveFile(name, content, mimeType)` | Saves a file (Blob or string) to the user's computer. |
-| `shell.storage.get(key)` / `set(key, value)` | Small storage for autosave, kept separate for each tab. |
+| `shell.openFile(extensions)` | Asks the user to pick a file. Resolves to `{ name, type, handle?, text(), arrayBuffer() }` or `null`. |
+| `shell.saveFile(name, content, mimeType, { target, saveAs })` | Saves a file. With `target` (a file opened earlier) it writes back to the same file in Chrome and Edge; otherwise it asks where to save, or downloads in other browsers. `content` can be a function, so a slow file is made after the user picks a place. Resolves to the saved file or `null`. |
+| `shell.storage.get/set` and `load/save` | Autosave storage, kept separate for each tab: `get/set` for small values (localStorage), `load/save` for big ones like a whole document (IndexedDB). |
+| `shell.recent.list()` / `open(id)` | Files this module opened or saved lately. The shell keeps them by itself. |
 | `shell.setTitle(title)` | Changes the label on this module's tab. |
 | `shell.openModule(id, file?)` | Opens a module in a new tab, optionally with a file. |
 | `shell.goHome()` | Returns to the home screen. |
 
 Each open tab is its own `mount()` call, so a module can be open in several tabs at once.
 The shell remembers open tabs and brings them back after a reload. The home screen's
-"Open a file" button and drag-and-drop send a file to whichever module lists its extension.
+"Open a file" button, its Recent list and drag-and-drop send a file to whichever module lists its extension.
 
 ## Languages
 
