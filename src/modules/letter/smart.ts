@@ -298,3 +298,32 @@ export function readingStats(text: string) {
     speakMinutes: Math.max(words ? 1 : 0, Math.round(words / 150)),
   };
 }
+
+/** Table looks for Table > Table Styles: a header row color and banded rows, made of cell shading so they save to .docx. */
+export const TABLE_STYLES = {
+  grid: { head: null, band: null, borders: null },
+  gold: { head: '#E9CF8A', band: '#FBF3DD', borders: null },
+  blue: { head: '#BDD7EE', band: '#EAF2FA', borders: null },
+  green: { head: '#C6E0B4', band: '#EDF6E8', borders: null },
+  rose: { head: '#F4C7C3', band: '#FCEDEB', borders: null },
+  gray: { head: '#D9D9D9', band: '#F2F2F2', borders: null },
+  clean: { head: '#F2F2F2', band: null, borders: 'none' },
+} as const;
+export type TableStyleId = keyof typeof TABLE_STYLES;
+
+export function applyTableStyle(editor: Editor, id: TableStyleId): boolean {
+  const at = tableAt(editor);
+  if (!at) return false;
+  const look = TABLE_STYLES[id];
+  const tr = editor.state.tr;
+  tr.setNodeMarkup(at.pos, undefined, { ...at.node.attrs, borders: look.borders });
+  at.node.forEach((row, rowOffset, r) => {
+    row.forEach((cell, cellOffset) => {
+      const pos = at.pos + 1 + rowOffset + 1 + cellOffset;
+      const background = r === 0 ? look.head : r % 2 === 0 ? look.band : null;
+      tr.setNodeMarkup(pos, undefined, { ...cell.attrs, background });
+    });
+  });
+  editor.view.dispatch(tr);
+  return true;
+}

@@ -593,6 +593,12 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
 
   const actions: RibbonActions = {
     fileMenu: () => setPanel('file'),
+    pasteText: async () => {
+      const ed = activeEditor;
+      if (!ed) return;
+      try { ed.view.pasteText(await navigator.clipboard.readText()); } catch { alert(t('letter.pasteBlocked')); }
+      ed.commands.focus();
+    },
     paste: async () => {
       const ed = activeEditor;
       if (!ed) return;
@@ -617,6 +623,12 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       if (!f || !activeEditor) return;
       const src = await readAsDataUrl(new Blob([await f.arrayBuffer()], { type: f.type || 'image/png' }));
       activeEditor.chain().focus().setImage({ src, alt: f.name }).run();
+    },
+    replaceImage: async () => {
+      const f = await shell.openFile(IMAGE_EXTENSIONS);
+      if (!f || !activeEditor) return;
+      const src = await readAsDataUrl(new Blob([await f.arrayBuffer()], { type: f.type || 'image/png' }));
+      activeEditor.chain().focus().updateAttributes('image', { src, alt: f.name }).run();
     },
     link: () => {
       const ed = activeEditor;
@@ -697,7 +709,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       <div className="canvas" ref={canvasRef}>
         {(panel === 'find' || panel === 'replace') && <FindBar editor={body} replace={panel === 'replace'} onClose={() => { setPanel(null); body.commands.focus(); }} />}
         <div className="sizer" style={{ width: isPrint ? pw * scale : undefined, height: isPrint ? sheetHeight * scale : undefined }}>
-          <div ref={sheetRef} className={`sheet ${isPrint ? 'print-layout' : 'web-layout'}${view.marks ? ' show-marks' : ''}`} style={sheetVars}>
+          <div ref={sheetRef} className={`sheet ${isPrint ? 'print-layout' : 'web-layout'}${view.marks ? ' show-marks' : ''}${page.hyphenate ? ' hyphenate' : ''}`} style={sheetVars}>
             {isPrint && Array.from({ length: layout.pages }, (_, i) => (
               <div key={i} className="page-frame" style={{ top: `calc(${i} * (var(--ph) + var(--pg-gap)))`, background: page.color ?? undefined }}>
                 {page.border && <div className="page-border" style={{ inset: `${page.border.space}pt`, border: `${page.border.w}pt solid ${page.border.color}` }} />}

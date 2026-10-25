@@ -12,7 +12,7 @@ import Superscript from '@tiptap/extension-superscript';
 import FileHandler from '@tiptap/extension-file-handler';
 import { CharacterCount, Placeholder } from '@tiptap/extensions';
 import { t } from '../../shell/i18n';
-import { CellBackground, PageBreak, PageNumber, ParagraphFormat, TextStyleExtras } from './extensions';
+import { CellBackground, ListStyle, PageBreak, PageNumber, ParagraphFormat, TextStyleExtras } from './extensions';
 import { Pagination } from './pagination';
 import { Search } from './search';
 
@@ -55,6 +55,7 @@ export function letterExtensions(part: 'body' | 'header' | 'footer'): Extensions
     ParagraphFormat,
     TextStyleExtras,
     CellBackground,
+    ListStyle,
     PageNumber,
     FileHandler.configure({
       allowedMimeTypes: IMAGE_TYPES,

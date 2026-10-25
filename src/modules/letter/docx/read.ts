@@ -96,7 +96,7 @@ class Context {
   styles = new Map<string, { type: string; name: string; basedOn?: string; p: ParaProps; r: RunProps; isDefault: boolean; tblBorders?: Element | null }>();
   defaultsP: ParaProps = {};
   defaultsR: RunProps = {};
-  lists = new Map<string, Map<number, 'bullet' | 'number'>>();
+  lists = new Map<string, Map<number, ListLevel>>();
   theme: Theme = { colors: {} };
 
   color(el: Element | null): string | null | undefined {
@@ -317,7 +317,7 @@ class Reader {
         case 'p': {
           const { blocks, list } = await this.paragraph(el, part, table);
           for (const b of blocks) {
-            if (list && b.type === 'paragraph') lists.add(b, list.kind, list.level, list.numId);
+            if (list && b.type === 'paragraph') lists.add(b, list.kind, list.level, list.numId, list.style);
             else { lists.end(); out.push(b); }
           }
           break;
@@ -359,10 +359,11 @@ class Reader {
     const extra: JSONContent[] = [];
     await this.inlines(el, part, runBase, base, [], segments, extra, []);
 
-    let list: { kind: 'bullet' | 'number'; level: number; numId: string } | undefined;
+    let list: { kind: 'bullet' | 'number'; level: number; numId: string; style: string | null } | undefined;
     if (p.numId && p.numId !== '0') {
       const level = p.ilvl ?? 0;
-      list = { kind: ctx.lists.get(p.numId)?.get(level) ?? 'bullet', level, numId: p.numId };
+      const def = ctx.lists.get(p.numId)?.get(level);
+      list = { kind: def?.kind ?? 'bullet', level, numId: p.numId, style: def?.style ?? null };
     }
 
     const attrs: Record<string, unknown> = {};
@@ -652,13 +653,14 @@ class ListBuilder {
   private out: JSONContent[];
   constructor(out: JSONContent[]) { this.out = out; }
 
-  add(paragraph: JSONContent, kind: 'bullet' | 'number', level: number, numId: string) {
+  add(paragraph: JSONContent, kind: 'bullet' | 'number', level: number, numId: string, style: string | null = null) {
     const depth = Math.min(level, 8) + 1;
     while (this.stack.length > depth) this.stack.pop();
     const top = this.stack[this.stack.length - 1];
     if (this.stack.length === depth && (top.kind !== kind || (depth === 1 && top.numId !== numId && kind === 'number'))) this.stack.pop();
     while (this.stack.length < depth) {
       const list: JSONContent = { type: kind === 'bullet' ? 'bulletList' : 'orderedList', content: [] };
+      if (style && this.stack.length === depth - 1) list.attrs = { listStyle: style };
       const parent = this.stack[this.stack.length - 1];
       if (!parent) this.out.push(list);
       else {
@@ -693,15 +695,43 @@ function readTheme(doc: Document | null): Theme {
   return theme;
 }
 
-function readNumbering(doc: Document | null): Map<string, Map<number, 'bullet' | 'number'>> {
-  const lists = new Map<string, Map<number, 'bullet' | 'number'>>();
+type ListLevel = { kind: 'bullet' | 'number'; style: string | null };
+
+/** OI1's name for a Word list level's look: a bullet shape or a number format. */
+function levelStyle(fmt: string | null, text: string | null): string | null {
+  const t = (text ?? '').trim();
+  if (fmt === 'bullet') {
+    if (/^[o◦○]$/.test(t)) return 'circle';
+    if (/^[▪■\uF0A7\uF06E]$/.test(t)) return 'square';
+    if (/^[–—-]$/.test(t)) return 'dash';
+    if (/^[➤►▶➢\uF0D8\uF0E8]$/.test(t)) return 'arrow';
+    if (/^[✓✔\uF0FC]$/.test(t)) return 'check';
+    if (/^[★☆]$/.test(t)) return 'star';
+    return null;
+  }
+  const paren = /\)$/.test(t) && !/^\(/.test(t);
+  switch (fmt) {
+    case 'decimal': return paren ? 'decimal-paren' : null;
+    case 'lowerLetter': return 'lower-alpha';
+    case 'upperLetter': return 'upper-alpha';
+    case 'lowerRoman': return 'lower-roman';
+    case 'upperRoman': return 'upper-roman';
+    default: return null;
+  }
+}
+
+function readNumbering(doc: Document | null): Map<string, Map<number, ListLevel>> {
+  const lists = new Map<string, Map<number, ListLevel>>();
   if (!doc) return lists;
-  const abstract = new Map<string, Map<number, 'bullet' | 'number'>>();
+  const abstract = new Map<string, Map<number, ListLevel>>();
   for (const a of kids(doc.documentElement, 'abstractNum')) {
-    const levels = new Map<number, 'bullet' | 'number'>();
+    const levels = new Map<number, ListLevel>();
     for (const lvl of kids(a, 'lvl')) {
       const fmt = attr(kid(lvl, 'numFmt'), 'val');
-      levels.set(num(attr(lvl, 'ilvl')) ?? 0, fmt === 'bullet' || fmt === 'none' ? 'bullet' : 'number');
+      const level = num(attr(lvl, 'ilvl')) ?? 0;
+      const kind = fmt === 'bullet' || fmt === 'none' ? 'bullet' : 'number';
+      // Deeper levels of a default list change shape by themselves, so only the first level's look is kept.
+      levels.set(level, { kind, style: level === 0 ? levelStyle(fmt, attr(kid(lvl, 'lvlText'), 'val')) : null });
     }
     abstract.set(attr(a, 'abstractNumId') ?? '', levels);
   }
@@ -808,6 +838,9 @@ export async function readDocx(data: ArrayBuffer): Promise<LetterDoc> {
   const background = hex(attr(kid(main.doc.documentElement, 'background'), 'color')) ?? null;
   const sect = kid(body, 'sectPr');
   const page = readPage(sect, ctx, background);
+  const settings = await xml(zip, (await relOfType('settings')) ?? 'word/settings.xml');
+  const hyph = kid(settings?.documentElement ?? null, 'autoHyphenation');
+  if (hyph && attr(hyph, 'val') !== 'false' && attr(hyph, 'val') !== '0') page.hyphenate = true;
   const reader = new Reader(zip, ctx, styles);
   const content = body ? await reader.blocks(body, main) : [];
 

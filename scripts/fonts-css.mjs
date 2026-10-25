@@ -1,0 +1,118 @@
+// Writes src/ui/fonts.css: the @font-face rules of the fonts OI1 ships, only for Latin letters
+// (English, French, Spanish, Portuguese, German and most other European languages) and only woff2,
+// so the site stays small. Run `npm run fonts` after adding a font to this list and to src/ui/fonts.ts.
+
+import { readFileSync, writeFileSync } from 'node:fs';
+
+const FILES = [
+  '@fontsource-variable/inter/wght.css',
+  '@fontsource-variable/inter/wght-italic.css',
+  '@fontsource-variable/roboto/wght.css',
+  '@fontsource-variable/roboto/wght-italic.css',
+  '@fontsource-variable/open-sans/wght.css',
+  '@fontsource-variable/open-sans/wght-italic.css',
+  '@fontsource/lato/400.css',
+  '@fontsource/lato/400-italic.css',
+  '@fontsource/lato/700.css',
+  '@fontsource/lato/700-italic.css',
+  '@fontsource-variable/montserrat/wght.css',
+  '@fontsource-variable/montserrat/wght-italic.css',
+  '@fontsource/poppins/400.css',
+  '@fontsource/poppins/400-italic.css',
+  '@fontsource/poppins/700.css',
+  '@fontsource/poppins/700-italic.css',
+  '@fontsource-variable/nunito/wght.css',
+  '@fontsource-variable/nunito/wght-italic.css',
+  '@fontsource-variable/raleway/wght.css',
+  '@fontsource-variable/raleway/wght-italic.css',
+  '@fontsource-variable/source-sans-3/wght.css',
+  '@fontsource-variable/source-sans-3/wght-italic.css',
+  '@fontsource-variable/work-sans/wght.css',
+  '@fontsource-variable/work-sans/wght-italic.css',
+  '@fontsource-variable/noto-sans/wght.css',
+  '@fontsource-variable/noto-sans/wght-italic.css',
+  '@fontsource/ibm-plex-sans/400.css',
+  '@fontsource/ibm-plex-sans/400-italic.css',
+  '@fontsource/ibm-plex-sans/700.css',
+  '@fontsource/ibm-plex-sans/700-italic.css',
+  '@fontsource-variable/outfit/wght.css',
+  '@fontsource-variable/manrope/wght.css',
+  '@fontsource-variable/quicksand/wght.css',
+  '@fontsource-variable/space-grotesk/wght.css',
+  '@fontsource-variable/dm-sans/wght.css',
+  '@fontsource-variable/dm-sans/wght-italic.css',
+  '@fontsource-variable/merriweather/wght.css',
+  '@fontsource-variable/merriweather/wght-italic.css',
+  '@fontsource-variable/lora/wght.css',
+  '@fontsource-variable/lora/wght-italic.css',
+  '@fontsource-variable/eb-garamond/wght.css',
+  '@fontsource-variable/eb-garamond/wght-italic.css',
+  '@fontsource/libre-baskerville/400.css',
+  '@fontsource/libre-baskerville/400-italic.css',
+  '@fontsource/libre-baskerville/700.css',
+  '@fontsource/libre-baskerville/700-italic.css',
+  '@fontsource-variable/source-serif-4/wght.css',
+  '@fontsource-variable/source-serif-4/wght-italic.css',
+  '@fontsource-variable/crimson-pro/wght.css',
+  '@fontsource-variable/crimson-pro/wght-italic.css',
+  '@fontsource/pt-serif/400.css',
+  '@fontsource/pt-serif/400-italic.css',
+  '@fontsource/pt-serif/700.css',
+  '@fontsource/pt-serif/700-italic.css',
+  '@fontsource-variable/noto-serif/wght.css',
+  '@fontsource-variable/noto-serif/wght-italic.css',
+  '@fontsource-variable/cormorant-garamond/wght.css',
+  '@fontsource-variable/cormorant-garamond/wght-italic.css',
+  '@fontsource-variable/playfair-display/wght.css',
+  '@fontsource-variable/playfair-display/wght-italic.css',
+  '@fontsource-variable/jetbrains-mono/wght.css',
+  '@fontsource-variable/jetbrains-mono/wght-italic.css',
+  '@fontsource-variable/fira-code/wght.css',
+  '@fontsource-variable/source-code-pro/wght.css',
+  '@fontsource-variable/source-code-pro/wght-italic.css',
+  '@fontsource/bebas-neue/400.css',
+  '@fontsource-variable/oswald/wght.css',
+  '@fontsource/abril-fatface/400.css',
+  '@fontsource/archivo-black/400.css',
+  '@fontsource-variable/comfortaa/wght.css',
+  '@fontsource-variable/caveat/wght.css',
+  '@fontsource-variable/dancing-script/wght.css',
+  '@fontsource/pacifico/400.css',
+  '@fontsource/great-vibes/400.css',
+  '@fontsource/permanent-marker/400.css',
+  '@fontsource/carlito/400.css',
+  '@fontsource/carlito/400-italic.css',
+  '@fontsource/carlito/700.css',
+  '@fontsource/carlito/700-italic.css',
+  '@fontsource/caladea/400.css',
+  '@fontsource/caladea/400-italic.css',
+  '@fontsource/caladea/700.css',
+  '@fontsource/caladea/700-italic.css',
+  '@fontsource-variable/arimo/wght.css',
+  '@fontsource-variable/arimo/wght-italic.css',
+  '@fontsource/tinos/400.css',
+  '@fontsource/tinos/400-italic.css',
+  '@fontsource/tinos/700.css',
+  '@fontsource/tinos/700-italic.css',
+  '@fontsource/cousine/400.css',
+  '@fontsource/cousine/400-italic.css',
+  '@fontsource/cousine/700.css',
+  '@fontsource/cousine/700-italic.css',
+  '@fontsource-variable/gelasio/wght.css',
+  '@fontsource-variable/gelasio/wght-italic.css',
+];
+
+const out = ['/* Made by scripts/fonts-css.mjs from Fontsource packages (SIL Open Font License / Apache 2.0). Do not edit by hand. */'];
+for (const file of FILES) {
+  const pkg = file.slice(0, file.lastIndexOf('/'));
+  const css = readFileSync(new URL(`../node_modules/${file}`, import.meta.url), 'utf8');
+  for (const m of css.matchAll(/\/\* ([^*]+) \*\/\s*(@font-face \{[^}]+\})/g)) {
+    if (!/-latin(-ext)?-/.test(m[1])) continue;
+    const rule = m[2]
+      .replace(/src: [^;]+;/, src => src.split(/,\s*(?=url)/).filter(s => s.includes('.woff2')).join(', ').replace(/,?\s*;?$/, ';').replace(/^(?!src:)/, 'src: '))
+      .replace(/url\(\.\/files\//g, `url(../../node_modules/${pkg}/files/`);
+    out.push(`/* ${m[1]} */\n${rule}`);
+  }
+}
+writeFileSync(new URL('../src/ui/fonts.css', import.meta.url), `${out.join('\n\n')}\n`);
+console.log(`fonts.css: ${out.length - 1} font faces`);

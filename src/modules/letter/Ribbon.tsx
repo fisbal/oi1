@@ -5,15 +5,27 @@
 import { useEditorState, type Editor } from '@tiptap/react';
 import { useState } from 'react';
 import { t, type MessageKey } from '../../shell/i18n';
-import type { Borders } from './extensions';
-import { FONTS, FONT_SIZES, STYLE_IDS, previewStyle, type DocStyles, type StyleId } from './model';
-import { MARGIN_PRESETS, PAGE_SIZES, isDark, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
+import { BULLET_CHARS, BULLET_STYLES, NUMBER_STYLES, type Borders, type NumberStyle } from './extensions';
+import { FONT_GROUPS, FONT_SIZES, STYLE_IDS, cssFont, previewStyle, type DocStyles, type StyleId } from './model';
+import { MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, isDark, pageInches, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
 import type { AppInfo, TabInfo } from '../../shell/contract';
-import { Btn, ColorGrid, Drop, Group, Icon, MenuItem, NumberBox } from '../../ui/kit';
-import type { CalloutKind, CleanUp } from './smart';
+import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, NumberBox, type ComboGroup } from '../../ui/kit';
+import { TABLE_STYLES, applyTableStyle, type CalloutKind, type CleanUp, type TableStyleId } from './smart';
 import { SPACING, THEMES, type SpacingId, type Theme } from './themes';
 
 export type Zoom = number | 'width' | 'page';
+
+const NUMBER_SAMPLES: Record<NumberStyle, string[]> = {
+  decimal: ['1.', '2.'], 'decimal-paren': ['1)', '2)'], 'lower-alpha': ['a.', 'b.'], 'upper-alpha': ['A.', 'B.'], 'lower-roman': ['i.', 'ii.'], 'upper-roman': ['I.', 'II.'],
+};
+
+const RECENT_FONTS = 'oi1.recentFonts';
+function recentFonts(): string[] {
+  try { return (JSON.parse(localStorage.getItem(RECENT_FONTS) ?? '[]') as string[]).slice(0, 5); } catch { return []; }
+}
+function rememberFont(f: string) {
+  try { localStorage.setItem(RECENT_FONTS, JSON.stringify([f, ...recentFonts().filter(x => x !== f)].slice(0, 5))); } catch { /* private window */ }
+}
 
 export interface ViewState {
   layout: 'print' | 'web';
@@ -25,7 +37,9 @@ export interface ViewState {
 export interface RibbonActions {
   fileMenu: () => void;
   paste: () => void;
+  pasteText: () => void;
   image: () => void;
+  replaceImage: () => void;
   link: () => void;
   find: (replace: boolean) => void;
   header: () => void;
@@ -71,7 +85,7 @@ export interface SuiteState {
 }
 
 const TABS = ['home', 'insert', 'design', 'layout', 'review', 'view', 'smart'] as const;
-type TabId = (typeof TABS)[number] | 'oi1' | 'table';
+type TabId = (typeof TABS)[number] | 'oi1' | 'table' | 'picture';
 
 const STYLE_KEYS: Record<StyleId, MessageKey> = {
   normal: 'letter.style.normal', title: 'letter.style.title', subtitle: 'letter.style.subtitle', quote: 'letter.style.quote',
@@ -142,8 +156,11 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
         bold: e.isActive('bold'), italic: e.isActive('italic'), underline: e.isActive('underline'), strike: e.isActive('strike'),
         sub: e.isActive('subscript'), sup: e.isActive('superscript'),
         bullets: e.isActive('bulletList'), numbers: e.isActive('orderedList'),
+        bulletStyle: (e.getAttributes('bulletList').listStyle as string | null) ?? null,
+        numberStyle: (e.getAttributes('orderedList').listStyle as string | null) ?? null,
         align: (['left', 'center', 'right', 'justify'] as const).find(a => e.isActive({ textAlign: a })) ?? null,
-        link: e.isActive('link'), inTable: e.isActive('table'),
+        link: e.isActive('link'), inTable: e.isActive('table'), inImage: e.isActive('image'),
+        imageAlt: (e.getAttributes('image').alt as string) || '',
         canUndo: e.can().undo(), canRedo: e.can().redo(),
         font: (ts.fontFamily as string) || '', size: (ts.fontSize as string) || '', color: (ts.color as string) || null,
         highlight: (e.getAttributes('highlight').color as string) || null,
@@ -156,13 +173,24 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
     },
   });
   const run = () => editor.chain().focus();
+  /** Makes the paragraph a list of that kind if needed, then gives the list its bullet shape or number format. */
+  const setListStyle = (type: 'bulletList' | 'orderedList', style: string) => {
+    if (!editor.isActive(type)) run()[type === 'bulletList' ? 'toggleBulletList' : 'toggleOrderedList']().run();
+    const def = type === 'bulletList' ? 'disc' : 'decimal';
+    run().updateAttributes(type, { listStyle: style === def ? null : style }).run();
+  };
   const isBody = editor === body;
-  const shownTab: TabId = tab === 'table' && !s.inTable ? 'home' : tab;
+  const shownTab: TabId = (tab === 'table' && !s.inTable) || (tab === 'picture' && !s.inImage) ? 'home' : tab;
   const def = { ...styles.normal, ...styles[s.style] };
   const fontShown = (s.font || def.font || styles.normal.font || 'Calibri').split(',')[0].replace(/"/g, '');
   const sizeShown = s.size ? parseFloat(s.size) : (def.size ?? styles.normal.size ?? 11);
   const unit = unitFor(page);
-  const fonts = [...new Set([...FONTS, ...Object.values(styles).map(d => d.font).filter((f): f is string => !!f), fontShown])].sort((a, b) => a.localeCompare(b));
+  const docFonts = [...new Set([...Object.values(styles).map(d => d.font).filter((f): f is string => !!f), fontShown])].sort((a, b) => a.localeCompare(b));
+  const fontGroups: ComboGroup[] = [
+    { label: t('letter.fonts.document'), items: docFonts },
+    ...(recentFonts().length ? [{ label: t('letter.fonts.recent'), items: recentFonts() }] : []),
+    ...FONT_GROUPS.map(g => ({ label: t(`letter.fonts.${g.kind}` as MessageKey), items: g.fonts })),
+  ];
 
   const setSize = (pt: number) => { if (pt > 0 && pt < 1638) run().setFontSize(`${pt}pt`).run(); };
   const step = (dir: 1 | -1) => {
@@ -183,8 +211,10 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
 
   const tabLabel: Record<Exclude<TabId, 'oi1'>, MessageKey> = {
     home: 'letter.tab.home', insert: 'letter.tab.insert', design: 'letter.tab.design', layout: 'letter.tab.layout', review: 'letter.tab.review',
-    view: 'letter.tab.view', smart: 'letter.tab.smart', table: 'letter.tab.table',
+    view: 'letter.tab.view', smart: 'letter.tab.smart', table: 'letter.tab.table', picture: 'letter.tab.picture',
   };
+  const contentWidthPx = (pageInches(page).width - page.margins.left - page.margins.right) * PX_PER_IN;
+  const setImageWidth = (fraction: number) => run().updateAttributes('image', { width: Math.round(contentWidthPx * fraction), height: null }).run();
 
   return (
     <div className="ribbon">
@@ -200,6 +230,10 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           <button type="button" role="tab" aria-selected={shownTab === 'table'} className={shownTab === 'table' ? 'on' : ''}
             onMouseDown={e => e.preventDefault()} onClick={() => setTab('table')}>{t(tabLabel.table)}</button>
         )}
+        {s.inImage && (
+          <button type="button" role="tab" aria-selected={shownTab === 'picture'} className={shownTab === 'picture' ? 'on' : ''}
+            onMouseDown={e => e.preventDefault()} onClick={() => setTab('picture')}>{t(tabLabel.picture)}</button>
+        )}
         <span className="ribbon-quick">
           <button type="button" className="cmd-search" onMouseDown={e => e.preventDefault()} onClick={actions.commandSearch} title={`${t('letter.commandSearch')} (Alt+Q)`}>
             <Icon name="search" /><span>{t('letter.commandSearch')}</span><kbd>Alt+Q</kbd>
@@ -212,7 +246,15 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
       <div className="ribbon-panel" role="tabpanel">
         {shownTab === 'home' && <>
           <Group label="letter.group.clipboard">
-            <Btn big icon="paste" title="letter.paste" onClick={actions.paste} />
+            <div className="split">
+              <Btn big icon="paste" title="letter.paste" onClick={actions.paste} />
+              <Drop title="letter.pasteOptions">
+                {close => <>
+                  <MenuItem label={t('letter.paste')} onClick={() => { close(); actions.paste(); }} />
+                  <MenuItem label={t('letter.pasteText')} onClick={() => { close(); actions.pasteText(); }} />
+                </>}
+              </Drop>
+            </div>
             <div className="stack">
               <Btn icon="cut" title="letter.cut" onClick={() => { editor.commands.focus(); document.execCommand('cut'); }} />
               <Btn icon="copy" title="letter.copy" onClick={() => { editor.commands.focus(); document.execCommand('copy'); }} />
@@ -222,16 +264,10 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           <Group label="letter.group.font">
             <div className="rows">
               <div className="row">
-                <input className="font-box" list="oi1-fonts" aria-label={t('letter.font')} title={t('letter.font')} key={fontShown}
-                  defaultValue={fontShown} style={{ fontFamily: `"${fontShown}"` }}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const v = e.currentTarget.value.trim(); if (v) run().setFontFamily(v).run(); } }}
-                  onChange={e => { const v = e.currentTarget.value; if (fonts.includes(v)) run().setFontFamily(v).run(); }} />
-                <datalist id="oi1-fonts">{fonts.map(f => <option key={f} value={f} />)}</datalist>
-                <input className="size-box" list="oi1-sizes" inputMode="decimal" aria-label={t('letter.fontSize')} title={t('letter.fontSize')}
-                  key={`s${sizeShown}`} defaultValue={sizeShown}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setSize(parseFloat(e.currentTarget.value.replace(',', '.'))); } }}
-                  onChange={e => { const v = parseFloat(e.currentTarget.value); if (FONT_SIZES.includes(v)) setSize(v); }} />
-                <datalist id="oi1-sizes">{FONT_SIZES.map(n => <option key={n} value={n} />)}</datalist>
+                <Combo className="font-box" label={t('letter.font')} value={fontShown} groups={fontGroups}
+                  itemStyle={f => ({ fontFamily: cssFont(f) })} onPick={f => { rememberFont(f); run().setFontFamily(f).run(); }} />
+                <Combo className="size-box" label={t('letter.fontSize')} value={String(sizeShown)} numeric inputMode="decimal"
+                  groups={[{ items: FONT_SIZES.map(String) }]} onPick={v => setSize(parseFloat(v.replace(',', '.')))} />
                 <Btn icon="grow" title="letter.grow" onClick={() => step(1)} />
                 <Btn icon="shrink" title="letter.shrink" onClick={() => step(-1)} />
                 <Drop icon="case" title="letter.changeCase">
@@ -260,8 +296,24 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           <Group label="letter.group.paragraph">
             <div className="rows">
               <div className="row">
-                <Btn icon="bullets" title="letter.bullets" onClick={() => run().toggleBulletList().run()} active={s.bullets} />
-                <Btn icon="numbers" title="letter.numbers" onClick={() => run().toggleOrderedList().run()} active={s.numbers} />
+                <span className="split">
+                  <Btn icon="bullets" title="letter.bullets" onClick={() => run().toggleBulletList().run()} active={s.bullets} />
+                  <Drop title="letter.bulletLibrary">
+                    {close => <div className="list-gallery">{BULLET_STYLES.map(st => (
+                      <button key={st} type="button" title={t(`letter.bullet.${st}` as MessageKey)} className={s.bullets && (s.bulletStyle ?? 'disc') === st ? 'on' : ''}
+                        onClick={() => { setListStyle('bulletList', st); close(); }}>{`${BULLET_CHARS[st]} ——\n${BULLET_CHARS[st]} ——`}</button>
+                    ))}</div>}
+                  </Drop>
+                </span>
+                <span className="split">
+                  <Btn icon="numbers" title="letter.numbers" onClick={() => run().toggleOrderedList().run()} active={s.numbers} />
+                  <Drop title="letter.numberLibrary">
+                    {close => <div className="list-gallery">{NUMBER_STYLES.map(st => (
+                      <button key={st} type="button" className={s.numbers && (s.numberStyle ?? 'decimal') === st ? 'on' : ''}
+                        onClick={() => { setListStyle('orderedList', st); close(); }}>{NUMBER_SAMPLES[st].map(x => `${x} ——`).join('\n')}</button>
+                    ))}</div>}
+                  </Drop>
+                </span>
                 <Btn icon="outdent" title="letter.outdent" onClick={() => indent(-1)} />
                 <Btn icon="indent" title="letter.indent" onClick={() => indent(1)} />
                 <Btn icon="marks" title="letter.showMarks" onClick={() => setView({ marks: !view.marks })} active={view.marks} />
@@ -446,6 +498,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
                 return <MenuItem key={id} active={page.size === id} label={p.name} hint={dims} onClick={() => { setPage({ ...page, size: id }); close(); }} />;
               })}
             </Drop>
+            <Btn big icon="hyphen" title="letter.hyphenation" active={!!page.hyphenate} onClick={() => setPage({ ...page, hyphenate: !page.hyphenate || undefined })} />
           </Group>
           <Group label="letter.group.indent">
             <div className="stack">
@@ -504,6 +557,19 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
         </>}
 
         {shownTab === 'table' && <>
+          <Group label="letter.group.tableStyles">
+            <div className="table-styles">
+              {(Object.keys(TABLE_STYLES) as TableStyleId[]).map(id => {
+                const look = TABLE_STYLES[id];
+                return (
+                  <button key={id} type="button" title={t(`letter.tableStyle.${id}` as MessageKey)} onClick={() => applyTableStyle(editor, id)}
+                    className={look.borders === 'none' ? 'no-lines' : ''}>
+                    {[0, 1, 2, 3].map(r => <i key={r} style={{ background: r === 0 ? look.head ?? '#FFFFFF' : r % 2 === 0 ? look.band ?? '#FFFFFF' : '#FFFFFF' }} />)}
+                  </button>
+                );
+              })}
+            </div>
+          </Group>
           <Group label="letter.group.rowsColumns">
             <Btn big icon="rowabove" title="letter.rowAbove" onClick={() => run().addRowBefore().run()} />
             <Btn big icon="rowbelow" title="letter.rowBelow" onClick={() => run().addRowAfter().run()} />
@@ -530,6 +596,25 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           <Group label="letter.group.withClass">
             <Btn big icon="sheet" title={suite.linkedTable ? 'letter.openLinkedSheet' : 'letter.editInClass'} onClick={actions.editInClass} />
             <Btn big icon="texttable" title="letter.tableToText" onClick={actions.tableToText} />
+          </Group>
+        </>}
+
+        {shownTab === 'picture' && <>
+          <Group label="letter.group.arrange">
+            <Btn icon="left" title="letter.alignLeft" onClick={() => run().setTextAlign('left').run()} active={s.align === 'left' || !s.align} />
+            <Btn icon="center" title="letter.alignCenter" onClick={() => run().setTextAlign('center').run()} active={s.align === 'center'} />
+            <Btn icon="right" title="letter.alignRight" onClick={() => run().setTextAlign('right').run()} active={s.align === 'right'} />
+          </Group>
+          <Group label="letter.group.size">
+            {[0.25, 0.5, 0.75, 1].map(f => <Btn key={f} text label={`${f * 100}%`} title={t('letter.imageWidth', { n: f * 100 })} onClick={() => setImageWidth(f)} />)}
+          </Group>
+          <Group label="letter.group.picture">
+            <Btn big icon="image" title="letter.replaceImage" onClick={actions.replaceImage} />
+            <Btn big icon="alt" title="letter.altText" onClick={() => {
+              const alt = prompt(t('letter.altTextPrompt'), s.imageAlt);
+              if (alt !== null) run().updateAttributes('image', { alt: alt.trim() || null }).run();
+            }} />
+            <Btn big icon="trash" title="letter.deleteImage" onClick={() => run().deleteSelection().run()} />
           </Group>
         </>}
 

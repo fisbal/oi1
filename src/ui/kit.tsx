@@ -3,7 +3,7 @@
 
 import './kit.css';
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { t, type MessageKey } from '../shell/i18n';
 
 // ---------- icons (16 x 16, drawn with the text color) ----------
@@ -65,6 +65,9 @@ const ICONS: Record<string, ReactNode> = {
   delrow: <>{P('M2 5h12v6H2zM6 7l4 2M10 7 6 9')}</>,
   delcol: <>{P('M5 2h6v12H5zM7 6l2 4M9 6l-2 4')}</>,
   deltable: <>{P('M2 3h12v10H2zM5 6l6 4M11 6l-6 4')}</>,
+  hyphen: <>{P('M2 5h7M2 8h5M2 11h8M10.5 8h3')}</>,
+  trash: <>{P('M3 4h10M6 4V2.5h4V4M4.5 4l.7 9.5h5.6l.7-9.5M7 6.5v5M9 6.5v5')}</>,
+  alt: <>{P('M2 3h12v10H2z')}{P('M4.5 10.5 6 6l1.5 4.5M5 9h2M9.5 6v4.5h2')}</>,
   merge: <>{P('M2 3h12v10H2zM5 8h6M9 6l2 2-2 2M7 6 5 8l2 2')}</>,
   split: <>{P('M2 3h12v10H2zM8 3v10')}</>,
   headerrow: <>{P('M2 3h12v10H2zM2 6.5h12')}{P('M2 3h12v3.5H2z')}</>,
@@ -286,5 +289,84 @@ export function NumberBox({ value, onChange, step = 0.1, min, max, unit, label }
         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } }} />
       <span className="unit">{unit}</span>
     </label>
+  );
+}
+
+// ---------- combo boxes (font and size) ----------
+
+export interface ComboGroup { label?: string; items: string[] }
+
+/**
+ * A text box with a full list under it, like Word's font and size boxes: the whole list shows when it opens,
+ * typing narrows it, Enter takes the highlighted item (or what was typed), Escape puts the old value back.
+ */
+export function Combo({ value, groups, onPick, label, className, itemStyle, inputMode, numeric }: {
+  value: string; groups: ComboGroup[]; onPick: (v: string) => void; label: string; className: string;
+  itemStyle?: (item: string) => CSSProperties; inputMode?: 'decimal'; numeric?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(value);
+  const [typed, setTyped] = useState(false);
+  const [index, setIndex] = useState(0);
+  const list = useRef<HTMLDivElement>(null);
+  const [at, setAt] = useState<{ left: number; top: number } | null>(null);
+  const ref = useOutsideClose(open, () => { setOpen(false); setText(value); });
+  // The ribbon scrolls sideways, so the list is placed on the page under the box instead of inside the ribbon.
+  useLayoutEffect(() => {
+    if (!open || !ref.current) return;
+    const r = ref.current.getBoundingClientRect();
+    setAt({ left: Math.max(8, Math.min(r.left, window.innerWidth - 270)), top: r.bottom + 4 });
+  }, [open, ref]);
+  useEffect(() => { if (!open) setText(value); }, [value, open]);
+  const q = typed ? text.trim().toLowerCase() : '';
+  const shown = groups
+    .map(g => ({ ...g, items: q ? g.items.filter(i => (numeric ? i.startsWith(q) : i.toLowerCase().includes(q))) : g.items }))
+    .filter(g => g.items.length);
+  const flat = shown.flatMap(g => g.items);
+  useEffect(() => {
+    if (!open) return;
+    const at = q ? 0 : Math.max(0, flat.indexOf(value));
+    setIndex(at);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, q]);
+  useEffect(() => { list.current?.querySelector('.on')?.scrollIntoView({ block: 'nearest' }); }, [index, open]);
+  const pick = (v: string) => { setOpen(false); setTyped(false); setText(v); if (v.trim()) onPick(v.trim()); };
+  let n = -1;
+  return (
+    <div className={`combo ${className}`} ref={ref}>
+      <input value={text} aria-label={label} title={label} inputMode={inputMode} role="combobox" aria-expanded={open}
+        style={itemStyle?.(value)}
+        onFocus={e => { e.currentTarget.select(); setTyped(false); setOpen(true); }}
+        onMouseDown={() => setOpen(true)}
+        onChange={e => { setText(e.target.value); setTyped(true); setOpen(true); }}
+        onKeyDown={e => {
+          if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setIndex(i => Math.min(flat.length - 1, i + 1)); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setIndex(i => Math.max(0, i - 1)); }
+          else if (e.key === 'Enter') { e.preventDefault(); pick(typed && !flat.some(f => f.toLowerCase() === q) && (numeric || !flat.length) ? text : flat[index] ?? text); }
+          else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); setTyped(false); setText(value); }
+          else if (e.key === 'Tab') setOpen(false);
+        }} />
+      <button type="button" className="combo-caret" tabIndex={-1} aria-label={label} onMouseDown={e => e.preventDefault()}
+        onClick={() => { setTyped(false); setOpen(o => !o); }}><Icon name="caret" size={10} /></button>
+      {open && flat.length > 0 && (
+        <div className="drop-panel combo-list" role="listbox" ref={list} onMouseDown={e => e.preventDefault()}
+          style={at ? { left: at.left, top: at.top, translate: 'none', maxHeight: `min(420px, ${window.innerHeight - at.top - 12}px)` } : { visibility: 'hidden' }}>
+          {shown.map((g, gi) => (
+            <div key={g.label ?? gi}>
+              {g.label && <span className="kicker">{g.label}</span>}
+              {g.items.map(item => {
+                n++;
+                const at = n;
+                return (
+                  <button key={`${g.label}-${item}`} type="button" role="option" aria-selected={item === value}
+                    className={`menu-item${at === index ? ' on' : ''}${item === value ? ' current' : ''}`}
+                    style={itemStyle?.(item)} onMouseEnter={() => setIndex(at)} onClick={() => pick(item)}>{item}</button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
