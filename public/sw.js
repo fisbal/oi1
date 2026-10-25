@@ -1,6 +1,6 @@
 // Lets OI1 open without internet once it has been visited.
 // Network first, so updates show up right away; the cache is the fallback.
-const CACHE = 'oi1-v9';
+const CACHE = 'oi1-v10';
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', 'index.html'])));

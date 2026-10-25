@@ -531,9 +531,19 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     return stopReceive;
   });
 
-  // A letter opened by another app with a table: a heading and the table, linked back to the sheet.
+  // A letter opened by another app with a table (a heading and the table, linked back to the sheet) or with
+  // ready-made content, like a chart picture from Class.
   useEffect(() => {
-    if (!body || handoff?.kind !== 'table') return;
+    if (!body) return;
+    if (handoff?.kind === 'html') {
+      body.commands.setContent({ type: 'doc', content: [
+        { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: handoff.title || t('letter.untitled') }] },
+        { type: 'paragraph' },
+      ] }, { emitUpdate: false });
+      body.chain().focus('end').insertContent(handoff.html).run();
+      return;
+    }
+    if (handoff?.kind !== 'table') return;
     body.commands.setContent({ type: 'doc', content: [
       { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: handoff.title || t('letter.untitled') }] },
       { type: 'paragraph' },
