@@ -62,6 +62,20 @@ One office suite, one app:
 - **Office Class v0.1** (first version): a fast sheet with its own formula engine (about 40 functions: SUM, AVERAGE,
   IF, COUNTIF, SUMIF, ROUND, text and date functions), point-and-click formulas, copy and paste with Excel and Word,
   number formats, insert and delete rows and columns, AutoSum, sort, several sheets, and `.xlsx` / `.csv` open and save.
+- **Office Code+** (phase 1): write websites and apps in the browser, nothing to install.
+  - **Editor:** CodeMirror 6 with colors and completion for about 40 languages (HTML, CSS, JavaScript, TypeScript, JSX, JSON,
+    Markdown, Python, SQL, Dart, Java, Kotlin, Swift, C/C++, C#, Rust, Go, PHP, Ruby, shell and more), a file tree
+    (new file or folder, rename, delete, add files or a whole folder), file tabs with their own undo, find and replace,
+    go to line, comment out, Tidy code (Prettier), word wrap and text size.
+  - **Live preview** as you type: TypeScript and React (JSX/TSX) compiled in the page by Sucrase, npm packages from esm.sh,
+    links between pages, `localStorage` kept between runs, a console with errors that jump to the right line,
+    full width, tablet or phone frames (also sideways), and a new window.
+  - **On your phone:** a QR code that carries the whole project in its link (small projects), or the published site's address.
+  - **Templates:** web page, portfolio, little shop, blog, React + TypeScript app, empty.
+  - **GitHub:** connect with a token (kept on the device only), link or create a repository, save to GitHub in one commit,
+    get files from GitHub, and **Publish website** to GitHub Pages (TypeScript compiled to plain JavaScript on a `gh-pages` branch).
+  - **Files:** save and open projects as `.zip`, save a ready-to-host site, open a folder.
+  - **Linked:** send code to Letter; turn the cells selected in Class into a JSON data file; Class can ask Code+ for a JSON or CSV table.
 - **Languages:** English, Français, Español, Português and Deutsch, picked automatically from the browser
   and changeable in the top bar.
 - **Open any file:** the "Open a file" button on the home screen, or drag a file onto the window.
@@ -82,13 +96,16 @@ src/ui/                  shared ribbon, buttons, dialogs and file menu (the scen
 src/formats/             formula engine, sheet model, .xlsx and .csv, tables passed between apps
 src/modules/letter/      Office Letter (React + TipTap; docx/ = Word open/save, pagination.ts = pages)
 src/modules/class/       Office Class (the sheet)
+src/modules/code/        Office Code+ (build.ts = runs projects in the browser, github.ts = GitHub REST API)
 src/modules/prodfos/     Office ProDFos (its Flutter web app in a tab)
 docs/                    module contract and notes
 ```
 
 Built with TypeScript, React and Vite. Main libraries: [TipTap](https://tiptap.dev) (MIT, on ProseMirror),
 [JSZip](https://stuk.github.io/jszip/) (MIT, our own .docx and .xlsx readers), [docx](https://github.com/dolanmiu/docx) (MIT, writes .docx),
-[qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) (MIT), and the DM Sans and Playfair Display fonts (SIL Open Font License) through Fontsource.
+[qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) (MIT),
+[CodeMirror 6](https://codemirror.net) (MIT), [Sucrase](https://github.com/alangpierce/sucrase) (MIT), [es-module-lexer](https://github.com/guybedford/es-module-lexer) (MIT),
+[Prettier](https://prettier.io) (MIT), [esm.sh](https://esm.sh) (npm packages for previews), and the DM Sans and Playfair Display fonts (SIL Open Font License) through Fontsource.
 
 Every module plugs in through one small contract: see [docs/module-contract.md](docs/module-contract.md).
 The full plan (architecture, stack choice, roadmap, sources) is in the blueprint document.
