@@ -4,11 +4,11 @@
 
 :root {
   color-scheme: dark;
-  --void: #07070A;
-  --bg: #07070A;
-  --surface: #0E0E13;
-  --panel: #111117;
-  --card: #15151C;
+  --void: #26262D;
+  --bg: #26262D;
+  --surface: #2A2A32;
+  --panel: #2D2D35;
+  --card: #31313A;
   --ink: #F0EDE6;
   --muted: rgba(240, 237, 230, .6);
   --faint: rgba(240, 237, 230, .35);
@@ -28,17 +28,20 @@
   /* Channels for see-through tints, so one rule works in the dark and the light theme. */
   --fg-rgb: 255, 255, 255;
   --ink-rgb: 240, 237, 230;
-  --bg-rgb: 10, 10, 14;
+  --bg-rgb: 38, 38, 46;
   --shade-rgb: 0, 0, 0;
-  --shade-k: 1;
-  --surface-2: #0B0B0F;
-  --edge: #050507;
-  --slab-top: #262630;
-  --key-top: #2E2E39;
-  --key-bottom: #16161D;
+  --shade-k: .75;
+  --surface-2: #2B2B33;
+  --edge: #18181D;
+  --slab-top: #3A3A45;
+  --key-top: #42424F;
+  --key-bottom: #272730;
   --nebula-a: rgba(212,168,67,.16);
   --nebula-b: rgba(138,90,28,.12);
-  --grain: .05;
+  --grain: .04;
+  /* Martin: a half-dark scene, not black: a soft charcoal gradient behind the work, the bars a shade lighter. */
+  --scene-gradient: linear-gradient(165deg, #3A3A44 0%, #2C2C34 38%, #222228 72%, #1C1C22 100%);
+  --bar-gradient: linear-gradient(180deg, rgba(64, 64, 76, .9) 0%, rgba(48, 48, 58, .86) 100%);
 }
 
 /* The light theme: the same scene in daylight. Ivory paper, warm ink, deeper gold so it reads on white. */
@@ -71,6 +74,8 @@
   --nebula-a: rgba(212,168,67,.22);
   --nebula-b: rgba(184,137,46,.10);
   --grain: .035;
+  --scene-gradient: linear-gradient(165deg, #F8F5EE 0%, #F1ECE1 60%, #EAE3D5 100%);
+  --bar-gradient: linear-gradient(180deg, rgba(255, 253, 248, .94) 0%, rgba(246, 241, 231, .9) 100%);
 }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
@@ -84,7 +89,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 * { scrollbar-color: rgba(var(--ink-rgb), .18) transparent; scrollbar-width: thin; }
 
 /* ---------- backdrop: breathing gold nebula, film grain, vignette ---------- */
-.scene-backdrop { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; background: var(--void); }
+.scene-backdrop { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; background: var(--scene-gradient, var(--void)); }
 .nebula {
   position: absolute; inset: -10%;
   background:
@@ -139,7 +144,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* ---------- top bar ---------- */
 .topbar {
   position: relative; z-index: 30; display: flex; align-items: center; gap: 12px; padding: 0 12px; height: 52px;
-  background: rgba(var(--bg-rgb), .72); backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  background: var(--bar-gradient); backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2);
   border-bottom: 1px solid var(--line);
 }
 .topbar::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: linear-gradient(90deg, transparent, rgba(212,168,67,.4), transparent); }

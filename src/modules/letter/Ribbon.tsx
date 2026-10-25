@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { t, type MessageKey } from '../../shell/i18n';
 import { BULLET_CHARS, BULLET_STYLES, NUMBER_STYLES, type Borders, type NumberStyle } from './extensions';
 import { FONT_GROUPS, FONT_SIZES, STYLE_IDS, cssFont, previewStyle, type DocStyles, type StyleId } from './model';
-import { MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, isDark, pageInches, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
+import { MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, WATERMARKS, isDark, pageInches, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
 import type { AppInfo, TabInfo } from '../../shell/contract';
 import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, NumberBox, type ComboGroup } from '../../ui/kit';
 import { TABLE_STYLES, applyTableStyle, type CalloutKind, type CleanUp, type TableStyleId } from './smart';
@@ -71,6 +71,19 @@ export interface RibbonActions {
   openApp: (id: string) => void;
   share: () => void;
   pdf: () => void;
+  // Review and References
+  newComment: () => void;
+  deleteComment: () => void;
+  comment: (dir: 1 | -1) => void;
+  toggleComments: () => void;
+  track: () => void;
+  markup: () => void;
+  accept: (all: boolean) => void;
+  reject: (all: boolean) => void;
+  change: (dir: 1 | -1) => void;
+  footnote: () => void;
+  editFootnote: () => void;
+  nextFootnote: () => void;
 }
 
 /** What the ribbon shows about the rest of the suite. */
@@ -82,9 +95,17 @@ export interface SuiteState {
   outline: boolean;
   linkedTable: boolean;
   themeId: string | null;
+  tracking: boolean;
+  markup: boolean;
+  commentsOpen: boolean;
+  commentHere: boolean;
+  changeHere: boolean;
+  changes: number;
+  footnoteHere: boolean;
+  footnotes: number;
 }
 
-const TABS = ['home', 'insert', 'design', 'layout', 'review', 'view', 'smart'] as const;
+const TABS = ['home', 'insert', 'design', 'layout', 'references', 'review', 'view', 'smart'] as const;
 type TabId = (typeof TABS)[number] | 'oi1' | 'table' | 'picture';
 
 const STYLE_KEYS: Record<StyleId, MessageKey> = {
@@ -211,7 +232,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
 
   const tabLabel: Record<Exclude<TabId, 'oi1'>, MessageKey> = {
     home: 'letter.tab.home', insert: 'letter.tab.insert', design: 'letter.tab.design', layout: 'letter.tab.layout', review: 'letter.tab.review',
-    view: 'letter.tab.view', smart: 'letter.tab.smart', table: 'letter.tab.table', picture: 'letter.tab.picture',
+    references: 'letter.tab.references', view: 'letter.tab.view', smart: 'letter.tab.smart', table: 'letter.tab.table', picture: 'letter.tab.picture',
   };
   const contentWidthPx = (pageInches(page).width - page.margins.left - page.margins.right) * PX_PER_IN;
   const setImageWidth = (fraction: number) => run().updateAttributes('image', { width: Math.round(contentWidthPx * fraction), height: null }).run();
@@ -467,6 +488,24 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
               {close => <ColorGrid none="letter.border.none" value={page.border?.color}
                 onPick={c => { setPage({ ...page, border: c ? { w: 1.5, color: c, space: 24 } : null }); close(); }} />}
             </Drop>
+            <Drop big icon="watermark" title="letter.watermark">
+              {close => {
+                const color = page.watermark?.color ?? '#C0C0C0';
+                const set = (text: string | null) => { setPage({ ...page, watermark: text ? { text, color } : null }); close(); };
+                return <>
+                  {WATERMARKS.map(w => <MenuItem key={w} label={w} active={page.watermark?.text === w} onClick={() => set(w)} />)}
+                  <hr />
+                  <MenuItem label={t('letter.watermarkCustom')} onClick={() => {
+                    const text = prompt(t('letter.watermarkPrompt'), page.watermark?.text ?? '');
+                    if (text !== null) set(text.trim().slice(0, 60) || null);
+                  }} />
+                  <span className="kicker">{t('letter.watermarkColor')}</span>
+                  <ColorGrid value={color} onPick={c => { if (page.watermark && c) setPage({ ...page, watermark: { ...page.watermark, color: c } }); close(); }} />
+                  <hr />
+                  <MenuItem label={t('letter.watermarkRemove')} onClick={() => set(null)} />
+                </>;
+              }}
+            </Drop>
           </Group>
         </>}
 
@@ -518,7 +557,57 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           </Group>
         </>}
 
+        {shownTab === 'references' && <>
+          <Group label="letter.group.toc">
+            <Btn big icon="toc" title="letter.toc" onClick={actions.toc} disabled={!isBody} />
+          </Group>
+          <Group label="letter.group.footnotes">
+            <Btn big icon="footnote" title="letter.footnoteInsert" onClick={actions.footnote} disabled={!isBody} />
+            <div className="stack">
+              <Btn icon="pen" title="letter.footnoteEdit" text onClick={actions.editFootnote} disabled={!suite.footnoteHere} />
+              <Btn icon="next" title="letter.footnoteNext" text onClick={actions.nextFootnote} disabled={!suite.footnotes} />
+            </div>
+          </Group>
+        </>}
+
         {shownTab === 'review' && <>
+          <Group label="letter.group.comments">
+            <Btn big icon="commentnew" title="letter.commentNew" onClick={actions.newComment} disabled={!isBody} />
+            <div className="stack">
+              <Btn icon="trash" title="letter.commentDelete" text onClick={actions.deleteComment} disabled={!suite.commentHere} />
+              <Btn icon="prev" title="letter.previous" text onClick={() => actions.comment(-1)} />
+              <Btn icon="next" title="letter.next" text onClick={() => actions.comment(1)} />
+            </div>
+            <Btn big icon="comment" title="letter.commentsShow" onClick={actions.toggleComments} active={suite.commentsOpen} />
+          </Group>
+          <Group label="letter.group.tracking">
+            <Btn big icon="track" title="letter.track" onClick={actions.track} active={suite.tracking} />
+            <Btn big icon="markup" title="letter.markupShow" onClick={actions.markup} active={suite.markup} />
+          </Group>
+          <Group label="letter.group.changes">
+            <span className="split">
+              <Btn big icon="accept" title="letter.accept" onClick={() => actions.accept(false)} disabled={!suite.changes} />
+              <Drop title="letter.acceptOptions" disabled={!suite.changes}>
+                {close => <>
+                  <MenuItem label={t('letter.acceptNext')} onClick={() => { close(); actions.accept(false); }} />
+                  <MenuItem label={t('letter.acceptAll')} onClick={() => { close(); actions.accept(true); }} />
+                </>}
+              </Drop>
+            </span>
+            <span className="split">
+              <Btn big icon="reject" title="letter.reject" onClick={() => actions.reject(false)} disabled={!suite.changes} />
+              <Drop title="letter.rejectOptions" disabled={!suite.changes}>
+                {close => <>
+                  <MenuItem label={t('letter.rejectNext')} onClick={() => { close(); actions.reject(false); }} />
+                  <MenuItem label={t('letter.rejectAll')} onClick={() => { close(); actions.reject(true); }} />
+                </>}
+              </Drop>
+            </span>
+            <div className="stack">
+              <Btn icon="prev" title="letter.changePrevious" text onClick={() => actions.change(-1)} disabled={!suite.changes} />
+              <Btn icon="next" title="letter.changeNext" text onClick={() => actions.change(1)} disabled={!suite.changes} />
+            </div>
+          </Group>
           <Group label="letter.group.proofing">
             <Btn big icon="spell" title="letter.spelling" onClick={() => setView({ spell: !view.spell })} active={view.spell} />
             <Btn big icon="count" title="letter.wordCount" onClick={actions.wordCount} />

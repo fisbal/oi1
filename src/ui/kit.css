@@ -2,7 +2,7 @@
 
 .ribbon {
   position: relative; z-index: 20; user-select: none;
-  background: linear-gradient(180deg, rgba(var(--bg-rgb), .92), rgba(var(--bg-rgb), .88));
+  background: var(--bar-gradient);
   backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--line);
 }

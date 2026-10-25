@@ -11,7 +11,8 @@ import JSZip from 'jszip';
 import type { JSONContent } from '@tiptap/react';
 import type { Borders, BorderSide } from '../extensions';
 import { defaultStyles, type DocStyles, type LetterDoc, type StyleDef, type StyleId } from '../model';
-import { nearestSize, type PageBorder, type PageSettings } from '../page';
+import { nearestSize, type PageBorder, type PageSettings, type Watermark } from '../page';
+import type { LetterComment } from '../review';
 
 // ---------- small XML helpers (by local name, so any namespace prefix works) ----------
 
@@ -301,6 +302,13 @@ class Reader {
   private styles: DocStyles;
   private normal: Required<Pick<StyleDef, 'font' | 'size'>> & StyleDef;
   private images = new Map<string, string | null>();
+  /** True while reading the body: only the body keeps comments, tracked changes and footnotes. */
+  inBody = false;
+  /** Word ids of the comments that start a thread (replies share their range). */
+  threadStarts = new Set<string>();
+  /** Comments whose range we are inside. */
+  private openComments = new Set<string>();
+  footnotes = new Map<string, string>();
 
   constructor(zip: JSZip, ctx: Context, styles: DocStyles) {
     this.zip = zip;
@@ -332,13 +340,30 @@ class Reader {
           break;
         case 'customXml':
         case 'ins':
+        case 'del':
           out.push(...(await this.blocks(el, part, table)));
+          break;
+        case 'commentRangeStart': case 'commentRangeEnd':
+          this.commentRange(el);
           break;
         default:
           break;
       }
     }
     return out;
+  }
+
+  private commentRange(el: Element) {
+    const id = attr(el, 'id');
+    if (!this.inBody || id === null || !this.threadStarts.has(id)) return;
+    if (el.localName === 'commentRangeStart') this.openComments.add(id); else this.openComments.delete(id);
+  }
+
+  /** The tracked change an <ins> or <del> stands for, as a mark. */
+  private revision(el: Element, kind: 'insertion' | 'deletion'): Mark[] {
+    if (!this.inBody) return [];
+    const id = num(attr(el, 'id'));
+    return [{ type: kind, attrs: { id: id ?? Math.floor(Math.random() * 1e6), author: attr(el, 'author'), date: attr(el, 'date') } }];
   }
 
   private baseline(style: StyleId): StyleDef {
@@ -427,8 +452,17 @@ class Reader {
           }
           break;
         }
-        case 'ins': case 'moveTo': case 'smartTag': case 'customXml':
+        case 'ins': case 'moveTo':
+          await this.inlines(c, part, runBase, base, [...marks, ...this.revision(c, 'insertion')], segments, extra, fields);
+          break;
+        case 'del': case 'moveFrom':
+          await this.inlines(c, part, runBase, base, [...marks, ...this.revision(c, 'deletion')], segments, extra, fields);
+          break;
+        case 'smartTag': case 'customXml':
           await this.inlines(c, part, runBase, base, marks, segments, extra, fields);
+          break;
+        case 'commentRangeStart': case 'commentRangeEnd':
+          this.commentRange(c);
           break;
         case 'sdt':
           await this.inlines(kid(c, 'sdtContent') ?? c, part, runBase, base, marks, segments, extra, fields);
@@ -479,6 +513,7 @@ class Reader {
       if (marks) return marks;
       const link = [...fields].reverse().find(f => f.phase === 'result' && f.kind === 'link' && f.href);
       marks = this.marks(runBase, base, link ? [...outer, { type: 'link', attrs: { href: link.href } }] : outer, direct);
+      for (const id of this.openComments) marks.push({ type: 'comment', attrs: { id: `w${id}` } });
       return marks;
     };
     const hidden = () => fields.some(f => f.phase === 'instr' || (f.phase === 'result' && (f.kind === 'page' || f.kind === 'pages')));
@@ -494,7 +529,15 @@ class Reader {
 
     for (const c of kids(el)) {
       switch (c.localName) {
-        case 't': pushText(c.textContent ?? ''); break;
+        case 't': case 'delText': pushText(c.textContent ?? ''); break;
+        case 'footnoteReference': {
+          const id = attr(c, 'id');
+          if (this.inBody && id !== null && this.footnotes.has(id) && !hidden()) {
+            const ms = getMarks().filter(m => m.type === 'comment' || m.type === 'insertion' || m.type === 'deletion');
+            push({ type: 'footnote', attrs: { text: this.footnotes.get(id) }, ...(ms.length ? { marks: ms } : {}) });
+          }
+          break;
+        }
         case 'tab': case 'ptab': pushText('\t'); break;
         case 'noBreakHyphen': pushText('‑'); break;
         case 'softHyphen': pushText('­'); break;
@@ -841,8 +884,16 @@ export async function readDocx(data: ArrayBuffer): Promise<LetterDoc> {
   const settings = await xml(zip, (await relOfType('settings')) ?? 'word/settings.xml');
   const hyph = kid(settings?.documentElement ?? null, 'autoHyphenation');
   if (hyph && attr(hyph, 'val') !== 'false' && attr(hyph, 'val') !== '0') page.hyphenate = true;
+  const track = onOff(kid(settings?.documentElement ?? null, 'trackRevisions')) === true;
   const reader = new Reader(zip, ctx, styles);
+  const comments = readComments(await xml(zip, (await relOfType('comments')) ?? 'word/comments.xml'),
+    await xml(zip, (await relOfType('commentsExtended')) ?? 'word/commentsExtended.xml'));
+  for (const c of comments) reader.threadStarts.add(c.id.slice(1));
+  reader.footnotes = readNotes(await xml(zip, (await relOfType('footnotes')) ?? 'word/footnotes.xml'));
+  reader.inBody = true;
   const content = body ? await reader.blocks(body, main) : [];
+  reader.inBody = false;
+  let watermark: Watermark | null = null;
 
   const hf = async (kind: 'headerReference' | 'footerReference'): Promise<JSONContent | null> => {
     const refs = kids(sect, kind);
@@ -851,17 +902,80 @@ export async function readDocx(data: ArrayBuffer): Promise<LetterDoc> {
     if (!target) return null;
     const part = await readPart(zip, target);
     if (!part) return null;
+    watermark ??= readWatermark(part.doc);
     const blocks = (await reader.blocks(part.doc.documentElement, part)).filter(b => b.type !== 'pageBreak');
     const hasText = JSON.stringify(blocks).match(/"text":"[^"]*\S|"pageNumber"|"image"/);
     return hasText ? { type: 'doc', content: blocks } : null;
   };
 
+  const header = await hf('headerReference');
+  const footer = await hf('footerReference');
+  if (watermark) page.watermark = watermark;
   return {
     body: { type: 'doc', content: content.length ? content : [{ type: 'paragraph' }] },
-    header: await hf('headerReference'),
-    footer: await hf('footerReference'),
+    header,
+    footer,
     page,
     styles,
     lang: ctx.defaultsR.lang,
+    ...(comments.length ? { comments } : {}),
+    ...(track ? { track } : {}),
   };
+}
+
+const paragraphsText = (el: Element) => kids(el, 'p').map(p => [...p.getElementsByTagName('*')].filter(n => n.localName === 't').map(n => n.textContent ?? '').join(''));
+
+/** Word's comments as threads: a reply points to its parent through commentsExtended.xml (Word 2013 and later). */
+function readComments(doc: Document | null, extended: Document | null): LetterComment[] {
+  if (!doc) return [];
+  const ext = new Map<string, { parent: string | null; done: boolean }>();
+  for (const e of kids(extended?.documentElement, 'commentEx')) {
+    ext.set(attr(e, 'paraId') ?? '', { parent: attr(e, 'paraIdParent'), done: attr(e, 'done') === '1' });
+  }
+  const byPara = new Map<string, LetterComment>();
+  const out: LetterComment[] = [];
+  for (const c of kids(doc.documentElement, 'comment')) {
+    const id = attr(c, 'id');
+    if (id === null) continue;
+    const paras = kids(c, 'p');
+    const paraId = attr(paras[paras.length - 1], 'paraId') ?? '';
+    const info = ext.get(paraId);
+    const item: LetterComment = {
+      id: `w${id}`, author: attr(c, 'author') || '?', date: attr(c, 'date') ?? new Date().toISOString(),
+      text: paragraphsText(c).join('\n').trim(),
+    };
+    const parent = info?.parent ? byPara.get(info.parent) : undefined;
+    if (parent) (parent.replies ??= []).push({ id: item.id, author: item.author, date: item.date, text: item.text });
+    else {
+      if (info?.done) item.resolved = true;
+      out.push(item);
+    }
+    if (paraId) byPara.set(paraId, parent ?? item);
+  }
+  return out;
+}
+
+/** Footnote texts by id, without Word's separator notes. */
+function readNotes(doc: Document | null): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const n of kids(doc?.documentElement, 'footnote')) {
+    const type = attr(n, 'type');
+    if (type && type !== 'normal') continue;
+    out.set(attr(n, 'id') ?? '', paragraphsText(n).join('\n').trim());
+  }
+  return out;
+}
+
+/** A Word watermark: WordArt text in the header. */
+function readWatermark(doc: Document): Watermark | null {
+  const all = doc.getElementsByTagName('*');
+  for (let i = 0; i < all.length; i++) {
+    const el = all[i];
+    if (el.localName !== 'textpath' || !attr(el, 'string')) continue;
+    const shape = el.parentElement;
+    const fill = attr(shape, 'fillcolor') ?? '';
+    const color = /^#?[0-9a-f]{6}$/i.test(fill) ? `#${fill.replace('#', '').toUpperCase()}` : '#C0C0C0';
+    return { text: attr(el, 'string')!, color };
+  }
+  return null;
 }

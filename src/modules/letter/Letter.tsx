@@ -4,6 +4,7 @@ import type { FileRef, Handoff, HandoffLink, OpenedFile, RecentFile, ShellApi, T
 import { getLanguage, t } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import { FileMenu } from '../../ui/FileMenu';
+import { Icon } from '../../ui/kit';
 import { htmlBody, textToHtml, wrapHtml } from './html';
 import { defaultStyles, emptyDoc, stylesCss, type DocStyles, type LetterDoc } from './model';
 import { PX_PER_IN, defaultPage, isDark, pageInches, type PageSettings } from './page';
@@ -15,6 +16,12 @@ import {
   tableAt, tableData, tableJson, tableToText, textToTable, tocJson,
 } from './smart';
 import { SPACING, THEMES } from './themes';
+import { CommentsPane, showComment } from './comments';
+import { notesDom, type LayoutResult } from './pagination';
+import {
+  addCommentMark, changeAt, commentRanges, commentsAt, footnoteAt, goToChange, isTracking, listChanges, listFootnotes,
+  newCommentId, removeCommentMark, resolveChange, setTracking, setUserNameTexts, userName, type LetterComment,
+} from './review';
 
 type SaveFormat = 'docx' | 'html' | 'txt' | 'pdf';
 const newLinkId = () => `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -26,6 +33,13 @@ export const EXTENSIONS = ['.docx', '.html', '.htm', '.txt'];
 const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
 const PAGE_GAP = 24;
+
+/** The comments and the Track changes switch, as saved with the letter. `prune` leaves out comments whose text is gone. */
+function savedReview(body: Editor | null, comments: LetterComment[], prune = false): Pick<LetterDoc, 'comments' | 'track'> {
+  const live = prune && body ? commentRanges(body.state.doc) : null;
+  const kept = live ? comments.filter(c => live.has(c.id)) : comments;
+  return { comments: kept.length ? kept : undefined, track: body && isTracking(body) ? true : undefined };
+}
 
 /** The letter this tab autosaved, or an older autosave from before headers and page setup existed. */
 async function savedLetter(shell: ShellApi): Promise<LetterDoc | null> {
@@ -70,13 +84,17 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
     spell: true,
   }));
   const setView = useCallback((v: Partial<ViewState>) => setViewState(cur => ({ ...cur, ...v })), []);
-  const [layout, setLayout] = useState({ pages: 1, tail: 96 });
+  const [layout, setLayout] = useState<LayoutResult>({ pages: 1, tail: 96, notes: [] });
   const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands'>(null);
   const [outline, setOutline] = useState(() => window.innerWidth >= 1200 && shell.storage.get('outline') === '1');
   const [focusMode, setFocusMode] = useState(false);
   const [dictating, setDictating] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [hfVersion, setHfVersion] = useState(0);
+  const [comments, setCommentsState] = useState<LetterComment[]>(initial.comments ?? []);
+  const [commentsOpen, setCommentsOpen] = useState(() => (initial.comments ?? []).some(c => !c.resolved) && window.innerWidth >= 900);
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [markup, setMarkup] = useState(true);
   const touched = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -85,8 +103,8 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
 
   // ---------- editors ----------
   const saveTimer = useRef(0);
-  const latest = useRef({ page, styles, lang, fileName });
-  latest.current = { page, styles, lang, fileName };
+  const latest = useRef({ page, styles, lang, fileName, comments });
+  latest.current = { page, styles, lang, fileName, comments };
   const editors = useRef<{ body: Editor | null; header: Editor | null; footer: Editor | null }>({ body: null, header: null, footer: null });
 
   const autosave = useCallback(() => {
@@ -101,6 +119,7 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
         page: latest.current.page,
         styles: latest.current.styles,
         lang: latest.current.lang || undefined,
+        ...savedReview(body, latest.current.comments),
       };
       void shell.storage.save('letter', JSON.stringify(doc));
       shell.storage.set('name', latest.current.fileName);
@@ -145,7 +164,24 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.spell, lang, body, header, footer]);
 
-  useEffect(() => { autosave(); }, [page, styles, lang, autosave]);
+  useEffect(() => { autosave(); }, [page, styles, lang, comments, autosave]);
+  useEffect(() => {
+    setUserNameTexts(() => t('letter.yourName'), t('letter.authorDefault'));
+    if (body && initial.track && !isTracking(body)) setTracking(body, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [body]);
+  const tracking = useEditorState({ editor: body, selector: ({ editor }) => !!editor && isTracking(editor) }) ?? false;
+  const reviewHere = useEditorState({
+    editor: body,
+    selector: ({ editor }) => (editor ? {
+      comments: commentsAt(editor.state),
+      change: !!changeAt(editor),
+      changes: listChanges(editor.state.doc).length,
+      footnote: !!footnoteAt(editor.state),
+      footnotes: listFootnotes(editor.state.doc),
+    } : null),
+    equalityFn: (a, b) => JSON.stringify(a) === JSON.stringify(b),
+  });
 
   // ---------- title ----------
   const title = useEditorState({
@@ -196,7 +232,8 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
       enabled: isPrint, pageHeight: ph, marginTop: m.top * PX_PER_IN, marginBottom: m.bottom * PX_PER_IN, gap: PAGE_GAP,
       headerHtml, footerHtml, version: store.layout.version + 1,
     });
-    store.onLayout = r => setLayout(cur => (cur.pages === r.pages && Math.abs(cur.tail - r.tail) < 0.5 ? cur : r));
+    store.onLayout = r => setLayout(cur => (cur.pages === r.pages && Math.abs(cur.tail - r.tail) < 0.5
+      && JSON.stringify(cur.notes) === JSON.stringify(r.notes) ? cur : r));
     store.relayout();
   }, [body, isPrint, ph, m.top, m.bottom, headerHtml, footerHtml, styles, page.size, page.orientation, m.left, m.right, hfVersion]);
 
@@ -271,6 +308,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     header: header && !header.isEmpty ? header.getJSON() : null,
     footer: footer && !footer.isEmpty ? footer.getJSON() : null,
     page, styles, lang: lang || undefined,
+    ...savedReview(body, comments, true),
   });
 
   const showLetter = (doc: LetterDoc) => {
@@ -280,6 +318,10 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     setPage(doc.page);
     setStyles(doc.styles);
     setLang(doc.lang ?? '');
+    setCommentsState(doc.comments ?? []);
+    setCommentsOpen(o => o || (doc.comments ?? []).some(c => !c.resolved));
+    setEditingComment(null);
+    if (body && isTracking(body) !== !!doc.track) setTracking(body, !!doc.track);
     setHfVersion(v => v + 1);
     body?.commands.focus('start');
   };
@@ -323,7 +365,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
 
   const makeDocx = async () => {
     const { letterToDocx } = await import('./docx/write');
-    return new Blob([await letterToDocx(letterNow(), title)], { type: DOCX_TYPE });
+    return new Blob([await letterToDocx(letterNow(), title, userName())], { type: DOCX_TYPE });
   };
 
   const save = async (saveAs = false) => {
@@ -591,6 +633,85 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     pdf: () => print(),
   };
 
+  // ---------- review: comments, tracked changes, footnotes ----------
+  const setComments = (next: LetterComment[]) => { setCommentsState(next); changed(); };
+  const goToComment = (dir: 1 | -1) => {
+    if (!body) return;
+    const ranges = [...commentRanges(body.state.doc)];
+    if (!ranges.length) { shell.notify(t('letter.commentsEmpty')); return; }
+    const { from, to } = body.state.selection;
+    const next = dir > 0 ? ranges.find(([, r]) => r.from >= to) ?? ranges[0] : [...ranges].reverse().find(([, r]) => r.to <= from) ?? ranges[ranges.length - 1];
+    setCommentsOpen(true);
+    showComment(body, next[0]);
+    body.commands.focus();
+  };
+  const review = {
+    newComment: () => {
+      if (!body) return;
+      if (activeRef.current !== 'body') { shell.notify(t('letter.commentBodyOnly')); return; }
+      const id = newCommentId();
+      if (!addCommentMark(body, id)) { shell.notify(t('letter.commentSelect')); return; }
+      setComments([...comments, { id, author: userName(true), date: new Date().toISOString(), text: '' }]);
+      setCommentsOpen(true);
+      setEditingComment(id);
+    },
+    deleteComment: () => {
+      if (!body) return;
+      const ids = commentsAt(body.state);
+      if (!ids.length) { shell.notify(t('letter.commentNone')); return; }
+      for (const id of ids) removeCommentMark(body, id);
+      setComments(comments.filter(c => !ids.includes(c.id)));
+    },
+    comment: goToComment,
+    toggleComments: () => setCommentsOpen(o => !o),
+    track: () => {
+      if (!body) return;
+      if (!isTracking(body)) userName(true);
+      setTracking(body, !isTracking(body));
+      changed();
+      shell.notify(t(isTracking(body) ? 'letter.trackOn' : 'letter.trackOff'));
+    },
+    markup: () => setMarkup(m => !m),
+    accept: (all: boolean) => {
+      if (!body) return;
+      const c = all ? null : changeAt(body);
+      if (!all && !c) { if (!goToChange(body, 1)) shell.notify(t('letter.changesNone')); return; }
+      if (!resolveChange(body, true, c?.id) && all) shell.notify(t('letter.changesNone'));
+      if (!all) goToChange(body, 1);
+    },
+    reject: (all: boolean) => {
+      if (!body) return;
+      const c = all ? null : changeAt(body);
+      if (!all && !c) { if (!goToChange(body, 1)) shell.notify(t('letter.changesNone')); return; }
+      if (!resolveChange(body, false, c?.id) && all) shell.notify(t('letter.changesNone'));
+      if (!all) goToChange(body, 1);
+    },
+    change: (dir: 1 | -1) => { if (body && !goToChange(body, dir)) shell.notify(t('letter.changesNone')); },
+    footnote: () => {
+      if (!body) return;
+      if (activeRef.current !== 'body') { shell.notify(t('letter.footnoteBodyOnly')); return; }
+      const text = prompt(t('letter.footnotePrompt'), '');
+      if (text?.trim()) body.chain().focus().insertFootnote(text.trim()).run();
+    },
+    editFootnote: () => {
+      if (!body) return;
+      const at = footnoteAt(body.state);
+      if (!at) { shell.notify(t('letter.footnoteNone')); return; }
+      const text = prompt(t('letter.footnotePrompt'), at.text);
+      if (text === null) return;
+      if (!text.trim()) body.chain().focus().setNodeSelection(at.pos).deleteSelection().run();
+      else body.chain().focus().command(({ tr }) => { tr.setNodeAttribute(at.pos, 'text', text.trim()); return true; }).run();
+    },
+    nextFootnote: () => {
+      if (!body) return;
+      const notes = listFootnotes(body.state.doc);
+      if (!notes.length) { shell.notify(t('letter.footnoteNone')); return; }
+      const from = body.state.selection.from;
+      const next = notes.find(n => n.pos >= from + 1) ?? notes[0];
+      body.chain().focus().setNodeSelection(next.pos).scrollIntoView().run();
+    },
+  };
+
   const actions: RibbonActions = {
     fileMenu: () => setPanel('file'),
     pasteText: async () => {
@@ -659,7 +780,23 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     wordCount: () => setPanel('count'),
     customMargins: () => setPanel('margins'),
     ...smart,
+    ...review,
   };
+
+  // Double-clicking a footnote number edits its text.
+  useEffect(() => {
+    if (!body) return;
+    const dbl = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement).closest?.('.fn-ref');
+      if (!el) return;
+      e.preventDefault();
+      const pos = body.view.posAtDOM(el, 0);
+      body.commands.setNodeSelection(pos);
+      review.editFootnote();
+    };
+    body.view.dom.addEventListener('dblclick', dbl);
+    return () => body.view.dom.removeEventListener('dblclick', dbl);
+  });
 
   // ---------- keyboard shortcuts, like Word ----------
   useEffect(() => {
@@ -667,8 +804,11 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       if (!isShown()) return;
       if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'q') { e.preventDefault(); setPanel('commands'); return; }
       if (e.key === 'Escape' && focusMode && !document.fullscreenElement) { exitFocus(); return; }
-      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       const k = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && e.altKey && (e.code === 'KeyM' || k === 'm')) { e.preventDefault(); review.newComment(); return; }
+      if ((e.ctrlKey || e.metaKey) && e.altKey && (e.code === 'KeyF' || k === 'f')) { e.preventDefault(); review.footnote(); return; }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && (e.code === 'KeyE' || k === 'e')) { e.preventDefault(); review.track(); return; }
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       const run = (fn: () => unknown) => { e.preventDefault(); fn(); };
       if (k === 's') run(() => save(e.shiftKey));
       else if (k === 'o') run(async () => { const f = await shell.openFile(EXTENSIONS); if (f) openHere(f); });
@@ -694,13 +834,24 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
   const zoomPct = Math.round(scale * 100);
   const themeId = THEMES.find(th => th.page === page.color && JSON.stringify(th.styles) === JSON.stringify(styles))?.id ?? null;
   const readMinutes = readingStats(body.getText()).readMinutes;
-  const suite = { apps: shell.apps(), sheets: shell.tabs('class'), dictating, speaking, outline, linkedTable, themeId };
+  const suite = {
+    apps: shell.apps(), sheets: shell.tabs('class'), dictating, speaking, outline, linkedTable, themeId,
+    tracking, markup, commentsOpen, commentHere: !!reviewHere?.comments.length, changeHere: !!reviewHere?.change,
+    changes: reviewHere?.changes ?? 0, footnoteHere: !!reviewHere?.footnote, footnotes: reviewHere?.footnotes.length ?? 0,
+  };
+  const liveComments = new Set(reviewHere ? [...commentRanges(body.state.doc).keys()] : []);
+  const openComments = comments.filter(c => liveComments.has(c.id) && !c.resolved).length;
+  const commentCss = [
+    ...comments.filter(c => c.resolved).map(c => `.${scope} .cmt[data-comment="${CSS.escape(c.id)}"] { background: none; border-bottom-color: transparent; }`),
+    ...(reviewHere?.comments ?? []).map(id => `.${scope} .cmt[data-comment="${CSS.escape(id)}"] { background: rgba(232, 176, 40, .42); border-bottom-color: #C8901A; }`),
+  ].join('\n');
+  const watermark = page.watermark;
   const commands = buildCommands(actions, body, activeEditor, setView, view, inTable);
   const setZoom = (z: Zoom) => setView({ zoom: typeof z === 'number' ? Math.min(5, Math.max(0.1, z)) : z });
 
   return (
     <div className={`letter ${scope}${painting ? ' painting' : ''}${focusMode ? ' focus-mode' : ''}`} ref={rootRef}>
-      <style>{stylesCss(styles, page, `.${scope}`)}</style>
+      <style>{stylesCss(styles, page, `.${scope}`)}{commentCss}</style>
       <Ribbon editor={activeEditor} body={body} styles={styles} page={page} setPage={setPage} lang={lang} setLang={setLang}
         view={view} setView={setView} actions={actions} suite={suite} />
       {focusMode && <button type="button" className="focus-exit" onClick={exitFocus}>{t('letter.focusExit')}</button>}
@@ -709,18 +860,22 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       <div className="canvas" ref={canvasRef}>
         {(panel === 'find' || panel === 'replace') && <FindBar editor={body} replace={panel === 'replace'} onClose={() => { setPanel(null); body.commands.focus(); }} />}
         <div className="sizer" style={{ width: isPrint ? pw * scale : undefined, height: isPrint ? sheetHeight * scale : undefined }}>
-          <div ref={sheetRef} className={`sheet ${isPrint ? 'print-layout' : 'web-layout'}${view.marks ? ' show-marks' : ''}${page.hyphenate ? ' hyphenate' : ''}`} style={sheetVars}>
+          <div ref={sheetRef} className={`sheet ${isPrint ? 'print-layout' : 'web-layout'}${view.marks ? ' show-marks' : ''}${page.hyphenate ? ' hyphenate' : ''}${markup ? '' : ' no-markup'}`} style={sheetVars}>
             {isPrint && Array.from({ length: layout.pages }, (_, i) => (
               <div key={i} className="page-frame" style={{ top: `calc(${i} * (var(--ph) + var(--pg-gap)))`, background: page.color ?? undefined }}>
                 {page.border && <div className="page-border" style={{ inset: `${page.border.space}pt`, border: `${page.border.w}pt solid ${page.border.color}` }} />}
+                {watermark && <Watermark text={watermark.text} color={watermark.color} />}
               </div>
             ))}
+            {!isPrint && watermark && <Watermark text={watermark.text} color={watermark.color} />}
             <div className="hf header-area" style={{ '--pn': '"1"' } as CSSProperties} data-label={t('letter.header')}>
               <EditorContent editor={header} />
             </div>
             <div className="body-area">
               <EditorContent editor={body} />
+              {!isPrint && !!reviewHere?.footnotes.length && <EndNotes notes={reviewHere.footnotes} />}
               <div className="tail" style={isPrint ? { height: `calc(${layout.tail}px - var(--pg-slack, 0px))` } : undefined}>
+                {isPrint && layout.notes.length > 0 && <PageNotes notes={layout.notes} />}
                 <div className="hf footer-area" style={{ '--pn': `"${layout.pages}"` } as CSSProperties} data-label={t('letter.footer')}>
                   <EditorContent editor={footer} />
                 </div>
@@ -729,12 +884,20 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
           </div>
         </div>
       </div>
+      {commentsOpen && !focusMode && (
+        <CommentsPane editor={body} comments={comments} onChange={setComments} author={() => userName()} editing={editingComment}
+          setEditing={setEditingComment} showResolved={false} onClose={() => setCommentsOpen(false)} />
+      )}
       </div>
       <footer className="status">
         <span>{isPrint ? t('letter.pageOf', { n: cursorPage, total: layout.pages }) : t('letter.webLayout')}</span>
         <button type="button" className="status-btn" onClick={() => setPanel('count')}>{words === 1 ? t('letter.word') : t('letter.words', { n: words })}</button>
         {words > 0 && <span className="status-read">{t('letter.minutesRead', { n: readMinutes })}</span>}
         {dictating && <span className="status-live"><i />{t('letter.listening')}</span>}
+        {tracking && <button type="button" className="status-btn status-track" onClick={review.track}>{t('letter.trackStatus')}</button>}
+        {openComments > 0 && !commentsOpen && (
+          <button type="button" className="status-btn" onClick={() => setCommentsOpen(true)}><Icon name="comment" /> {openComments}</button>
+        )}
         <span className="status-file" title={fileName || `${title}.docx`}>{fileName || `${title}.docx`}{dirty && fileRef ? ' •' : ''}</span>
         <span className="status-zoom">
           <button type="button" aria-label={t('letter.zoomOut')} title={t('letter.zoomOut')} onClick={() => setZoom(Math.round((scale - 0.1) * 10) / 10)} disabled={!isPrint}>−</button>
@@ -814,6 +977,13 @@ function buildCommands(a: RibbonActions, body: Editor, ed: Editor, setView: (v: 
     ...THEMES.map(th => c(`theme-${th.id}`, `${t('letter.group.themes')}: ${t(th.name)}`, g.design, () => a.theme(th), 'theme')),
     c('margins', t('letter.margins.custom'), g.layout, a.customMargins, 'margins'),
     c('count', t('letter.wordCount'), g.review, a.wordCount, 'count'),
+    c('newComment', t('letter.commentNew'), g.review, a.newComment, 'commentnew', 'Ctrl+Alt+M'),
+    c('comments', t('letter.commentsShow'), g.review, a.toggleComments, 'comment'),
+    c('track', t('letter.track'), g.review, a.track, 'track', 'Ctrl+Shift+E'),
+    c('acceptAll', t('letter.acceptAll'), g.review, () => a.accept(true), 'accept'),
+    c('rejectAll', t('letter.rejectAll'), g.review, () => a.reject(true), 'reject'),
+    c('nextChange', t('letter.changeNext'), g.review, () => a.change(1), 'next'),
+    c('footnote', t('letter.footnoteInsert'), t('letter.tab.references'), a.footnote, 'footnote', 'Ctrl+Alt+F'),
     c('read', t('letter.readAloud'), g.review, a.readAloud, 'speak'),
     c('outline', t('letter.outline'), g.view, a.outline, 'outline'),
     c('focus', t('letter.focus'), g.view, a.focus, 'focus'),
@@ -830,4 +1000,25 @@ function buildCommands(a: RibbonActions, body: Editor, ed: Editor, setView: (v: 
     c('newSheet', t('letter.newSheet'), g.oi1, a.newSheet, 'sheet'),
     c('prodfos', t('letter.openProdfos'), g.oi1, () => a.openApp('prodfos'), 'prodfos'),
   ];
+}
+
+/** Faint diagonal text behind a page, like Word's DRAFT watermark. */
+function Watermark({ text, color }: { text: string; color: string }) {
+  return <div className="watermark" aria-hidden="true"><span style={{ color, fontSize: `${Math.max(36, Math.min(120, 900 / Math.max(text.length, 1)))}pt` }}>{text}</span></div>;
+}
+
+/** The last page's footnotes, drawn the same way the page spacers draw theirs. */
+function PageNotes({ notes }: { notes: LayoutResult['notes'] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => { ref.current?.replaceChildren(notesDom(notes)); }, [notes]);
+  return <div ref={ref} className="doc-text tail-notes" />;
+}
+
+/** In Web layout there are no pages, so the footnotes come after the text. */
+function EndNotes({ notes }: { notes: { n: number; text: string }[] }) {
+  return (
+    <div className="doc-text notes-end" aria-label={t('letter.footnotes')}>
+      {notes.map(n => <div key={n.n} className="fn-note"><sup>{n.n}</sup> {n.text}</div>)}
+    </div>
+  );
 }

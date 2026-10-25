@@ -46,11 +46,16 @@ One office suite, one app:
   - **Design:** 8 one-click document themes (Office, Scene, Classic, Modern, Elegant, Ocean, Forest, Mono), paragraph spacing, page background.
   - **Smart:** command search (Alt+Q, about 60 commands), navigation pane, clean up (quotes, spaces, empty lines),
     sort lines, text to table and back, dictation, read aloud, focus mode.
-  - **Review:** spelling on/off, proofing language, word count with reading and speaking time. **View:** print layout with real pages, web layout, zoom, outline, focus.
+  - **Review:** comments in a side pane (reply, resolve, delete, previous/next; Ctrl+Alt+M), Track changes
+    (Ctrl+Shift+E; every edit becomes a suggestion in its author's color, Accept or Reject one or all, show or hide markup),
+    spelling on/off, proofing language, word count with reading and speaking time.
+  - **References:** footnotes (Ctrl+Alt+F) shown at the bottom of their page like in Word, table of contents.
+  - **Design** also has watermarks (CONFIDENTIAL, DRAFT, custom text and color). **View:** print layout with real pages, web layout, zoom, outline, focus.
   - **Real pages:** the letter is shown page by page with its header, footer and page numbers on every page,
     and prints (or saves as PDF) with exactly the same pages.
   - **Word files:** opens and saves `.docx` keeping page size, margins, page color and border, fonts, sizes, colors,
-    letter spacing, styles, headers, footers, page numbers, lists, tables with shading, images and page breaks.
+    letter spacing, styles, headers, footers, page numbers, lists, tables with shading, images, page breaks,
+    comments with replies and resolved state, tracked changes with author and date, footnotes and watermarks.
     Also opens `.html` and `.txt`, and saves as web page or plain text.
   - **Files like a desktop app:** in Chrome and Edge, Save writes back to the file you opened; File › Save as
     asks where. Recent files are on the home screen and in the File menu. Everything autosaves in the browser.

@@ -15,7 +15,7 @@ export function setTheme(mode: ThemeMode) {
   const root = document.documentElement;
   root.classList.add('theme-fade');
   root.dataset.theme = mode;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', mode === 'light' ? '#F3EFE6' : '#07070A');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', mode === 'light' ? '#F3EFE6' : '#2E2E36');
   try { localStorage.setItem(KEY, mode); } catch { /* private window */ }
   window.setTimeout(() => root.classList.remove('theme-fade'), 400);
   listeners.forEach(fn => fn(mode));
