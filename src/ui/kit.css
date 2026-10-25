@@ -66,9 +66,10 @@
 .rb sub, .rb sup { font-size: 9px; }
 
 /* Big buttons sit on round-cornered 3D keys, like ProDFos's Key3D. */
-.rb.big { flex-direction: column; height: 72px; min-width: 58px; max-width: 92px; padding: 4px 4px 2px; gap: 5px; border-radius: 12px; }
+.rb.big { flex-direction: column; justify-content: flex-start; height: 72px; min-width: 58px; max-width: 92px; padding: 5px 4px 2px; gap: 6px; border-radius: 12px; }
 .rb.big:hover:not(:disabled) { background: none; border-color: transparent; }
-.rb.big .rb-label { font-size: 11.5px; white-space: normal; text-align: center; line-height: 1.15; color: var(--muted); }
+/* Every key sits on the same line and every label below it, centered, whether the label takes one line or two. */
+.rb.big .rb-label { font-size: 11.5px; white-space: normal; text-align: center; line-height: 1.15; color: var(--muted); min-height: 2.3em; display: flex; align-items: flex-start; justify-content: center; }
 .rb.big:hover:not(:disabled) .rb-label, .rb.big.on .rb-label { color: var(--ink); }
 .key {
   position: relative; display: inline-grid; place-items: center; width: 38px; height: 34px; flex-shrink: 0; border-radius: 11px;
@@ -215,3 +216,7 @@
 .split { display: inline-flex; align-items: center; }
 .split > .drop > .rb { min-width: 0; width: 14px; padding: 0; margin-left: -2px; }
 .split > .drop > .rb .rb-caret { margin: 0; }
+/* With a big button, the arrow sits on the key's corner so that the key stays centered over its label. */
+.split:has(> .rb.big) { position: relative; align-self: stretch; align-items: flex-start; }
+.split > .rb.big + .drop { position: absolute; top: 12px; right: -4px; }
+.split > .rb.big + .drop > .rb { height: 22px; width: 16px; }

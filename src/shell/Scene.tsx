@@ -152,6 +152,15 @@ const SCENES: Record<string, (accent: string) => ReactNode> = {
       <Line a={p(0.45, 0.38, 0.4)} b={p(1.2, 0.38, 0.4)} color="rgba(0,0,0,.25)" width={1.2} />
     </g>
   </>,
+  code: accent => <>
+    <Shadow x={0} y={0} w={1.5} d={1.2} />
+    <Box x={0} y={0} w={1.5} d={1.2} h={0.06} {...OBSIDIAN} />
+    <Box x={0} y={0} z={0.06} w={1.5} d={0.2} h={0.02} top="#3a3a46" side="#22222b" edge="#16161c" />
+    {[[0.15, 0.55, '#E8A0D8'], [0.3, 0.95, accent], [0.3, 0.75, '#F2D78B'], [0.15, 0.45, '#E8A0D8'], [0.15, 1.1, '#7FC8E8']].map(([x, len, c], k) => (
+      <Line key={k} a={p(x as number, 0.36 + k * 0.17, 0.06)} b={p((x as number) + (len as number) * 0.9, 0.36 + k * 0.17, 0.06)} color={c as string} width={1.8} />
+    ))}
+    <g className="caret-blink"><Line a={p(1.25, 1.02, 0.06)} b={p(1.25, 1.02, 0.22)} color="#F2D78B" width={2.2} /></g>
+  </>,
   prodfos: accent => <>
     <Shadow x={0} y={0} w={1.1} d={1.4} />
     <Box x={0} y={0} w={1.1} d={1.4} h={0.05} {...PAPER} />
