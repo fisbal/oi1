@@ -165,6 +165,52 @@ describe('list styles, alt text and hyphenation', () => {
   });
 });
 
+describe('comments, tracked changes, footnotes and watermarks', () => {
+  it('come back from Word the way they went in', async () => {
+    const doc = sample();
+    doc.track = true;
+    doc.page.watermark = { text: 'DRAFT', color: '#C0C0C0' };
+    const who = { author: 'Ana Silva', date: '2026-10-25T10:00:00.000Z' };
+    doc.comments = [
+      { id: 'c1', author: 'Ana Silva', date: who.date, text: 'Is this the final price?', replies: [{ id: 'r1', author: 'Martin', date: who.date, text: 'Yes, fixed.' }] },
+      { id: 'c2', author: 'Martin', date: who.date, text: 'Done', resolved: true },
+      { id: 'gone', author: 'Martin', date: who.date, text: 'Its text was deleted' },
+    ];
+    const comment = (id: string) => ({ type: 'comment', attrs: { id } });
+    doc.body = { type: 'doc', content: [
+      para([text('The price is '), text('fixed', [comment('c1')]), text(' for '), text('two', [comment('c1'), comment('c2')]), text(' years.', [comment('c2')])]),
+      para([text('We '), text('gladly ', [{ type: 'insertion', attrs: { id: 1, ...who } }]), text('accept', [{ type: 'deletion', attrs: { id: 2, ...who } }]), text(' agree.')]),
+      para([text('Prices exclude tax'), { type: 'footnote', attrs: { text: 'VAT is 23% in Portugal.' } }, text('.')]),
+    ] };
+    const back = await readDocx(await letterToDocx(doc, 'Review', 'Martin'));
+
+    // Comments keep their text, author, thread and resolved state, and only live ones are written.
+    expect(back.comments).toHaveLength(2);
+    const [first, second] = back.comments!;
+    expect(first).toMatchObject({ author: 'Ana Silva', text: 'Is this the final price?' });
+    expect(first.replies).toEqual([expect.objectContaining({ author: 'Martin', text: 'Yes, fixed.' })]);
+    expect(second).toMatchObject({ text: 'Done', resolved: true });
+    const commented = (id: string) => {
+      const out: string[] = [];
+      const walk = (n: JSONContent) => { if (n.text && n.marks?.some(m => m.type === 'comment' && m.attrs?.id === id)) out.push(n.text); n.content?.forEach(walk); };
+      walk(back.body);
+      return out.join('');
+    };
+    expect(commented(first.id)).toBe('fixed for two');
+    expect(commented(second.id)).toBe('two years.');
+
+    // Tracked changes stay tracked, with their author.
+    expect(mark(withText(back.body, 'gladly '), 'insertion')?.attrs).toMatchObject({ author: 'Ana Silva' });
+    expect(mark(withText(back.body, 'accept'), 'deletion')).toBeTruthy();
+    expect(back.track).toBe(true);
+
+    // The footnote is a real Word footnote, and the watermark sits in the header.
+    expect(find(back.body, n => n.type === 'footnote')?.attrs?.text).toBe('VAT is 23% in Portugal.');
+    expect(back.page.watermark).toEqual({ text: 'DRAFT', color: '#C0C0C0' });
+    expect(back.header && withText(back.header, 'CONFIDENTIAL')).toBeTruthy();
+  });
+});
+
 describe('Word files written by other programs', () => {
   it('reads a letter saved by LibreOffice', async () => {
     const { readFileSync } = await import('node:fs');

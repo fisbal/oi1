@@ -14,6 +14,7 @@ import { CharacterCount, Placeholder } from '@tiptap/extensions';
 import { t } from '../../shell/i18n';
 import { CellBackground, ListStyle, PageBreak, PageNumber, ParagraphFormat, TextStyleExtras } from './extensions';
 import { Pagination } from './pagination';
+import { Comment, Deletion, Footnote, Insertion, Modification, TrackChanges } from './review';
 import { Search } from './search';
 
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
@@ -69,6 +70,12 @@ export function letterExtensions(part: 'body' | 'header' | 'footer'): Extensions
         CharacterCount,
         Search,
         Pagination,
+        Comment,
+        Footnote,
+        Insertion,
+        Deletion,
+        Modification,
+        TrackChanges,
       ]
       : [Placeholder.configure({ placeholder: () => t(part === 'header' ? 'letter.headerPlaceholder' : 'letter.footerPlaceholder') })]),
   ];

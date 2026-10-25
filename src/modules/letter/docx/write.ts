@@ -4,14 +4,17 @@
 
 import type { JSONContent } from '@tiptap/react';
 import {
-  AlignmentType, BorderStyle, Document, ExternalHyperlink, Footer, Header, HeadingLevel, ImageRun, LevelFormat,
+  AlignmentType, BorderStyle, CommentRangeEnd, CommentRangeStart, CommentReference, DeletedTextRun, Document, ExternalHyperlink,
+  Footer, FootnoteReferenceRun, Header, HeadingLevel, ImageRun, InsertedTextRun, LevelFormat,
   LineRuleType, Packer, PageBorderDisplay, PageBorderOffsetFrom, PageBreak, PageNumber, PageOrientation, Paragraph,
   ShadingType, Tab, Table, TableCell, TableRow, TextRun, WidthType,
-  type IParagraphOptions, type IRunOptions, type ParagraphChild,
+  type ICommentOptions, type IParagraphOptions, type IRunOptions, type ParagraphChild,
 } from 'docx';
+import JSZip from 'jszip';
 import { BULLET_CHARS, BULLET_STYLES, type Borders } from '../extensions';
 import { WORD_STYLE_IDS, type LetterDoc, type StyleDef } from '../model';
-import { PAGE_SIZES, PX_PER_IN, TWIPS_PER_IN, isDark, pageInches } from '../page';
+import { PAGE_SIZES, PX_PER_IN, TWIPS_PER_IN, isDark, pageInches, type Watermark } from '../page';
+import { initials, type LetterComment } from '../review';
 
 const HEADINGS = [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3,
   HeadingLevel.HEADING_4, HeadingLevel.HEADING_5, HeadingLevel.HEADING_6];
@@ -140,13 +143,99 @@ function numberingConfig() {
 
 type ListCtx = { kind: 'bullet' | 'number'; level: number; instance: number; style: string | null };
 
+/** What the letter's body carries beyond text: comment ranges, tracked changes and footnotes, in Word's numbering. */
+class Annotations {
+  /** Word ids of each comment and of its replies, which share the comment's range. */
+  readonly commentIds = new Map<string, number[]>();
+  /** Inline pieces still to come for each comment, so its range ends after the last one. */
+  private readonly remaining = new Map<string, number>();
+  private readonly started = new Set<string>();
+  readonly comments: ICommentOptions[] = [];
+  readonly footnotes: Record<string, { children: Paragraph[] }> = {};
+  private footnoteCount = 0;
+  private revision = 0;
+  readonly author: string;
+
+  constructor(body: JSONContent, comments: LetterComment[], author: string) {
+    this.author = author;
+    const visit = (n: JSONContent) => {
+      for (const m of n.marks ?? []) {
+        if (m.type === 'comment' && m.attrs?.id) this.remaining.set(m.attrs.id, (this.remaining.get(m.attrs.id) ?? 0) + 1);
+      }
+      n.content?.forEach(visit);
+    };
+    visit(body);
+    let next = 0;
+    for (const c of comments) {
+      if (!this.remaining.has(c.id)) continue; // its text is gone
+      const ids: number[] = [];
+      const parentId = next;
+      for (const [i, part] of [c, ...(c.replies ?? [])].entries()) {
+        const id = next++;
+        ids.push(id);
+        this.comments.push({
+          id, author: part.author, initials: initials(part.author), date: new Date(part.date),
+          children: (part.text || ' ').split('\n').map(line => new Paragraph({ children: [new TextRun(line)] })),
+          ...(i ? { parentId } : {}), ...(c.resolved ? { resolved: true } : {}),
+        });
+      }
+      this.commentIds.set(c.id, ids);
+    }
+  }
+
+  /** Range starts for comments that begin at this inline piece. */
+  before(marks: JSONContent['marks']): ParagraphChild[] {
+    const out: ParagraphChild[] = [];
+    for (const id of commentIdsOf(marks)) {
+      if (this.started.has(id) || !this.commentIds.has(id)) continue;
+      this.started.add(id);
+      for (const n of this.commentIds.get(id)!) out.push(new CommentRangeStart(n));
+    }
+    return out;
+  }
+
+  /** Range ends and the comment marks, after the last piece of a comment. */
+  after(marks: JSONContent['marks']): ParagraphChild[] {
+    const out: ParagraphChild[] = [];
+    for (const id of commentIdsOf(marks)) {
+      const left = (this.remaining.get(id) ?? 1) - 1;
+      this.remaining.set(id, left);
+      if (left > 0 || !this.commentIds.has(id)) continue;
+      for (const n of this.commentIds.get(id)!) out.push(new CommentRangeEnd(n), new TextRun({ children: [new CommentReference(n)] }));
+    }
+    return out;
+  }
+
+  footnote(text: string): number {
+    const id = ++this.footnoteCount;
+    this.footnotes[id] = { children: text.split('\n').map(line => new Paragraph({ children: [new TextRun(line)] })) };
+    return id;
+  }
+
+  revisionId(): number { return ++this.revision; }
+}
+
+function commentIdsOf(marks: JSONContent['marks']): string[] {
+  return (marks ?? []).filter(m => m.type === 'comment' && m.attrs?.id).map(m => m.attrs!.id as string);
+}
+
+/** The tracked change on a piece of text, from its own marks or its paragraph's. */
+function revisionOf(marks: JSONContent['marks'], block: JSONContent['marks']): { kind: 'insertion' | 'deletion'; author?: string; date?: string } | null {
+  const m = (marks ?? []).find(x => x.type === 'insertion' || x.type === 'deletion') ?? (block ?? []).find(x => x.type === 'insertion' || x.type === 'deletion');
+  return m ? { kind: m.type as 'insertion' | 'deletion', author: m.attrs?.author ?? undefined, date: m.attrs?.date ?? undefined } : null;
+}
+
 class DocxWriter {
   private listCount = 0;
   private quoteDepth = 0;
   private contentWidthPx: number;
+  private notes: Annotations | null;
+  /** Insertion or deletion marks on the paragraph being written. */
+  private blockMarks: JSONContent['marks'] = [];
 
-  constructor(contentWidthPx: number) {
+  constructor(contentWidthPx: number, notes: Annotations | null = null) {
     this.contentWidthPx = contentWidthPx;
+    this.notes = notes;
   }
 
   async blocks(nodes: JSONContent[] = [], list?: ListCtx): Promise<(Paragraph | Table)[]> {
@@ -178,6 +267,17 @@ class DocxWriter {
   }
 
   private async block(node: JSONContent, list?: ListCtx): Promise<(Paragraph | Table)[]> {
+    const outer = this.blockMarks;
+    const own = (node.marks ?? []).filter(m => m.type === 'insertion' || m.type === 'deletion');
+    if (own.length) this.blockMarks = own;
+    try {
+      return await this.blockInner(node, list);
+    } finally {
+      this.blockMarks = outer;
+    }
+  }
+
+  private async blockInner(node: JSONContent, list?: ListCtx): Promise<(Paragraph | Table)[]> {
     const listOpts: Partial<IParagraphOptions> = list
       ? list.kind === 'bullet' && !list.style
         ? { bullet: { level: list.level } }
@@ -297,21 +397,38 @@ class DocxWriter {
   async inline(nodes: JSONContent[] = []): Promise<ParagraphChild[]> {
     const out: ParagraphChild[] = [];
     for (const node of nodes) {
-      if (node.type === 'hardBreak') { out.push(new TextRun({ break: 1 })); continue; }
-      if (node.type === 'image') { const run = await this.image(node); if (run) out.push(run); continue; }
-      if (node.type === 'pageNumber') {
-        out.push(new TextRun({ ...this.runOptions(node.marks), children: [node.attrs?.kind === 'pages' ? PageNumber.TOTAL_PAGES : PageNumber.CURRENT] }));
-        continue;
-      }
-      if (node.type !== 'text' || !node.text) continue;
-      const link = node.marks?.find(m => m.type === 'link')?.attrs?.href as string | undefined;
-      // Tabs are their own element in Word.
-      const parts = node.text.split('\t');
-      const children = parts.flatMap((p, i) => (i ? [new Tab(), p] : [p])).filter(c => c !== '');
-      const run = new TextRun({ ...this.runOptions(node.marks), children });
-      out.push(link ? new ExternalHyperlink({ link, children: [run] }) : run);
+      // Comment ranges open before the piece they start at and close after their last piece.
+      if (this.notes) out.push(...this.notes.before(node.marks));
+      out.push(...(await this.piece(node)));
+      if (this.notes) out.push(...this.notes.after(node.marks));
     }
     return out;
+  }
+
+  private async piece(node: JSONContent): Promise<ParagraphChild[]> {
+    if (node.type === 'hardBreak') return [new TextRun({ break: 1 })];
+    if (node.type === 'image') { const run = await this.image(node); return run ? [run] : []; }
+    if (node.type === 'pageNumber') {
+      return [new TextRun({ ...this.runOptions(node.marks), children: [node.attrs?.kind === 'pages' ? PageNumber.TOTAL_PAGES : PageNumber.CURRENT] })];
+    }
+    const notes = this.notes;
+    if (node.type === 'footnote') return notes ? [new FootnoteReferenceRun(notes.footnote(String(node.attrs?.text ?? '')))] : [];
+    // Zero-width spaces only anchor tracked paragraph changes in the editor.
+    const text = node.type === 'text' ? (node.text ?? '').replace(/\u200B/g, '') : '';
+    if (!text) return [];
+    const rev = notes ? revisionOf(node.marks, this.blockMarks) : null;
+    if (rev && notes) {
+      const change = { id: notes.revisionId(), author: rev.author ?? notes.author, date: rev.date ?? new Date().toISOString() };
+      return [rev.kind === 'insertion'
+        ? new InsertedTextRun({ ...this.runOptions(node.marks), ...change, text })
+        : new DeletedTextRun({ ...this.runOptions(node.marks), ...change, text })];
+    }
+    const link = node.marks?.find(m => m.type === 'link')?.attrs?.href as string | undefined;
+    // Tabs are their own element in Word.
+    const parts = text.split('\t');
+    const children = parts.flatMap((p, i) => (i ? [new Tab(), p] : [p])).filter(c => c !== '');
+    const run = new TextRun({ ...this.runOptions(node.marks), children });
+    return [link ? new ExternalHyperlink({ link, children: [run] }) : run];
   }
 }
 
@@ -338,14 +455,17 @@ function paragraphStyle(def: StyleDef) {
   };
 }
 
-export async function letterToDocx(letter: LetterDoc, title: string): Promise<ArrayBuffer> {
+export async function letterToDocx(letter: LetterDoc, title: string, author = 'Office In 1'): Promise<ArrayBuffer> {
   const { page, styles } = letter;
   const inches = pageInches(page);
   const portrait = PAGE_SIZES[page.size] ?? PAGE_SIZES.letter;
   const contentWidthPx = (inches.width - page.margins.left - page.margins.right) * PX_PER_IN;
   const writer = () => new DocxWriter(contentWidthPx);
-  const children = await writer().blocks(letter.body.content);
-  const header = letter.header?.content?.length ? new Header({ children: await writer().blocks(letter.header.content) }) : undefined;
+  const notes = new Annotations(letter.body, letter.comments ?? [], author);
+  const children = await new DocxWriter(contentWidthPx, notes).blocks(letter.body.content);
+  // A watermark lives in the header, so a letter with one always has a header.
+  const header = letter.header?.content?.length ? new Header({ children: await writer().blocks(letter.header.content) })
+    : page.watermark ? new Header({ children: [new Paragraph('')] }) : undefined;
   const footer = letter.footer?.content?.length ? new Footer({ children: await writer().blocks(letter.footer.content) }) : undefined;
 
   const normal = { ...styles.normal };
@@ -360,6 +480,9 @@ export async function letterToDocx(letter: LetterDoc, title: string): Promise<Ar
   const document = new Document({
     title,
     creator: 'Office In 1',
+    comments: notes.comments.length ? { children: notes.comments } : undefined,
+    footnotes: Object.keys(notes.footnotes).length ? notes.footnotes : undefined,
+    features: letter.track ? { trackRevisions: true } : undefined,
     background: page.color ? { color: toHex(page.color) } : undefined,
     hyphenation: page.hyphenate ? { autoHyphenation: true } : undefined,
     styles: {
@@ -399,5 +522,41 @@ export async function letterToDocx(letter: LetterDoc, title: string): Promise<Ar
       children: children.length ? children : [new Paragraph('')],
     }],
   });
-  return Packer.toArrayBuffer(document);
+  const out = await Packer.toArrayBuffer(document);
+  return page.watermark ? addWatermark(out, page.watermark) : out;
+}
+
+const xmlText = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+// Word's own WordArt shape for watermarks (Design > Watermark writes the same VML).
+const TEXT_SHAPE = '<v:shapetype id="_x0000_t136" coordsize="21600,21600" o:spt="136" adj="10800" path="m@7,l@8,m@5,21600l@6,21600e">'
+  + '<v:formulas><v:f eqn="sum #0 0 10800"/><v:f eqn="prod #0 2 1"/><v:f eqn="sum 21600 0 @1"/><v:f eqn="sum 0 0 @2"/><v:f eqn="sum 21600 0 @3"/>'
+  + '<v:f eqn="if @0 @3 0"/><v:f eqn="if @0 21600 @1"/><v:f eqn="if @0 0 @2"/><v:f eqn="if @0 @4 21600"/><v:f eqn="mid @5 @6"/><v:f eqn="mid @8 @5"/>'
+  + '<v:f eqn="mid @7 @8"/><v:f eqn="mid @6 @7"/><v:f eqn="sum @6 0 @5"/></v:formulas>'
+  + '<v:path textpathok="t" o:connecttype="custom" o:connectlocs="@9,0;@10,10800;@11,21600;@12,10800" o:connectangles="270,180,90,0"/>'
+  + '<v:textpath on="t" fitshape="t"/><v:handles><v:h position="#0,bottomRight" xrange="6629,14971"/></v:handles><o:lock v:ext="edit" text="t" shapetype="t"/></v:shapetype>';
+
+/** Puts a diagonal text watermark in every header of a written .docx, the way Word does. */
+export async function addWatermark(docx: ArrayBuffer, mark: Watermark): Promise<ArrayBuffer> {
+  const zip = await JSZip.loadAsync(docx);
+  const color = toHex(mark.color) ?? 'C0C0C0';
+  const shape = `<w:r><w:rPr><w:noProof/></w:rPr><w:pict>${TEXT_SHAPE}<v:shape id="PowerPlusWaterMarkObject" o:spid="_x0000_s2049" type="#_x0000_t136" `
+    + 'style="position:absolute;margin-left:0;margin-top:0;width:468pt;height:117pt;rotation:315;z-index:-251654144;'
+    + 'mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin" '
+    + `o:allowincell="f" fillcolor="#${color}" stroked="f"><v:fill opacity=".5"/>`
+    + `<v:textpath style="font-family:&quot;Calibri&quot;;font-size:1pt" string="${xmlText(mark.text)}"/></v:shape></w:pict></w:r>`;
+  const headers = Object.keys(zip.files).filter(f => /^word\/header\d*\.xml$/.test(f));
+  for (const path of headers) {
+    let xml = await zip.file(path)!.async('string');
+    // The VML namespaces, in case the header does not declare them.
+    for (const [prefix, uri] of [['v', 'urn:schemas-microsoft-com:vml'], ['o', 'urn:schemas-microsoft-com:office:office']]) {
+      if (!xml.includes(`xmlns:${prefix}=`)) xml = xml.replace(/<w:hdr\b/, `<w:hdr xmlns:${prefix}="${uri}"`);
+    }
+    // Inside the header's first paragraph, after its properties.
+    xml = /<w:p\b[^>]*\/>/.test(xml) && !/<w:p\b[^>]*[^/]>/.test(xml)
+      ? xml.replace(/<w:p\b([^>]*)\/>/, `<w:p$1>${shape}</w:p>`)
+      : xml.replace(/(<w:p\b[^>]*>(?:<w:pPr>.*?<\/w:pPr>)?)/s, `$1${shape}`);
+    zip.file(path, xml);
+  }
+  return zip.generateAsync({ type: 'arraybuffer' });
 }

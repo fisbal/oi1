@@ -5,6 +5,7 @@ import type { JSONContent } from '@tiptap/react';
 import type { CSSProperties } from 'react';
 import { BUNDLED_FONTS, bundledFamily, type FontKind } from '../../ui/fonts';
 import { defaultPage, isDark, type PageSettings } from './page';
+import type { LetterComment } from './review';
 
 /** One paragraph style, like Word's Normal or Heading 1. Sizes and spacing are in points. */
 export interface StyleDef {
@@ -40,6 +41,10 @@ export interface LetterDoc {
   styles: DocStyles;
   /** Proofing language of the text, like 'en-US'. */
   lang?: string;
+  /** What the comments say; the text they are about carries a comment mark with the same id. */
+  comments?: LetterComment[];
+  /** Track changes is on (Review > Track changes), saved with the file like in Word. */
+  track?: boolean;
 }
 
 /** The look of a new letter, close to Word's own defaults. */

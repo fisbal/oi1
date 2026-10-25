@@ -68,6 +68,19 @@ const ICONS: Record<string, ReactNode> = {
   hyphen: <>{P('M2 5h7M2 8h5M2 11h8M10.5 8h3')}</>,
   trash: <>{P('M3 4h10M6 4V2.5h4V4M4.5 4l.7 9.5h5.6l.7-9.5M7 6.5v5M9 6.5v5')}</>,
   alt: <>{P('M2 3h12v10H2z')}{P('M4.5 10.5 6 6l1.5 4.5M5 9h2M9.5 6v4.5h2')}</>,
+  check: <>{P('M3 8.5 6.5 12 13 4.5')}</>,
+  pen: <>{P('M10.5 2.5 13.5 5.5 6 13H3v-3z')}{P('M9 4l3 3')}</>,
+  comment: <>{P('M2.5 3h11v8h-6l-3 2.5V11h-2z')}</>,
+  commentnew: <>{P('M2.5 3h11v8h-6l-3 2.5V11h-2z')}{P('M8 5v4M6 7h4')}</>,
+  prev: <>{P('M10 3 5 8l5 5')}</>,
+  next: <>{P('M6 3l5 5-5 5')}</>,
+  track: <>{P('M2 13h3l7.5-7.5-3-3L2 10z')}{P('M9 13h5')}</>,
+  accept: <>{P('M2 4h7M2 7h5M2 10h4')}{P('M8.5 11 10.5 13 14 8.5')}</>,
+  reject: <>{P('M2 4h7M2 7h5M2 10h4')}{P('M9 9l4 4M13 9l-4 4')}</>,
+  markup: <>{P('M2 5h5M9 5h5')}{P('M2 10h12')}{P('M7 3v4')}</>,
+  footnote: <>{P('M2 3h9M2 6h9M2 9h6')}{P('M12 2.5v3')}{P('M2 12.5h4M2 14h7')}</>,
+  watermark: <>{P('M3 2h10v12H3z')}{P('M5 11 11 5')}</>,
+  columns: <>{P('M2 3h5M2 6h5M2 9h5M2 12h5M9 3h5M9 6h5M9 9h5M9 12h5')}</>,
   merge: <>{P('M2 3h12v10H2zM5 8h6M9 6l2 2-2 2M7 6 5 8l2 2')}</>,
   split: <>{P('M2 3h12v10H2zM8 3v10')}</>,
   headerrow: <>{P('M2 3h12v10H2zM2 6.5h12')}{P('M2 3h12v3.5H2z')}</>,
@@ -180,9 +193,9 @@ export function useOutsideClose(open: boolean, close: () => void) {
 }
 
 /** A button that opens a panel. `children` gets a function to close the panel. */
-export function Drop({ icon, label, title, children, active, swatch, big, text, wide }: {
+export function Drop({ icon, label, title, children, active, swatch, big, text, wide, disabled }: {
   icon?: string; label?: ReactNode; title: MessageKey | string; children: (close: () => void) => ReactNode;
-  active?: boolean; swatch?: string | null; big?: boolean; text?: boolean; wide?: boolean;
+  active?: boolean; swatch?: string | null; big?: boolean; text?: boolean; wide?: boolean; disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
@@ -191,7 +204,7 @@ export function Drop({ icon, label, title, children, active, swatch, big, text, 
   return (
     <div className="drop" ref={ref}>
       <button type="button" className={`rb${big ? ' big' : ''}${active ? ' on' : ''}${text ? ' txt' : ''}`} title={name} aria-label={name}
-        aria-haspopup="true" aria-expanded={open} onMouseDown={e => e.preventDefault()} onClick={() => setOpen(o => !o)}>
+        aria-haspopup="true" aria-expanded={open} disabled={disabled} onMouseDown={e => e.preventDefault()} onClick={() => setOpen(o => !o)}>
         {icon && <span className={`rb-icon${big ? ' key' : ''}`}><Icon name={icon} size={big ? 20 : 16} />{swatch !== undefined && <i className="swatch" style={{ background: swatch ?? 'transparent' }} />}</span>}
         {label ?? (text || big ? <span className="rb-label">{name}</span> : null)}
         <span className="rb-caret"><Icon name="caret" size={10} /></span>

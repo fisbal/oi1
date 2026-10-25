@@ -14,7 +14,14 @@ export interface PageSettings {
   border: PageBorder | null;
   /** Break long words at line ends with a hyphen (Layout > Hyphenation). */
   hyphenate?: boolean;
+  /** Faint diagonal text behind every page, like DRAFT (Design > Watermark). */
+  watermark?: Watermark | null;
 }
+
+export interface Watermark { text: string; color: string }
+
+/** Word's ready-made watermarks. */
+export const WATERMARKS = ['CONFIDENTIAL', 'DRAFT', 'DO NOT COPY', 'SAMPLE', 'URGENT', 'ASAP'] as const;
 
 export interface PageBorder { w: number; color: string; space: number }
 
