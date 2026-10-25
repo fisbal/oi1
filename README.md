@@ -5,7 +5,7 @@ One office suite, one app:
 | Module | Like | Status |
 | --- | --- | --- |
 | **Office Letter** | Word | Works for everyday letters and documents |
-| **Office Class** | Excel | Planned (Phase 2) |
+| **Office Class** | Excel | Works for everyday sheets, charts and Excel files |
 | **Office ProDFos** | PDF reader and tools | Opens inside OI1 from its web version ([fisbal/prodfos](https://github.com/fisbal/prodfos), Flutter) |
 | **Office Stage** | PowerPoint | Planned (Phase 4) |
 | **Office Assistant** | Copilot | Planned (Phase 6): AI help inside every module |
@@ -59,9 +59,21 @@ One office suite, one app:
     Also opens `.html` and `.txt`, and saves as web page or plain text.
   - **Files like a desktop app:** in Chrome and Edge, Save writes back to the file you opened; File › Save as
     asks where. Recent files are on the home screen and in the File menu. Everything autosaves in the browser.
-- **Office Class v0.1** (first version): a fast sheet with its own formula engine (about 40 functions: SUM, AVERAGE,
-  IF, COUNTIF, SUMIF, ROUND, text and date functions), point-and-click formulas, copy and paste with Excel and Word,
-  number formats, insert and delete rows and columns, AutoSum, sort, several sheets, and `.xlsx` / `.csv` open and save.
+- **Office Class v1**: a fast sheet with its own formula engine.
+  - **Formulas:** 130 functions (lookups like VLOOKUP, XLOOKUP, INDEX/MATCH; SUMIFS and COUNTIFS; text, date,
+    statistics and money functions), formulas across sheets (`Prices!B2`, `'My sheet'!A1:B3`), point-and-click formulas.
+  - **Formatting like Excel:** fonts and sizes, bold, italic, underline, strikethrough, borders, fill and text colors,
+    alignment (also vertical), wrap text (Alt+Enter for a new line), indent, Merge & Center, Format Painter, and number
+    formats (number, currency, accounting, percent, fraction, scientific, dates and times, decimals, thousands).
+  - **Working with data:** the fill handle (and Ctrl+D, Ctrl+R) continues numbers, dates, days, months and formulas;
+    AutoFilter with sort and value lists; Remove Duplicates; Find and Replace (Ctrl+F, Ctrl+H); conditional formatting
+    (highlight rules, top and bottom, data bars, color scales).
+  - **Charts:** column, stacked, bar, line, area, pie, doughnut and scatter, with title, legend, data labels and color sets;
+    send a chart to Letter as a picture or save it as PNG.
+  - **View:** freeze panes, row heights and column widths (double-click to fit), gridlines, headings, zoom, text that runs
+    over empty cells, print and PDF.
+  - **Files:** `.xlsx` keeps all of the above, charts included (checked with openpyxl and LibreOffice);
+    `.csv` open and save.
 - **Office Code+** (phase 1): write websites and apps in the browser, nothing to install.
   - **Editor:** CodeMirror 6 with colors and completion for about 40 languages (HTML, CSS, JavaScript, TypeScript, JSX, JSON,
     Markdown, Python, SQL, Dart, Java, Kotlin, Swift, C/C++, C#, Rust, Go, PHP, Ruby, shell and more), a file tree
@@ -114,7 +126,7 @@ The full plan (architecture, stack choice, roadmap, sources) is in the blueprint
 
 0. Prototype: launcher + Letter (done)
 1. Letter v1: ProseMirror editor, .docx open/save, languages (done)
-2. Scene look, linked apps, Class v0.1 (this); Class v1: charts, fill handle, freeze panes, more functions
+2. Scene look, linked apps, Class v1 with charts, fill handle, freeze panes and filters (done); Code+ phase 1 (done)
 3. ProDFos joins the suite
 4. Stage v1: slides, .pptx
 5. Desktop app with Tauri, then cloud save and co-editing

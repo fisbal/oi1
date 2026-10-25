@@ -65,7 +65,7 @@ img { display: block; margin: 14px 0; max-width: 100%; page-break-inside: avoid;
 }
 
 /** Prints an HTML page through a hidden frame, so the app itself is not printed. */
-export function printHtml(html: string) {
+export function printHtml(html: string, done?: () => void) {
   const frame = document.createElement('iframe');
   frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
   document.body.appendChild(frame);
@@ -74,6 +74,9 @@ export function printHtml(html: string) {
   const go = () => {
     frame.contentWindow!.focus();
     frame.contentWindow!.print();
+    // The print window has closed: give the focus back to the app.
+    window.focus();
+    done?.();
     window.setTimeout(() => frame.remove(), 1000);
   };
   const imgs = Array.from(doc.images);

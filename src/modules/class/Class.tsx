@@ -686,7 +686,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const print = async () => {
     const pngs = [];
     for (const ch of sheet.charts ?? []) pngs.push(await chartPng(ch));
-    printHtml(sheetHtml(sheet, values, looks, lang, currency, pngs, hiddenRows));
+    printHtml(sheetHtml(sheet, values, looks, lang, currency, pngs, hiddenRows), () => gridRef.current?.focus());
   };
 
   // What other apps send here: a linked table coming back from Letter, or a file.
