@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { MountedModule, OpenedFile, ShellApi } from './contract';
-import { downloadFile, pickFile, wrapFile } from './files';
-import { LANGUAGES, setLanguage, t, type LanguageCode } from './i18n';
+import type { MountedModule, OpenedFile, RecentFile, ShellApi } from './contract';
+import { idb } from './db';
+import { pickFile, saveFile, wrapFile } from './files';
+import { LANGUAGES, getLanguage, setLanguage, t, type LanguageCode } from './i18n';
 import { moduleForFile, modules } from './modules';
+import { addRecent, listRecent, onRecentChange, openRecent, removeRecent } from './recent';
 import { store } from './storage';
 import { useLanguage } from './useLanguage';
 
@@ -48,13 +50,14 @@ export default function App() {
   const openAnyFile = useCallback((file: OpenedFile | null) => {
     if (!file) return;
     const entry = moduleForFile(file.name);
-    if (entry) openModule(entry.id, file);
+    if (entry) { openModule(entry.id, file); void remember(entry.id, file); }
     else alert(`${t('shell.cannotOpen')} ${file.name}`);
   }, [openModule]);
 
   const closeTab = useCallback((tabId: string) => {
     if (!confirm(t('tab.confirmClose'))) return;
     store.removePrefix(`${tabId}:`);
+    void idb.deletePrefix('kv', `${tabId}:`).catch(() => {});
     setTabs(ts => {
       const i = ts.findIndex(t => t.tabId === tabId);
       const rest = ts.filter(t => t.tabId !== tabId);
@@ -63,12 +66,26 @@ export default function App() {
     });
   }, []);
 
-  const makeApi = useCallback((tabId: string): ShellApi => ({
-    openFile: pickFile,
-    saveFile: downloadFile,
+  const makeApi = useCallback((tabId: string, moduleId: string): ShellApi => ({
+    openFile: async extensions => {
+      const f = await pickFile(extensions);
+      if (f && moduleForFile(f.name)?.id === moduleId) void remember(moduleId, f); // not pictures picked for a letter
+      return f;
+    },
+    saveFile: async (name, content, mimeType, options) => {
+      const saved = await saveFile(name, content, mimeType, options);
+      if (saved) void addRecent(moduleId, saved.ref.name, saved.ref.handle, saved.ref.handle ? undefined : saved.blob);
+      return saved?.ref ?? null;
+    },
     storage: {
       get: key => store.get(`${tabId}:${key}`),
       set: (key, value) => store.set(`${tabId}:${key}`, value),
+      load: key => idb.get<string>('kv', `${tabId}:${key}`).then(v => v ?? null, () => null),
+      save: (key, value) => idb.set('kv', value, `${tabId}:${key}`).catch(() => {}),
+    },
+    recent: {
+      list: () => listRecent(moduleId),
+      open: id => openRecent(id),
     },
     setTitle: title => setTabs(ts => ts.map(t => (t.tabId === tabId && t.title !== title ? { ...t, title } : t))),
     openModule,
@@ -79,9 +96,15 @@ export default function App() {
   useEffect(() => {
     const over = (e: DragEvent) => e.preventDefault();
     const drop = (e: DragEvent) => {
+      if (e.defaultPrevented) return; // a module used it, like an image dropped into a letter
       e.preventDefault();
       const f = e.dataTransfer?.files[0];
-      if (f) openAnyFile(wrapFile(f));
+      if (!f) return;
+      // Chrome and Edge also give a handle, so Save can write back to the dropped file.
+      const item = e.dataTransfer?.items[0] as (DataTransferItem & { getAsFileSystemHandle?(): Promise<FileSystemHandle | null> }) | undefined;
+      const handle = item?.getAsFileSystemHandle?.();
+      if (!handle) { openAnyFile(wrapFile(f)); return; }
+      void handle.then(h => openAnyFile(wrapFile(f, h?.kind === 'file' ? (h as FileSystemFileHandle) : undefined)), () => openAnyFile(wrapFile(f)));
     };
     window.addEventListener('dragover', over);
     window.addEventListener('drop', drop);
@@ -89,6 +112,19 @@ export default function App() {
   }, [openAnyFile]);
 
   const readyExtensions = modules.filter(m => m.load).flatMap(m => m.extensions);
+
+  // Recent files on the home screen.
+  const [recent, setRecent] = useState<RecentFile[]>([]);
+  useEffect(() => {
+    const refresh = () => { void listRecent().then(setRecent); };
+    refresh();
+    return onRecentChange(refresh);
+  }, []);
+  const openRecentFile = async (r: RecentFile) => {
+    const f = await openRecent(r.id);
+    if (f) { openModule(r.moduleId, f); void remember(r.moduleId, f); }
+    else if (confirm(t('home.recentMissing'))) void removeRecent(r.id);
+  };
 
   return (
     <>
@@ -123,6 +159,27 @@ export default function App() {
             </div>
             <button className="open-file" onClick={() => pickFile(readyExtensions).then(openAnyFile)}>{t('home.openFile')}</button>
           </div>
+          {recent.length > 0 && (
+            <section className="recent" aria-label={t('home.recent')}>
+              <h2>{t('home.recent')}</h2>
+              <ul>
+                {recent.slice(0, 8).map(r => {
+                  const entry = modules.find(m => m.id === r.moduleId);
+                  return (
+                    <li key={r.id}>
+                      <button className="recent-open" onClick={() => void openRecentFile(r)} title={r.name}>
+                        <span className="badge" style={{ background: entry?.color }}>{entry?.name.split(' ')[1][0]}</span>
+                        <span className="recent-name">{r.name}</span>
+                        <span className="recent-time">{timeAgo(r.time)}</span>
+                      </button>
+                      <button className="recent-remove" title={t('home.recentRemove')} aria-label={t('home.recentRemove')}
+                        onClick={() => void removeRecent(r.id)}>×</button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
           <div className="cards">
             {modules.map(m => (
               <button key={m.id} className={`card ${m.load ? '' : 'soon'}`} style={{ '--accent': m.color } as React.CSSProperties}
@@ -143,8 +200,25 @@ export default function App() {
   );
 }
 
+/** Keeps a file in the recent list: a handle where the browser has one, otherwise a copy. */
+async function remember(moduleId: string, f: OpenedFile) {
+  const copy = f.handle ? undefined : new Blob([await f.arrayBuffer()], { type: f.type });
+  await addRecent(moduleId, f.name, f.handle, copy);
+}
+
+function timeAgo(time: number): string {
+  const rtf = new Intl.RelativeTimeFormat(getLanguage(), { numeric: 'auto' });
+  const minutes = Math.round((time - Date.now()) / 60000);
+  if (Math.abs(minutes) < 60) return rtf.format(minutes, 'minute');
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 24) return rtf.format(hours, 'hour');
+  const days = Math.round(hours / 24);
+  if (Math.abs(days) < 30) return rtf.format(days, 'day');
+  return new Date(time).toLocaleDateString(getLanguage());
+}
+
 /** Mounts one module into its own element and keeps it alive while the tab is open. */
-function TabHost({ tab, hidden, makeApi }: { tab: Tab; hidden: boolean; makeApi: (tabId: string) => ShellApi }) {
+function TabHost({ tab, hidden, makeApi }: { tab: Tab; hidden: boolean; makeApi: (tabId: string, moduleId: string) => ShellApi }) {
   const ref = useRef<HTMLDivElement>(null);
   const first = useRef({ makeApi, file: tab.file });
 
@@ -154,7 +228,7 @@ function TabHost({ tab, hidden, makeApi }: { tab: Tab; hidden: boolean; makeApi:
     let mounted: MountedModule | undefined;
     let cancelled = false;
     entry?.load?.().then(({ default: mod }) => {
-      if (!cancelled) mounted = mod.mount(el, first.current.makeApi(tab.tabId), first.current.file);
+      if (!cancelled) mounted = mod.mount(el, first.current.makeApi(tab.tabId, tab.moduleId), first.current.file);
     });
     return () => {
       cancelled = true;
