@@ -443,10 +443,8 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
             </Drop>
           </Group>
           <Group label="letter.group.text">
-            <div className="stack">
-              <Btn icon="date" title="letter.date" text onClick={() => run().insertContent(new Date().toLocaleDateString(lang || undefined, { dateStyle: 'long' })).run()} />
-              <Btn icon="hr" title="letter.horizontalLine" text onClick={() => run().setHorizontalRule().run()} />
-            </div>
+            <Btn big icon="date" title="letter.date" onClick={() => run().insertContent(new Date().toLocaleDateString(lang || undefined, { dateStyle: 'long' })).run()} />
+            <Btn big icon="hr" title="letter.horizontalLine" onClick={() => run().setHorizontalRule().run()} />
           </Group>
           <Group label="letter.group.symbols">
             <Drop big icon="symbol" title="letter.symbol" wide>

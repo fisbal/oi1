@@ -86,7 +86,14 @@
 .rb-icon .swatch { position: absolute; left: -1px; right: -1px; bottom: -4px; height: 3px; border-radius: 1px; }
 .rb-icon.key .swatch { left: 8px; right: 8px; bottom: 5px; height: 3px; }
 .rb-caret { opacity: .6; display: inline-flex; }
-.rb.big .rb-caret { position: absolute; margin: 0; right: 4px; top: 26px; }
+/* A big button's arrow is a small badge on the key's bottom right corner (the key is 38px wide and centered),
+   so it never pushes the key aside or floats next to it, whatever the label's width. */
+.rb.big .rb-caret {
+  position: absolute; margin: 0; left: calc(50% + 11px); top: 27px; width: 15px; height: 15px; display: grid; place-items: center;
+  border-radius: 50%; opacity: 1; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(var(--shade-rgb), calc(.4 * var(--shade-k)));
+}
+.rb.big:hover:not(:disabled) .rb-caret { color: var(--gold-light); border-color: rgba(212,168,67,.4); }
 .drop > .rb.big { position: relative; }
 .color-a { position: relative; font-weight: 700; padding-bottom: 3px; }
 .color-a.hl { font-weight: 400; font-size: 12px; }
@@ -218,5 +225,9 @@
 .split > .drop > .rb .rb-caret { margin: 0; }
 /* With a big button, the arrow sits on the key's corner so that the key stays centered over its label. */
 .split:has(> .rb.big) { position: relative; align-self: stretch; align-items: flex-start; }
-.split > .rb.big + .drop { position: absolute; top: 12px; right: -4px; }
-.split > .rb.big + .drop > .rb { height: 22px; width: 16px; }
+.split > .rb.big + .drop { position: absolute; left: calc(50% + 11px); top: 27px; }
+.split > .rb.big + .drop > .rb {
+  height: 15px; width: 15px; min-width: 0; padding: 0; margin: 0; border-radius: 50%; color: var(--muted);
+  background: var(--surface-2); border: 1px solid var(--line); box-shadow: 0 1px 3px rgba(var(--shade-rgb), calc(.4 * var(--shade-k)));
+}
+.split > .rb.big + .drop > .rb:hover:not(:disabled) { color: var(--gold-light); border-color: rgba(212,168,67,.4); background: var(--surface-2); }
