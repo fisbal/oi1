@@ -18,6 +18,10 @@ One office suite, one app:
 ## Try it
 
 - **Online:** https://fisbal.github.io/oi1/ (built and published automatically on every push to `main`).
+- **Android:** [OfficeIn1.apk](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1.apk)
+- **Windows:** [OfficeIn1-Setup.exe](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1-Setup.exe)
+- The installed apps update themselves. Every merge to `main` builds the web, Android and Windows versions and
+  publishes them, with the source code, as a GitHub Release (see [docs/builds.md](docs/builds.md)).
 - **On your computer:** install Node.js 22, then in this folder run `npm install` and `npm run dev`,
   and open the address it prints. `npm test` runs the tests, `npm run build` makes the site in `dist/`.
 
@@ -135,6 +139,6 @@ The full plan (architecture, stack choice, roadmap, sources) is in the blueprint
 2. Scene look, linked apps, Class v1 with charts, fill handle, freeze panes and filters (done); Code+ phase 1 (done); Copilot (Claude) in every app (done)
 3. ProDFos joins the suite
 4. Stage v1: slides, .pptx
-5. Desktop app with Tauri, then cloud save and co-editing
+5. Windows and Android apps with Tauri, updating themselves (done); then cloud save and co-editing
 6. Office Notes and Plan (the Assistant is already in every app as the Copilot)
 7. Office Mail, Draw and Form
