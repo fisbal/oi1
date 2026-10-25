@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseCsv, toCsv } from '../csv';
-import { evaluate, isError, moveRefs } from '../formula';
-import { computeSheet, display, key, readEntry, type WorkbookData } from '../sheet';
+import { evaluate, isError, moveRefs, renameSheetRefs } from '../formula';
+import { computeBook, computeSheet, display, key, readEntry, type WorkbookData } from '../sheet';
 import { readXlsx, xlsxBytes } from '../xlsx';
 
 const grid: Record<string, number | string> = { A1: 2, A2: 3, A3: 5, B1: 'x', B2: 'y', B3: 'x' };
@@ -110,5 +110,65 @@ describe('xlsx', () => {
     expect(s.cells[key(2, 3)]).toMatchObject({ input: '007', style: { format: 'text' } });
     expect(s.cells[key(3, 3)].style).toMatchObject({ format: 'percent', color: '#C00000' });
     expect(computeSheet(s).get(key(1, 3))).toBe(42.5);
+  });
+});
+
+describe('Class v1 formulas', () => {
+  const book: WorkbookData = {
+    sheets: [
+      { name: 'Prices', cells: {
+        [key(0, 0)]: { input: 'Item' }, [key(1, 0)]: { input: 'Price' }, [key(2, 0)]: { input: 'Kind' },
+        [key(0, 1)]: { input: 'Mug' }, [key(1, 1)]: { input: '14' }, [key(2, 1)]: { input: 'home' },
+        [key(0, 2)]: { input: 'Plant' }, [key(1, 2)]: { input: '22' }, [key(2, 2)]: { input: 'garden' },
+        [key(0, 3)]: { input: 'Candle' }, [key(1, 3)]: { input: '12' }, [key(2, 3)]: { input: 'home' },
+      }, widths: {} },
+      { name: 'My sheet', cells: {
+        [key(0, 0)]: { input: '=VLOOKUP("Plant",Prices!A2:C4,2,FALSE)' },
+        [key(0, 1)]: { input: "=SUMIFS(Prices!B2:B4,Prices!C2:C4,\"home\")" },
+        [key(0, 2)]: { input: '=INDEX(Prices!A2:A4,MATCH(12,Prices!B2:B4,0))' },
+        [key(0, 3)]: { input: '=XLOOKUP("Mug",Prices!A2:A4,Prices!B2:B4)*2' },
+        [key(0, 4)]: { input: "='My sheet'!A1+1" },
+        [key(0, 5)]: { input: '=Nope!A1' },
+      }, widths: {} },
+    ],
+  };
+  it('reads other sheets and looks things up', () => {
+    const v = computeBook(book)[1];
+    expect(v.get(key(0, 0))).toBe(22);
+    expect(v.get(key(0, 1))).toBe(26);
+    expect(v.get(key(0, 2))).toBe('Candle');
+    expect(v.get(key(0, 3))).toBe(28);
+    expect(v.get(key(0, 4))).toBe(23);
+    expect(v.get(key(0, 5))).toEqual({ error: '#REF!' });
+  });
+  it('has the everyday functions', () => {
+    const get = () => '' as const;
+    expect(evaluate('TEXT(1234.5,"#,##0.00")', get)).toBe('1,234.50');
+    expect(evaluate('TEXT(0.256,"0.0%")', get)).toBe('25.6%');
+    expect(evaluate('TEXT(DATE(2026,10,25),"dd/mm/yyyy")', get)).toBe('25/10/2026');
+    expect(evaluate('TEXT(DATE(2026,10,25),"dddd d mmmm")', get)).toBe('Sunday 25 October');
+    expect(evaluate('YEAR(DATE(2026,10,25))+MONTH(DATE(2026,10,25))', get)).toBe(2036);
+    expect(evaluate('EOMONTH(DATE(2026,2,10),0)-DATE(2026,2,1)', get)).toBe(27);
+    expect(evaluate('DATEDIF(DATE(2000,5,1),DATE(2026,4,30),"Y")', get)).toBe(25);
+    expect(evaluate('NETWORKDAYS(DATE(2026,10,19),DATE(2026,10,25))', get)).toBe(5);
+    expect(evaluate('IFS(1>2,"a",2>1,"b")', get)).toBe('b');
+    expect(evaluate('SWITCH(2,1,"one",2,"two","other")', get)).toBe('two');
+    expect(evaluate('SUBSTITUTE("a-b-c","-","+")', get)).toBe('a+b+c');
+    expect(evaluate('TEXTJOIN(", ",TRUE,"a","","b")', get)).toBe('a, b');
+    expect(evaluate('ROUND(PMT(0.05/12,60,10000),2)', get)).toBe(-188.71);
+    expect(evaluate('ROW()+COLUMN()', get, { c: 2, r: 4 })).toBe(8);
+    expect(evaluate('IFNA(NA(),"none")', get)).toBe('none');
+  });
+  it('keeps sheet names when formulas move', () => {
+    expect(moveRefs("SUM('My sheet'!A1:A3)+B1", (c, r) => ({ c, r: r + 1 }))).toBe("SUM('My sheet'!A2:A4)+B2");
+    expect(renameSheetRefs('Prices!B2*2', 'Prices', 'New prices')).toBe("'New prices'!B2*2");
+  });
+  it('reads typed dates, times and shows the new formats', () => {
+    expect(readEntry('25/10/2026', true).format).toBe('date');
+    expect(readEntry('14:30').format).toBe('time');
+    expect(display(1234.5, { format: 'number', decimals: 1 }, 'en', 'USD')).toBe('1,234.5');
+    expect(display(0.125, { format: 'percent', decimals: 1 }, 'en', 'USD')).toBe('12.5%');
+    expect(display(1.75, { format: 'fraction' }, 'en', 'USD')).toBe('1 3/4');
+    expect(display(12345, { format: 'scientific' }, 'en', 'USD')).toBe('1.23E+4');
   });
 });
