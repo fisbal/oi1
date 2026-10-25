@@ -5,6 +5,8 @@ import { getLanguage, t } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import { FileMenu } from '../../ui/FileMenu';
 import { Icon } from '../../ui/kit';
+import { Copilot, useCopilotShortcut } from '../../ui/Copilot';
+import { letterCopilot } from './copilot';
 import { htmlBody, textToHtml, wrapHtml } from './html';
 import { defaultStyles, emptyDoc, stylesCss, type DocStyles, type LetterDoc } from './model';
 import { PX_PER_IN, defaultPage, isDark, pageInches, type PageSettings } from './page';
@@ -86,6 +88,7 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   const setView = useCallback((v: Partial<ViewState>) => setViewState(cur => ({ ...cur, ...v })), []);
   const [layout, setLayout] = useState<LayoutResult>({ pages: 1, tail: 96, notes: [] });
   const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands'>(null);
+  const [copilot, setCopilot] = useState(false);
   const [outline, setOutline] = useState(() => window.innerWidth >= 1200 && shell.storage.get('outline') === '1');
   const [focusMode, setFocusMode] = useState(false);
   const [dictating, setDictating] = useState(false);
@@ -97,6 +100,7 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   const [markup, setMarkup] = useState(true);
   const touched = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  useCopilotShortcut(() => setCopilot(o => !o), rootRef);
   const canvasRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const scope = useMemo(() => `letter-${Math.random().toString(36).slice(2, 8)}`, []);
@@ -791,6 +795,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     customMargins: () => setPanel('margins'),
     ...smart,
     ...review,
+    copilot: () => setCopilot(o => !o),
   };
 
   // Double-clicking a footnote number edits its text.
@@ -847,7 +852,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
   const suite = {
     apps: shell.apps(), sheets: shell.tabs('class'), dictating, speaking, outline, linkedTable, themeId,
     tracking, markup, commentsOpen, commentHere: !!reviewHere?.comments.length, changeHere: !!reviewHere?.change,
-    changes: reviewHere?.changes ?? 0, footnoteHere: !!reviewHere?.footnote, footnotes: reviewHere?.footnotes.length ?? 0,
+    changes: reviewHere?.changes ?? 0, footnoteHere: !!reviewHere?.footnote, footnotes: reviewHere?.footnotes.length ?? 0, copilot,
   };
   const liveComments = new Set(reviewHere ? [...commentRanges(body.state.doc).keys()] : []);
   const openComments = comments.filter(c => liveComments.has(c.id) && !c.resolved).length;
@@ -898,6 +903,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
         <CommentsPane editor={body} comments={comments} onChange={setComments} author={() => userName()} editing={editingComment}
           setEditing={setEditingComment} showResolved={false} onClose={() => setCommentsOpen(false)} />
       )}
+      {copilot && !focusMode && <Copilot host={letterCopilot(body, title)} ai={shell.ai} onClose={() => { setCopilot(false); body.commands.focus(); }} />}
       </div>
       <footer className="status">
         <span>{isPrint ? t('letter.pageOf', { n: cursorPage, total: layout.pages }) : t('letter.webLayout')}</span>

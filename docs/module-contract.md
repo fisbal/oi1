@@ -54,6 +54,7 @@ the others from where the user is working**, and pass its work along without a s
 | `shell.onReceive((handoff, from) => boolean)` | Takes what other tabs send. Return `true` when handled. |
 | `shell.ask(tabId, 'table')` / `shell.onAsk(...)` | Asks another tab for something (Letter asks Class for the selected cells). |
 | `shell.notify(message)` | A short message at the bottom of the window. |
+| `shell.ai.ready()` / `shell.ai.ask({ system, messages, onText, schema })` | Claude, the copilot. React apps use the shared `<Copilot host={…} ai={shell.ai} />` panel instead (see [copilot.md](copilot.md)). |
 
 A `Handoff` is one of `{ kind: 'table', table, title?, link? }`, `{ kind: 'html', html }` or
 `{ kind: 'file', file }`. A `TableData` keeps each cell's shown text, its formula and bold, so a

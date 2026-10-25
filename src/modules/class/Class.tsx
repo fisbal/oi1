@@ -25,6 +25,8 @@ import { condLooks, type CondLook } from './cond';
 import { autofill, type Box } from './fill';
 import { CondDialog, FilterMenu, FindPanel, HIGHLIGHT_KINDS, TOP_KINDS, type CondKind, type FindOptions } from './panels';
 import { borderCss, printHtml, sheetHtml } from './print';
+import { classCopilot, type ClassBridge } from './copilot';
+import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
 
 export const EXTENSIONS = ['.xlsx', '.csv', '.tsv'];
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -687,6 +689,30 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const pngs = [];
     for (const ch of sheet.charts ?? []) pngs.push(await chartPng(ch));
     printHtml(sheetHtml(sheet, values, looks, lang, currency, pngs, hiddenRows), () => gridRef.current?.focus());
+  };
+
+  // ---------- copilot (Claude) ----------
+  const [copilot, setCopilot] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useCopilotShortcut(() => setCopilot(o => !o), rootRef);
+  const bridge: ClassBridge = {
+    sheetName: sheet.name,
+    focus: () => {
+      const rg = single ? currentRegion(sel.a) : range;
+      const active = cellName(sel.a.c, sel.a.r);
+      const activeInput = sheet.cells[key(sel.a.c, sel.a.r)]?.input ?? '';
+      if (single && !activeInput && rg.c1 === rg.c2 && rg.r1 === rg.r2) return null;
+      // A very long table goes to Claude cut to its first rows.
+      const shown = { ...rg, r2: Math.min(rg.r2, rg.r1 + 399) };
+      return { ref: `${cellName(rg.c1, rg.r1)}:${cellName(shown.c2, shown.r2)}`, table: tableOf(shown), active, activeInput, single };
+    },
+    setActive: text => { const { c, r } = sel.a; changeSheet(s => setEntry(s.cells, c, r, text)); gridRef.current?.focus(); },
+    writeRows: (rows, at) => {
+      const start = parseCell(String(at ?? '').split(':')[0]) ?? { c: range.c1, r: range.r1 };
+      changeSheet(s => rows.forEach((row, r) => row.forEach((text, c) => setEntry(s.cells, start.c + c, start.r + r, text))));
+      setSel({ a: start, f: { c: start.c + Math.max(...rows.map(r => r.length)) - 1, r: start.r + rows.length - 1 } });
+      gridRef.current?.focus();
+    },
   };
 
   // What other apps send here: a linked table coming back from Letter, or a file.
@@ -1372,7 +1398,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   ];
 
   return (
-    <div className={`class${painter ? ' painting' : ''}`} onKeyDown={e => {
+    <div className={`class${painter ? ' painting' : ''}`} ref={rootRef} onKeyDown={e => {
       // Shortcuts like Ctrl+F still work after a click on the ribbon took the focus.
       const el = e.target as HTMLElement;
       if ((e.ctrlKey || e.metaKey) && !gridRef.current?.contains(el) && !['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) && !el.closest('.drop-panel, dialog')) {
@@ -1387,6 +1413,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           <button type="button" role="tab" aria-selected={shownTab === 'oi1'} className={`ribbon-special${shownTab === 'oi1' ? ' on' : ''}`} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
           {chart && <button type="button" role="tab" aria-selected={shownTab === 'chart'} className={shownTab === 'chart' ? 'on' : ''} onClick={() => setTab('chart')}>{t('class.tab.chart')}</button>}
           <span className="ribbon-quick">
+            <CopilotButton open={copilot} onClick={() => setCopilot(o => !o)} />
             <Btn icon="undo" title="letter.undo" onClick={undoOnce} disabled={!undo.current.length} />
             <Btn icon="redo" title="letter.redo" onClick={redoOnce} disabled={!redo.current.length} />
           </span>
@@ -1677,6 +1704,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           onKeyDown={onEditorKey} />
       </div>
 
+      <div className="class-body">
       <div className={`grid${headings ? '' : ' no-heads'}`} ref={gridRef} tabIndex={0} onKeyDown={onGridKey} style={cellVars}
         onCopy={e => onCopy(e)} onCut={e => onCopy(e, true)} onPaste={onPaste}>
         <div className="corner" onMouseDown={() => setSel({ a: { c: 0, r: 0 }, f: { c: Math.max(used.cols, 0), r: Math.max(used.rows, 0) } })} />
@@ -1717,6 +1745,8 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           <FindPanel initialReplace={find.replace} status={findStatus} onFind={findNext} onReplace={replaceOne} onReplaceAll={replaceAll}
             onClose={() => { setFind(null); setFindStatus(''); gridRef.current?.focus(); }} />
         )}
+      </div>
+      {copilot && <Copilot host={classCopilot(bridge, decimalComma(lang))} ai={shell.ai} onClose={() => { setCopilot(false); gridRef.current?.focus(); }} />}
       </div>
 
       <div className="sheet-tabs">

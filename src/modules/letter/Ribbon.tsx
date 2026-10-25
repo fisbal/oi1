@@ -10,6 +10,7 @@ import { FONT_GROUPS, FONT_SIZES, STYLE_IDS, cssFont, previewStyle, type DocStyl
 import { MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, WATERMARKS, isDark, pageInches, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
 import type { AppInfo, TabInfo } from '../../shell/contract';
 import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, NumberBox, type ComboGroup } from '../../ui/kit';
+import { CopilotButton } from '../../ui/Copilot';
 import { TABLE_STYLES, applyTableStyle, type CalloutKind, type CleanUp, type TableStyleId } from './smart';
 import { SPACING, THEMES, type SpacingId, type Theme } from './themes';
 
@@ -84,6 +85,7 @@ export interface RibbonActions {
   footnote: () => void;
   editFootnote: () => void;
   nextFootnote: () => void;
+  copilot: () => void;
 }
 
 /** What the ribbon shows about the rest of the suite. */
@@ -103,6 +105,7 @@ export interface SuiteState {
   changes: number;
   footnoteHere: boolean;
   footnotes: number;
+  copilot: boolean;
 }
 
 const TABS = ['home', 'insert', 'design', 'layout', 'references', 'review', 'view', 'smart'] as const;
@@ -256,6 +259,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
             onMouseDown={e => e.preventDefault()} onClick={() => setTab('picture')}>{t(tabLabel.picture)}</button>
         )}
         <span className="ribbon-quick">
+          <CopilotButton open={suite.copilot} onClick={actions.copilot} />
           <button type="button" className="cmd-search" onMouseDown={e => e.preventDefault()} onClick={actions.commandSearch} title={`${t('letter.commandSearch')} (Alt+Q)`}>
             <Icon name="search" /><span>{t('letter.commandSearch')}</span><kbd>Alt+Q</kbd>
           </button>
