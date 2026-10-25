@@ -167,3 +167,7 @@ textarea.cell-editor { padding: 4px 6px; resize: none; line-height: 1.3; overflo
   .name-box { width: 74px; }
   .grid { --head: 38px; }
 }
+
+/* The grid with the copilot beside it. */
+.class-body { flex: 1; min-height: 0; display: flex; }
+.class-body > .grid { flex: 1; min-width: 0; }

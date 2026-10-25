@@ -17,6 +17,8 @@ import * as github from './github';
 import { canFormat, formatCode, languageName } from './languages';
 import { QR_LIMIT, emptyProject, packRun, readEntry, readPicked, readZip, runLink, writeZip, type Project } from './project';
 import { TEMPLATES, type Template } from './templates';
+import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
+import { codeCopilot } from './copilot';
 
 export const EXTENSIONS = [
   '.zip', '.js', '.mjs', '.jsx', '.ts', '.tsx', '.css', '.scss', '.json', '.md', '.py', '.sql', '.xml', '.yaml', '.yml',
@@ -159,6 +161,9 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [qr, setQr] = useState<{ url: string; image: string; kind: 'preview' | 'site'; tooBig?: boolean } | null>(null);
   const editor = useRef<EditorApi>({ view: null });
+  const [copilot, setCopilot] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useCopilotShortcut(() => setCopilot(o => !o), rootRef);
   const upload = useRef<HTMLInputElement>(null);
   const uploadDir = useRef<HTMLInputElement>(null);
   const uploadTarget = useRef('');
@@ -506,9 +511,13 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   const errorCount = logs.filter(l => l.level === 'error').length;
   const g = project.github;
   const content = active ? project.files[active] : '';
+  const copilotHost = codeCopilot({
+    project: title, files: Object.keys(project.files), path: active && !isBinary(content) ? active : null,
+    view: () => editor.current.view, errors: () => logs.filter(l => l.level === 'error').map(l => `${l.file ?? ''}${l.line ? `:${l.line}` : ''} ${l.text}`),
+  });
 
   return (
-    <div className={`code${mobileView === 'preview' ? ' show-preview' : ''}`} onKeyDownCapture={onKey} style={{ '--code-size': `${size}px` } as CSSProperties}>
+    <div ref={rootRef} className={`code${mobileView === 'preview' ? ' show-preview' : ''}`} onKeyDownCapture={onKey} style={{ '--code-size': `${size}px` } as CSSProperties}>
       <div className="ribbon">
         <div className="ribbon-tabs" role="tablist">
           <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
@@ -517,6 +526,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
           ))}
           <button type="button" role="tab" aria-selected={tab === 'oi1'} className={`ribbon-special${tab === 'oi1' ? ' on' : ''}`} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
           <span className="ribbon-quick">
+            <CopilotButton open={copilot} onClick={() => setCopilot(o => !o)} />
             <Btn icon="undo" title="letter.undo" onClick={command(undo)} disabled={!active} />
             <Btn icon="redo" title="letter.redo" onClick={command(redo)} disabled={!active} />
             <button type="button" className="run-pill" onClick={() => { setShowPreview(true); setMobileView('preview'); void run(); }} title={`${t('code.run')} (Ctrl+Enter)`}>
@@ -704,6 +714,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
               )}
             </section>
           )}
+          {copilot && <Copilot host={copilotHost} ai={shell.ai} onClose={() => { setCopilot(false); editor.current.view?.focus(); }} />}
         </div>
       )}
 

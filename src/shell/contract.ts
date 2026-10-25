@@ -85,6 +85,26 @@ export interface ShellApi {
    * Returns a function that stops listening.
    */
   onReceive(fn: (handoff: Handoff, from: string) => boolean | Promise<boolean>): () => void;
+
+  /** Claude, the copilot every app has (see src/ui/Copilot.tsx for the shared panel). */
+  readonly ai: AiApi;
+}
+
+export interface AiApi {
+  /** True when the user has set Claude up on this device. */
+  ready(): boolean;
+  /** Ask Claude. The answer streams through `onText` (the whole text so far) and the promise gives all of it. */
+  ask(req: AiRequest): Promise<string>;
+}
+
+export interface AiRequest {
+  system: string;
+  messages: { role: 'user' | 'assistant'; content: string }[];
+  onText?: (soFar: string) => void;
+  signal?: AbortSignal;
+  /** A JSON schema the answer must follow, for results an app applies itself (like corrected paragraphs). */
+  schema?: Record<string, unknown>;
+  effort?: 'low' | 'medium' | 'high';
 }
 
 export interface AppInfo {

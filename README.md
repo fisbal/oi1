@@ -88,6 +88,11 @@ One office suite, one app:
     get files from GitHub, and **Publish website** to GitHub Pages (TypeScript compiled to plain JavaScript on a `gh-pages` branch).
   - **Files:** save and open projects as `.zip`, save a ready-to-host site, open a folder.
   - **Linked:** send code to Letter; turn the cells selected in Class into a JSON data file; Class can ask Code+ for a JSON or CSV table.
+- **Copilot (Claude) in every app:** the gold Copilot key at the right of the ribbon (or Ctrl+Shift+Space) opens Claude beside
+  your work. Letter: correct (fixes come back as tracked changes you accept or reject), rewrite, summarize, translate,
+  continue. Class: write, explain or fix formulas, clean, analyze or complete a table. Code+: explain, fix, improve, comment
+  or write code, with the console's errors. Every answer has buttons to put it back in place. It uses your own Claude API key,
+  kept on your device only (see [docs/copilot.md](docs/copilot.md)).
 - **Languages:** English, Français, Español, Português and Deutsch, picked automatically from the browser
   and changeable in the top bar.
 - **Open any file:** the "Open a file" button on the home screen, or drag a file onto the window.
@@ -104,7 +109,8 @@ src/shell/               the launcher: home screen, tabs, languages, shared serv
   contract.ts            the module contract (types)
   modules.ts             list of modules
   i18n.ts                interface text in every language
-src/ui/                  shared ribbon, buttons, dialogs and file menu (the scene look)
+src/ui/                  shared ribbon, buttons, dialogs, file menu and the Copilot panel (the scene look)
+  Copilot.tsx            Claude beside every app; each app describes itself with a CopilotHost
 src/formats/             formula engine, sheet model, .xlsx and .csv, tables passed between apps
 src/modules/letter/      Office Letter (React + TipTap; docx/ = Word open/save, pagination.ts = pages)
 src/modules/class/       Office Class (the sheet)
@@ -117,7 +123,7 @@ Built with TypeScript, React and Vite. Main libraries: [TipTap](https://tiptap.d
 [JSZip](https://stuk.github.io/jszip/) (MIT, our own .docx and .xlsx readers), [docx](https://github.com/dolanmiu/docx) (MIT, writes .docx),
 [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) (MIT),
 [CodeMirror 6](https://codemirror.net) (MIT), [Sucrase](https://github.com/alangpierce/sucrase) (MIT), [es-module-lexer](https://github.com/guybedford/es-module-lexer) (MIT),
-[Prettier](https://prettier.io) (MIT), [esm.sh](https://esm.sh) (npm packages for previews), and the DM Sans and Playfair Display fonts (SIL Open Font License) through Fontsource.
+[Prettier](https://prettier.io) (MIT), the [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) (MIT, the copilot), [esm.sh](https://esm.sh) (npm packages for previews), and the DM Sans and Playfair Display fonts (SIL Open Font License) through Fontsource.
 
 Every module plugs in through one small contract: see [docs/module-contract.md](docs/module-contract.md).
 The full plan (architecture, stack choice, roadmap, sources) is in the blueprint document.
@@ -126,9 +132,9 @@ The full plan (architecture, stack choice, roadmap, sources) is in the blueprint
 
 0. Prototype: launcher + Letter (done)
 1. Letter v1: ProseMirror editor, .docx open/save, languages (done)
-2. Scene look, linked apps, Class v1 with charts, fill handle, freeze panes and filters (done); Code+ phase 1 (done)
+2. Scene look, linked apps, Class v1 with charts, fill handle, freeze panes and filters (done); Code+ phase 1 (done); Copilot (Claude) in every app (done)
 3. ProDFos joins the suite
 4. Stage v1: slides, .pptx
 5. Desktop app with Tauri, then cloud save and co-editing
-6. Office Assistant, Notes and Plan
+6. Office Notes and Plan (the Assistant is already in every app as the Copilot)
 7. Office Mail, Draw and Form
