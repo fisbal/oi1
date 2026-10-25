@@ -25,6 +25,7 @@ One office suite, one app:
 
 - **Scene look** (the ProDFos design): a breathing gold nebula, glass panels, 3D app slabs with small
   animated scenes, gold 3D ribbon keys, Playfair Display and DM Sans.
+- **Dark or light:** the sun/moon button in the top bar switches the whole suite; the first visit follows the device.
 - **Tabs and launcher:** open several documents at once; the 9-dot button opens any app from anywhere.
 - **Apps link together:** every app has an "Office In 1" tab. Send a Class table to a letter and keep it linked
   ("Update letter"), insert the cells selected in Class from Letter, edit a letter's table in Class, open ProDFos.
@@ -35,6 +36,12 @@ One office suite, one app:
     (Normal, Title, Subtitle, Headings, Quote); find and replace.
   - **Insert:** page break, table, picture, link, header, footer, page numbers ("Page X of Y"), date, line, symbols.
   - **Layout:** margins, orientation, paper size, page color, page border, indents and spacing.
+  - **Fonts:** a real font menu (search, recent fonts, each font shown in its own face) with 40 free fonts that look
+    the same on every device (Inter, Roboto, Lato, Montserrat, Poppins, Lora, Merriweather, EB Garamond, Playfair Display,
+    Caveat, Dancing Script, JetBrains Mono and more), plus free look-alikes for Calibri, Cambria, Arial, Times New Roman and other Office fonts.
+  - **Home** also has paste as plain text and bullet and numbering libraries (✓ ➤ ★ ▪, 1) a. A. i. I.).
+  - **Table:** table styles (gold, blue, green, rose, gray, clean). **Picture:** align, size, alt text, change, delete.
+  - **Layout:** hyphenation.
   - **Insert** also has callouts, letter parts (address and closing blocks), table of contents, QR codes, and tables from Class.
   - **Design:** 8 one-click document themes (Office, Scene, Classic, Modern, Elegant, Ocean, Forest, Mono), paragraph spacing, page background.
   - **Smart:** command search (Alt+Q, about 60 commands), navigation pane, clean up (quotes, spaces, empty lines),

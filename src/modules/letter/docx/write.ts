@@ -9,7 +9,7 @@ import {
   ShadingType, Tab, Table, TableCell, TableRow, TextRun, WidthType,
   type IParagraphOptions, type IRunOptions, type ParagraphChild,
 } from 'docx';
-import type { Borders } from '../extensions';
+import { BULLET_CHARS, BULLET_STYLES, type Borders } from '../extensions';
 import { WORD_STYLE_IDS, type LetterDoc, type StyleDef } from '../model';
 import { PAGE_SIZES, PX_PER_IN, TWIPS_PER_IN, isDark, pageInches } from '../page';
 
@@ -106,7 +106,39 @@ function imageSize(src: string): Promise<{ width: number; height: number }> {
   });
 }
 
-type ListCtx = { kind: 'bullet' | 'number'; level: number; instance: number };
+const NUMBER_FORMATS: Record<string, { format: (typeof LevelFormat)[keyof typeof LevelFormat]; text: (n: number) => string }> = {
+  decimal: { format: LevelFormat.DECIMAL, text: n => `%${n}.` },
+  'decimal-paren': { format: LevelFormat.DECIMAL, text: n => `%${n})` },
+  'lower-alpha': { format: LevelFormat.LOWER_LETTER, text: n => `%${n}.` },
+  'upper-alpha': { format: LevelFormat.UPPER_LETTER, text: n => `%${n}.` },
+  'lower-roman': { format: LevelFormat.LOWER_ROMAN, text: n => `%${n}.` },
+  'upper-roman': { format: LevelFormat.UPPER_ROMAN, text: n => `%${n}.` },
+};
+
+const listReference = (kind: 'bullet' | 'number', style: string | null) =>
+  kind === 'bullet' ? `oi1-bullet-${style}` : style && NUMBER_FORMATS[style] ? `oi1-num-${style}` : 'oi1-numbers';
+
+/** Word numbering definitions: the default numbers, plus one per bullet shape and number format. */
+function numberingConfig() {
+  const indent = (level: number) => ({ paragraph: { indent: { left: 720 * (level + 1), hanging: 360 } } });
+  const deeper = [LevelFormat.DECIMAL, LevelFormat.LOWER_LETTER, LevelFormat.LOWER_ROMAN];
+  const levels = [0, 1, 2, 3, 4, 5];
+  return [
+    { reference: 'oi1-numbers', levels: levels.map(level => ({ level, format: deeper[level % 3], text: `%${level + 1}.`, alignment: AlignmentType.START, style: indent(level) })) },
+    ...Object.entries(NUMBER_FORMATS).map(([id, f]) => ({
+      reference: `oi1-num-${id}`,
+      levels: levels.map(level => ({
+        level, format: level === 0 ? f.format : deeper[level % 3], text: level === 0 ? f.text(1) : `%${level + 1}.`, alignment: AlignmentType.START, style: indent(level),
+      })),
+    })),
+    ...BULLET_STYLES.map(id => ({
+      reference: `oi1-bullet-${id}`,
+      levels: levels.map(level => ({ level, format: LevelFormat.BULLET, text: BULLET_CHARS[id], alignment: AlignmentType.START, style: indent(level) })),
+    })),
+  ];
+}
+
+type ListCtx = { kind: 'bullet' | 'number'; level: number; instance: number; style: string | null };
 
 class DocxWriter {
   private listCount = 0;
@@ -147,9 +179,9 @@ class DocxWriter {
 
   private async block(node: JSONContent, list?: ListCtx): Promise<(Paragraph | Table)[]> {
     const listOpts: Partial<IParagraphOptions> = list
-      ? list.kind === 'bullet'
+      ? list.kind === 'bullet' && !list.style
         ? { bullet: { level: list.level } }
-        : { numbering: { reference: 'oi1-numbers', level: list.level, instance: list.instance } }
+        : { numbering: { reference: listReference(list.kind, list.style), level: list.level, instance: list.instance } }
       : {};
 
     switch (node.type) {
@@ -168,8 +200,10 @@ class DocxWriter {
         const kind = node.type === 'bulletList' ? 'bullet' : 'number';
         const level = list ? list.level + 1 : 0;
         const instance = kind === 'number' && !list ? ++this.listCount : list?.instance ?? ++this.listCount;
+        // A list keeps its own style; a list nested inside takes the parent's unless it sets one.
+        const style = (node.attrs?.listStyle as string | null) ?? (list?.kind === kind ? list.style : null);
         const items: (Paragraph | Table)[] = [];
-        for (const item of node.content ?? []) items.push(...(await this.blocks(item.content, { kind, level, instance })));
+        for (const item of node.content ?? []) items.push(...(await this.blocks(item.content, { kind, level, instance, style })));
         return items;
       }
       case 'blockquote': {
@@ -231,7 +265,11 @@ class DocxWriter {
     const wanted = Number(node.attrs?.width) || size.width;
     const width = Math.min(wanted, this.contentWidthPx);
     const height = Math.round(width * (size.height / size.width));
-    return new ImageRun({ data: img.data, type: img.type, transformation: { width: Math.round(width), height } });
+    const alt = (node.attrs?.alt as string | undefined) ?? '';
+    return new ImageRun({
+      data: img.data, type: img.type, transformation: { width: Math.round(width), height },
+      ...(alt ? { altText: { name: alt.slice(0, 60), description: alt, title: alt.slice(0, 60) } } : {}),
+    });
   }
 
   private runOptions(marksList: JSONContent['marks']): IRunOptions {
@@ -323,6 +361,7 @@ export async function letterToDocx(letter: LetterDoc, title: string): Promise<Ar
     title,
     creator: 'Office In 1',
     background: page.color ? { color: toHex(page.color) } : undefined,
+    hyphenation: page.hyphenate ? { autoHyphenation: true } : undefined,
     styles: {
       default: {
         document: { run: { ...runStyle(normal), language: letter.lang ? { value: letter.lang } : undefined }, paragraph: paragraphStyle(normal) },
@@ -339,18 +378,7 @@ export async function letterToDocx(letter: LetterDoc, title: string): Promise<Ar
         run: runStyle(styles[id]), paragraph: paragraphStyle(styles[id]),
       })),
     },
-    numbering: {
-      config: [{
-        reference: 'oi1-numbers',
-        levels: [0, 1, 2, 3, 4, 5].map(level => ({
-          level,
-          format: [LevelFormat.DECIMAL, LevelFormat.LOWER_LETTER, LevelFormat.LOWER_ROMAN][level % 3],
-          text: `%${level + 1}.`,
-          alignment: AlignmentType.START,
-          style: { paragraph: { indent: { left: 720 * (level + 1), hanging: 360 } } },
-        })),
-      }],
-    },
+    numbering: { config: numberingConfig() },
     sections: [{
       properties: {
         page: {

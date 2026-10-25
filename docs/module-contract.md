@@ -66,6 +66,14 @@ Modules use the ribbon, buttons, menus, dialogs and file menu in [`src/ui/`](../
 so every app has the same "scene" look as ProDFos: void black, cream text, gold accents, Playfair Display
 for titles and DM Sans for text, glass panels and 3D keys. Each app has its own accent color in `modules.ts`.
 
+There is a **dark and a light theme** (the sun/moon button in the top bar, saved per device). Never hard-code
+interface colors: use the tokens in `src/shell/shell.css` (`--ink`, `--muted`, `--line`, `--gold`, ...) and, for
+see-through tints, `rgba(var(--fg-rgb), .06)`, `rgba(var(--bg-rgb), .8)` or `rgba(var(--shade-rgb), calc(.5 * var(--shade-k)))`.
+Document content (a letter's page, a sheet's cells) keeps its own colors in both themes.
+
+Fonts: `src/ui/fonts.ts` lists the 40 free fonts OI1 ships (and the look-alikes it shows for Microsoft fonts).
+Use `Combo` from the kit for font and size boxes.
+
 ## Languages
 
 All interface text goes through `t('key')` from [`src/shell/i18n.ts`](../src/shell/i18n.ts).

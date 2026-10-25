@@ -12,6 +12,8 @@ export interface PageSettings {
   color: string | null;
   /** A box around every page: line width and distance from the page edge in points. */
   border: PageBorder | null;
+  /** Break long words at line ends with a hyphen (Layout > Hyphenation). */
+  hyphenate?: boolean;
 }
 
 export interface PageBorder { w: number; color: string; space: number }

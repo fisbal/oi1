@@ -200,6 +200,30 @@ export const CellBackground = Extension.create({
   },
 });
 
+/** Bullet shapes and number formats, like Word's Bullet Library and Numbering Library. */
+export const BULLET_STYLES = ['disc', 'circle', 'square', 'dash', 'arrow', 'check', 'star'] as const;
+export const NUMBER_STYLES = ['decimal', 'decimal-paren', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'] as const;
+export type BulletStyle = typeof BULLET_STYLES[number];
+export type NumberStyle = typeof NUMBER_STYLES[number];
+/** The character Word shows for each bullet shape. */
+export const BULLET_CHARS: Record<BulletStyle, string> = { disc: '•', circle: '◦', square: '▪', dash: '–', arrow: '➤', check: '✓', star: '★' };
+
+export const ListStyle = Extension.create({
+  name: 'listStyle',
+  addGlobalAttributes() {
+    return [{
+      types: ['bulletList', 'orderedList'],
+      attributes: {
+        listStyle: {
+          default: null,
+          parseHTML: el => el.getAttribute('data-list-style'),
+          renderHTML: attrs => (attrs.listStyle ? { 'data-list-style': attrs.listStyle } : {}),
+        },
+      },
+    }];
+  },
+});
+
 /** A hard page break. On screen it pushes the next paragraph to the next page; in print it starts a new page. */
 export const PageBreak = Node.create({
   name: 'pageBreak',

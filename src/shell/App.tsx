@@ -7,6 +7,7 @@ import { moduleForFile, modules } from './modules';
 import { addRecent, listRecent, onRecentChange, openRecent, removeRecent } from './recent';
 import { Backdrop, BrandMark, SceneArt, Wordmark, useTilt } from './Scene';
 import { store } from './storage';
+import { setTheme, useTheme } from './theme';
 import { useLanguage } from './useLanguage';
 
 interface Tab {
@@ -37,6 +38,7 @@ function restoreTabs(): Tab[] {
 
 export default function App() {
   const lang = useLanguage();
+  const theme = useTheme();
   const [tabs, setTabs] = useState<Tab[]>(restoreTabs);
   const [activeId, setActiveId] = useState<string | null>(() => {
     const last = store.get('active');
@@ -211,6 +213,12 @@ export default function App() {
           })}
           <button className="tab-new" title={t('tab.new')} aria-label={t('tab.new')} onClick={() => setActiveId(null)}>+</button>
         </nav>
+        <button className="theme-btn" aria-label={theme === 'dark' ? t('shell.themeLight') : t('shell.themeDark')}
+          title={theme === 'dark' ? t('shell.themeLight') : t('shell.themeDark')} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+          {theme === 'dark'
+            ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2" /><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" /></svg>
+            : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" /></svg>}
+        </button>
         <select className="lang" aria-label={t('shell.language')} title={t('shell.language')} value={lang}
           onChange={e => setLanguage(e.target.value as LanguageCode)}>
           {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.name}</option>)}

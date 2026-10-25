@@ -3,6 +3,7 @@
 
 import type { JSONContent } from '@tiptap/react';
 import type { CSSProperties } from 'react';
+import { BUNDLED_FONTS, bundledFamily, type FontKind } from '../../ui/fonts';
 import { defaultPage, isDark, type PageSettings } from './page';
 
 /** One paragraph style, like Word's Normal or Heading 1. Sizes and spacing are in points. */
@@ -69,29 +70,40 @@ export function emptyDoc(title: string): LetterDoc {
 }
 
 /** Fonts offered in the font box. Fonts used by an open document are added to it. */
-export const FONTS = [
+/** Microsoft Office's usual fonts: Word files use them, and OI1 shows a free look-alike where they are missing. */
+export const OFFICE_FONTS = [
   'Arial', 'Arial Black', 'Calibri', 'Calibri Light', 'Cambria', 'Candara', 'Century Gothic', 'Comic Sans MS',
   'Consolas', 'Constantia', 'Corbel', 'Courier New', 'Franklin Gothic Medium', 'Garamond', 'Georgia', 'Helvetica',
   'Impact', 'Lucida Sans', 'Palatino Linotype', 'Segoe UI', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana',
-  'Playfair Display', 'DM Sans',
 ];
+
+/** Every font in the font menu, by group. The bundled ones look the same on every device. */
+export const FONT_GROUPS: { kind: 'office' | Exclude<FontKind, 'alike'>; fonts: string[] }[] = [
+  { kind: 'office', fonts: OFFICE_FONTS },
+  ...(['sans', 'serif', 'display', 'hand', 'mono'] as const).map(kind => ({
+    kind, fonts: BUNDLED_FONTS.filter(f => f.kind === kind).map(f => f.name).sort((a, b) => a.localeCompare(b)),
+  })),
+];
+export const FONTS = FONT_GROUPS.flatMap(g => g.fonts);
 
 export const FONT_SIZES = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
 
 // Free look-alikes that ship with Linux and LibreOffice, so a Word file looks right without Microsoft fonts.
 const LOOKALIKES: Record<string, string> = {
-  calibri: 'Carlito', 'calibri light': 'Carlito', cambria: 'Caladea', arial: 'Liberation Sans', helvetica: 'Liberation Sans',
-  'times new roman': 'Liberation Serif', 'courier new': 'Liberation Mono', consolas: 'Liberation Mono',
-  // The scene look's fonts ship with OI1 itself.
-  'playfair display': 'Playfair Display Variable', 'dm sans': 'DM Sans Variable',
+  calibri: 'Carlito', 'calibri light': 'Carlito', cambria: 'Caladea', arial: 'Arimo Variable', helvetica: 'Arimo Variable',
+  'arial black': 'Archivo Black', 'times new roman': 'Tinos', times: 'Tinos', 'courier new': 'Cousine', courier: 'Cousine', consolas: 'Cousine',
+  georgia: 'Gelasio Variable', garamond: 'EB Garamond Variable', 'palatino linotype': 'PT Serif', 'book antiqua': 'PT Serif', constantia: 'PT Serif',
+  'segoe ui': 'Noto Sans Variable', tahoma: 'Noto Sans Variable', verdana: 'Noto Sans Variable', 'lucida sans': 'Noto Sans Variable',
+  'trebuchet ms': 'Source Sans 3 Variable', candara: 'Nunito Variable', corbel: 'Open Sans Variable', 'century gothic': 'Quicksand Variable',
+  'franklin gothic medium': 'Work Sans Variable', impact: 'Oswald Variable', 'comic sans ms': 'Comfortaa Variable',
 };
-const SERIF = /times|georgia|garamond|cambria|palatino|constantia|serif|book|minion|baskerville/i;
+const SERIF = /times|georgia|garamond|cambria|palatino|constantia|serif|book|minion|baskerville|lora|merriweather|crimson|caladea|tinos|gelasio|playfair|abril/i;
 const MONO = /courier|consolas|mono|code/i;
 
 /** A CSS font-family list for a Word font name. */
 export function cssFont(name: string): string {
   const quoted = `"${name.replace(/"/g, '')}"`;
-  const alike = LOOKALIKES[name.toLowerCase()];
+  const alike = bundledFamily(name) ?? LOOKALIKES[name.toLowerCase()];
   const generic = MONO.test(name) ? 'monospace' : SERIF.test(name) ? 'serif' : 'sans-serif';
   return [quoted, alike && `"${alike}"`, generic].filter(Boolean).join(', ');
 }

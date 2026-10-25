@@ -142,6 +142,29 @@ describe('docx', () => {
   });
 });
 
+describe('list styles, alt text and hyphenation', () => {
+  it('keep their look through save and open', async () => {
+    const doc = sample();
+    doc.page.hyphenate = true;
+    const item = (t: string): JSONContent => ({ type: 'listItem', content: [para([text(t)])] });
+    doc.body = { type: 'doc', content: [
+      { type: 'bulletList', attrs: { listStyle: 'check' }, content: [item('Done'), item('Also done')] },
+      { type: 'orderedList', attrs: { listStyle: 'upper-roman' }, content: [item('First part')] },
+      { type: 'orderedList', attrs: { listStyle: 'decimal-paren' }, content: [item('Choice')] },
+      { type: 'bulletList', content: [item('Plain bullet')] },
+      para([{ type: 'image', attrs: { src: PNG, alt: 'A gold bar', width: 40 } }]),
+    ] };
+    const back = await readDocx(await letterToDocx(doc, 'Lists'));
+    const listWith = (t: string) => find(back.body, n => (n.type === 'bulletList' || n.type === 'orderedList') && !!withText(n, t));
+    expect(listWith('Done')?.attrs?.listStyle).toBe('check');
+    expect(listWith('First part')?.attrs?.listStyle).toBe('upper-roman');
+    expect(listWith('Choice')?.attrs?.listStyle).toBe('decimal-paren');
+    expect(listWith('Plain bullet')?.attrs?.listStyle ?? null).toBeNull();
+    expect(find(back.body, n => n.type === 'image')?.attrs?.alt).toBe('A gold bar');
+    expect(back.page.hyphenate).toBe(true);
+  });
+});
+
 describe('Word files written by other programs', () => {
   it('reads a letter saved by LibreOffice', async () => {
     const { readFileSync } = await import('node:fs');
