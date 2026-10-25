@@ -1,7 +1,10 @@
-// Small building blocks for Office Letter's ribbon: icon buttons, drop-down menus, color pickers, dialogs.
+// The OI1 ribbon kit, shared by every app (Letter, Class, …): icons, buttons, drop-down menus, color pickers,
+// groups and dialogs, all in the scene look (see kit.css).
+
+import './kit.css';
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { t, type MessageKey } from '../../shell/i18n';
+import { t, type MessageKey } from '../shell/i18n';
 
 // ---------- icons (16 x 16, drawn with the text color) ----------
 
@@ -73,6 +76,42 @@ const ICONS: Record<string, ReactNode> = {
   close: <>{P('M3 3l10 10M13 3 3 13')}</>,
   caret: <>{P('M4 6l4 4 4-4')}</>,
   case: <>{P('M1 13 4 4l3 9M2 10h4M9 9.5a2 2 0 1 1 4 0V13M13 11.5c-1-1-4-.5-4 .5s2 1.5 4 0')}</>,
+  // Linking the apps
+  letter: <>{P('M3 1h7l3 3v11H3zM10 1v3h3M5 7h6M5 9.5h6M5 12h4')}</>,
+  sheet: <>{P('M2 2h12v12H2zM2 6h12M2 10h12M6 2v12M10 2v12')}</>,
+  prodfos: <>{P('M3 1h7l3 3v11H3zM10 1v3h3M5 12V8h1.5a1 1 0 0 1 0 2H5M9 8v4M9 8h2M9 10h1.5')}</>,
+  send: <>{P('M2 8 14 2l-4 12-2.5-5zM7.5 9 14 2')}</>,
+  sync: <>{P('M13 6a5.5 5.5 0 0 0-10-1M3 2v3h3M3 10a5.5 5.5 0 0 0 10 1M13 14v-3h-3')}</>,
+  unlink: <>{P('M7 9a3 3 0 0 0 4 0l2-2a3 3 0 0 0-4-4M9 7a3 3 0 0 0-4 0L3 9a3 3 0 0 0 4 4M2 2l2 2M14 14l-2-2')}</>,
+  share: <>{P('M8 10V2M5 5l3-3 3 3M3 8v6h10V8')}</>,
+  apps: <>{P('M3 3h.01M8 3h.01M13 3h.01M3 8h.01M8 8h.01M13 8h.01M3 13h.01M8 13h.01M13 13h.01')}</>,
+  // Smart tools
+  search: <>{P('M7 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM10.5 10.5 14 14')}</>,
+  sparkle: <>{P('M8 1.5l1.6 4.9L14.5 8l-4.9 1.6L8 14.5l-1.6-4.9L1.5 8l4.9-1.6zM13 1v3M11.5 2.5h3')}</>,
+  outline: <>{P('M2 3h3M2 8h3M2 13h3M7 3h7M9 8h5M9 13h5')}</>,
+  focus: <>{P('M1 5V1h4M11 1h4v4M15 11v4h-4M5 15H1v-4M5.5 8a2.5 2.5 0 1 0 5 0 2.5 2.5 0 0 0-5 0')}</>,
+  speak: <>{P('M2 6h3l4-3v10l-4-3H2zM11.5 5.5a3.5 3.5 0 0 1 0 5M13.5 3.5a6.5 6.5 0 0 1 0 9')}</>,
+  mic: <>{P('M6 2h4v7a2 2 0 0 1-4 0zM3.5 8a4.5 4.5 0 0 0 9 0M8 12.5V15M5.5 15h5')}</>,
+  toc: <>{P('M2 3h8M4 6.5h8M4 10h8M2 13.5h8M13 3h1M14 6.5h.5M14 10h.5M13 13.5h1')}</>,
+  callout: <>{P('M2 3h12v8H7l-3 3v-3H2zM5 6h6M5 8.5h4')}</>,
+  theme: <>{P('M8 15A7 7 0 1 1 15 8c0 2-1.5 3-3 3h-1.5a1.5 1.5 0 0 0-1 2.6A1.4 1.4 0 0 1 8 15zM4.5 7.5h.01M7 4.5h.01M10.5 5h.01')}</>,
+  clean: <>{P('M10 2l4 4-6 6H4V8zM2 14h12M7 5l4 4')}</>,
+  qr: <>{P('M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM4 4h1v1H4zM11 4h1v1h-1zM4 11h1v1H4zM9 9h2v2H9zM12 9h2M9 12v2M12 12h2v2h-2z')}</>,
+  sort: <>{P('M4 2v12M1.5 11.5 4 14l2.5-2.5M9 3h5M9 6.5h4M9 10h3M9 13.5h2')}</>,
+  texttable: <>{P('M1 3h6M1 6h6M1 9h4M9 3h6v10H9zM9 8h6M12 3v10')}</>,
+  signature: <>{P('M1 12c2-4 3-8 4-8s-1 7 1 7 2-5 3-5-0 4 1 4 2-2 3-2M1 14.5h14')}</>,
+  envelope: <>{P('M1 3h14v10H1zM1 3l7 6 7-6')}</>,
+  // Office Class
+  sum: <>{P('M12 3H4l4.5 5L4 13h8')}</>,
+  currency: <>{P('M11.5 4.5A4 4 0 1 0 11.5 11.5M2.5 7h6M2.5 9h6')}</>,
+  percent: <>{P('M13 3 3 13M4.5 6a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM11.5 13a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z')}</>,
+  decimal: <>{P('M2 12h.01M5 8.5a2 2 0 1 1 4 0v1a2 2 0 1 1-4 0zM11 8.5a2 2 0 1 1 4 0v1a2 2 0 1 1-4 0z')}</>,
+  fx: <>{P('M7 2.5c-2 0-2 1-2.5 4L3.5 13c-.4 1.5-1.5 1.5-2 1.5M2.5 6.5h5M9 7l5 6M14 7l-5 6')}</>,
+  fill: <>{P('M3 8 8 3l5 5-5 5zM13 10c0 1.5 1.5 1.5 1.5 3a1 1 0 0 1-2 0c0-1.5.5-2 .5-3')}</>,
+  insrow: <>{P('M2 2h12v4H2zM2 10h12v4H2zM8 6.5v3M6.5 8h3')}</>,
+  inscol: <>{P('M2 2h4v12H2zM10 2h4v12h-4zM8 6.5v3M6.5 8h3')}</>,
+  chart: <>{P('M2 14h12M4 14V8M7 14V4M10 14V9M13 14V6')}</>,
+  freeze: <>{P('M2 2h12v12H2zM2 5.5h12M5.5 2v12')}</>,
 };
 
 export function Icon({ name, size = 16 }: { name: string; size?: number }) {
@@ -106,9 +145,19 @@ export function Btn({ icon, label, title, onClick, active, disabled, big, style,
     <button type="button" className={`rb${big ? ' big' : ''}${active ? ' on' : ''}${text ? ' txt' : ''}`}
       title={name} aria-label={name} aria-pressed={active} disabled={disabled} style={style}
       onMouseDown={e => e.preventDefault()} onClick={() => onClick()}>
-      {icon && <Icon name={icon} size={big ? 24 : 16} />}
+      {icon && (big ? <span className="key"><Icon name={icon} size={20} /></span> : <Icon name={icon} size={16} />)}
       {label ?? (text || big ? <span className="rb-label">{name}</span> : null)}
     </button>
+  );
+}
+
+/** A labeled group of ribbon buttons, like "Font" or "Paragraph". */
+export function Group({ label, children }: { label: MessageKey | string; children: ReactNode }) {
+  return (
+    <div className="rgroup" role="group" aria-label={tr(label)}>
+      <div className="rgroup-body">{children}</div>
+      <div className="rgroup-label">{tr(label)}</div>
+    </div>
   );
 }
 
@@ -140,7 +189,7 @@ export function Drop({ icon, label, title, children, active, swatch, big, text, 
     <div className="drop" ref={ref}>
       <button type="button" className={`rb${big ? ' big' : ''}${active ? ' on' : ''}${text ? ' txt' : ''}`} title={name} aria-label={name}
         aria-haspopup="true" aria-expanded={open} onMouseDown={e => e.preventDefault()} onClick={() => setOpen(o => !o)}>
-        {icon && <span className="rb-icon"><Icon name={icon} size={big ? 24 : 16} />{swatch !== undefined && <i className="swatch" style={{ background: swatch ?? 'transparent' }} />}</span>}
+        {icon && <span className={`rb-icon${big ? ' key' : ''}`}><Icon name={icon} size={big ? 20 : 16} />{swatch !== undefined && <i className="swatch" style={{ background: swatch ?? 'transparent' }} />}</span>}
         {label ?? (text || big ? <span className="rb-label">{name}</span> : null)}
         <span className="rb-caret"><Icon name="caret" size={10} /></span>
       </button>
@@ -205,7 +254,7 @@ export function Dialog({ title, children, onClose, onOk }: { title: string; chil
     if (d && !d.open) d.showModal?.();
   }, []);
   return (
-    <dialog ref={ref} className="letter-dialog" onClose={onClose} onCancel={onClose}>
+    <dialog ref={ref} className="oi-dialog" onClose={onClose} onCancel={onClose}>
       <form method="dialog" onSubmit={e => { e.preventDefault(); onOk?.(); onClose(); }}>
         <h2>{title}</h2>
         <div className="dialog-body">{children}</div>

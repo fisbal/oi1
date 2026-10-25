@@ -73,6 +73,7 @@ export const FONTS = [
   'Arial', 'Arial Black', 'Calibri', 'Calibri Light', 'Cambria', 'Candara', 'Century Gothic', 'Comic Sans MS',
   'Consolas', 'Constantia', 'Corbel', 'Courier New', 'Franklin Gothic Medium', 'Garamond', 'Georgia', 'Helvetica',
   'Impact', 'Lucida Sans', 'Palatino Linotype', 'Segoe UI', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana',
+  'Playfair Display', 'DM Sans',
 ];
 
 export const FONT_SIZES = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
@@ -81,6 +82,8 @@ export const FONT_SIZES = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 22, 24, 26, 2
 const LOOKALIKES: Record<string, string> = {
   calibri: 'Carlito', 'calibri light': 'Carlito', cambria: 'Caladea', arial: 'Liberation Sans', helvetica: 'Liberation Sans',
   'times new roman': 'Liberation Serif', 'courier new': 'Liberation Mono', consolas: 'Liberation Mono',
+  // The scene look's fonts ship with OI1 itself.
+  'playfair display': 'Playfair Display Variable', 'dm sans': 'DM Sans Variable',
 };
 const SERIF = /times|georgia|garamond|cambria|palatino|constantia|serif|book|minion|baskerville/i;
 const MONO = /courier|consolas|mono|code/i;

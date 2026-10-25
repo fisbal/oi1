@@ -1,70 +1,13 @@
-// Office Letter's File menu, find bar and dialogs.
+// Office Letter's find bar, outline pane, command search and dialogs.
 
-import type { Editor } from '@tiptap/react';
-import { useEffect, useRef, useState } from 'react';
-import type { RecentFile } from '../../shell/contract';
+import { useEditorState, type Editor } from '@tiptap/react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getLanguage, t } from '../../shell/i18n';
+import { Dialog, Icon, NumberBox } from '../../ui/kit';
 import type { PageSettings } from './page';
 import { unitFor } from './Ribbon';
 import { clearSearch, findNext, findPrevious, replaceAll, replaceOne, searchState, setSearch } from './search';
-import { Dialog, Icon, NumberBox } from './ui';
-
-export type SaveFormat = 'docx' | 'html' | 'txt' | 'pdf';
-
-export function FileMenu({ onClose, onNew, onOpen, onSave, onSaveAs, onPrint, listRecent, onOpenRecent, fileName }: {
-  onClose: () => void; onNew: () => void; onOpen: () => void; onSave: () => void; onSaveAs: (f: SaveFormat) => void;
-  onPrint: () => void; listRecent: () => Promise<RecentFile[]>; onOpenRecent: (r: RecentFile) => void; fileName: string;
-}) {
-  const [recent, setRecent] = useState<RecentFile[] | null>(null);
-  const [pane, setPane] = useState<'recent' | 'saveas'>('recent');
-  useEffect(() => { void listRecent().then(setRecent); }, [listRecent]);
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', key);
-    return () => document.removeEventListener('keydown', key);
-  }, [onClose]);
-  const act = (fn: () => void) => () => { onClose(); fn(); };
-  return (
-    <div className="backstage" role="dialog" aria-label={t('letter.tab.file')}>
-      <nav className="backstage-nav">
-        <button type="button" className="back" onClick={onClose} aria-label={t('letter.close')}>←</button>
-        <button type="button" onClick={act(onNew)}><Icon name="new" />{t('letter.new')}</button>
-        <button type="button" onClick={act(onOpen)}><Icon name="open" />{t('letter.open')}</button>
-        <button type="button" onClick={act(onSave)}><Icon name="save" />{t('letter.save')}</button>
-        <button type="button" className={pane === 'saveas' ? 'on' : ''} onClick={() => setPane('saveas')}><Icon name="saveas" />{t('letter.saveAs')}</button>
-        <button type="button" onClick={act(onPrint)}><Icon name="print" />{t('letter.print')}</button>
-        <button type="button" className={pane === 'recent' ? 'on' : ''} onClick={() => setPane('recent')}><Icon name="date" />{t('letter.recent')}</button>
-      </nav>
-      <section className="backstage-main">
-        {pane === 'recent' ? <>
-          <h2>{t('letter.recent')}</h2>
-          {recent === null ? null : recent.length === 0 ? <p className="muted">{t('letter.noRecent')}</p> : (
-            <ul className="recent-list">
-              {recent.map(r => (
-                <li key={r.id}>
-                  <button type="button" onClick={act(() => onOpenRecent(r))}>
-                    <Icon name="size" />
-                    <span className="name">{r.name}</span>
-                    <span className="time">{new Date(r.time).toLocaleString(getLanguage(), { dateStyle: 'medium', timeStyle: 'short' })}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </> : <>
-          <h2>{t('letter.saveAs')}</h2>
-          <p className="muted">{fileName}</p>
-          <div className="saveas-list">
-            <button type="button" onClick={act(() => onSaveAs('docx'))}><Icon name="save" /><b>{t('letter.format.docx')}</b><span>.docx</span></button>
-            <button type="button" onClick={act(() => onSaveAs('pdf'))}><Icon name="pdf" /><b>PDF</b><span>{t('letter.format.pdfHint')}</span></button>
-            <button type="button" onClick={act(() => onSaveAs('html'))}><Icon name="web" /><b>{t('letter.format.html')}</b><span>.html</span></button>
-            <button type="button" onClick={act(() => onSaveAs('txt'))}><Icon name="left" /><b>{t('letter.format.txt')}</b><span>.txt</span></button>
-          </div>
-        </>}
-      </section>
-    </div>
-  );
-}
+import { readingStats } from './smart';
 
 export function FindBar({ editor, replace, onClose }: { editor: Editor; replace: boolean; onClose: () => void }) {
   const [query, setQuery] = useState(() => {
@@ -115,12 +58,17 @@ export function WordCountDialog({ editor, pages, onClose }: { editor: Editor; pa
   const text = editor.getText({ blockSeparator: '\n' });
   let paragraphs = 0;
   editor.state.doc.descendants(n => { if (n.isTextblock && n.textContent.trim()) paragraphs++; return !n.isTextblock; });
-  const rows: [string, number][] = [
+  const stats = readingStats(text);
+  const rows: [string, number | string][] = [
     [t('letter.count.pages'), pages],
     [t('letter.count.words'), editor.storage.characterCount.words()],
     [t('letter.count.charsNoSpaces'), text.replace(/\s/g, '').length],
     [t('letter.count.chars'), text.replace(/\n/g, '').length],
     [t('letter.count.paragraphs'), paragraphs],
+    [t('letter.count.sentences'), stats.sentences],
+    [t('letter.count.perSentence'), stats.perSentence],
+    [t('letter.count.reading'), t('letter.minutes', { n: stats.readMinutes })],
+    [t('letter.count.speaking'), t('letter.minutes', { n: stats.speakMinutes })],
   ];
   return (
     <Dialog title={t('letter.wordCount')} onClose={onClose}>
@@ -151,5 +99,100 @@ export function MarginsDialog({ page, onApply, onClose }: { page: PageSettings; 
         {box('footer', t('letter.margin.footer'))}
       </div>
     </Dialog>
+  );
+}
+
+/** Word's Navigation pane: the headings of the letter, click one to go there. */
+export function OutlinePane({ editor, onClose }: { editor: Editor; onClose: () => void }) {
+  const headings = useEditorState({
+    editor,
+    selector: ({ editor: e }) => {
+      const out: { level: number; text: string; pos: number }[] = [];
+      e.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'heading' || node.attrs.styleId === 'title') {
+          const text = node.textContent.trim();
+          if (text) out.push({ level: node.type.name === 'heading' ? node.attrs.level as number : 0, text, pos });
+        }
+        return node.type.name !== 'table';
+      });
+      return out;
+    },
+    equalityFn: (a, b) => JSON.stringify(a) === JSON.stringify(b),
+  }) ?? [];
+  const current = useEditorState({ editor, selector: ({ editor: e }) => e.state.selection.from }) ?? 0;
+  const here = [...headings].reverse().find(h => h.pos < current)?.pos;
+  return (
+    <aside className="outline-pane" aria-label={t('letter.outline')}>
+      <header><span className="kicker">{t('letter.outline')}</span><button type="button" onClick={onClose} aria-label={t('letter.close')}>×</button></header>
+      {headings.length === 0 ? <p className="muted">{t('letter.outlineEmpty')}</p> : (
+        <ol>
+          {headings.map(h => (
+            <li key={h.pos}>
+              <button type="button" className={`lvl${h.level}${h.pos === here ? ' on' : ''}`}
+                onClick={() => {
+                  editor.chain().focus().setTextSelection(h.pos + 1).run();
+                  const dom = editor.view.nodeDOM(h.pos) as HTMLElement | null;
+                  dom?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+                }}>{h.text}</button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </aside>
+  );
+}
+
+export interface Command { id: string; label: string; group: string; icon?: string; keys?: string; run: () => void; disabled?: boolean }
+
+/** Search every command by name and run it with Enter, like a command palette. Opens with Alt+Q. */
+export function CommandPalette({ commands, onClose }: { commands: Command[]; onClose: () => void }) {
+  const [query, setQuery] = useState('');
+  const [index, setIndex] = useState(0);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => { input.current?.focus(); }, []);
+  const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const found = useMemo(() => {
+    const q = fold(query.trim());
+    const list = commands.filter(c => !c.disabled);
+    if (!q) return list.slice(0, 60);
+    const words = q.split(/\s+/);
+    return list
+      .map(c => ({ c, label: fold(c.label), group: fold(c.group) }))
+      .filter(x => words.every(w => x.label.includes(w) || x.group.includes(w)))
+      .sort((a, b) => Number(!a.label.startsWith(words[0])) - Number(!b.label.startsWith(words[0])))
+      .map(x => x.c);
+  }, [query, commands]);
+  useEffect(() => setIndex(0), [query]);
+  const run = (c: Command | undefined) => { if (!c) return; onClose(); window.setTimeout(c.run, 0); };
+  return (
+    <div className="palette-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="palette" role="dialog" aria-label={t('letter.commandSearch')}>
+        <div className="palette-input">
+          <Icon name="search" />
+          <input ref={input} value={query} placeholder={t('letter.commandSearchHint')} aria-label={t('letter.commandSearch')}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') onClose();
+              else if (e.key === 'ArrowDown') { e.preventDefault(); setIndex(i => Math.min(found.length - 1, i + 1)); }
+              else if (e.key === 'ArrowUp') { e.preventDefault(); setIndex(i => Math.max(0, i - 1)); }
+              else if (e.key === 'Enter') { e.preventDefault(); run(found[index]); }
+            }} />
+          <kbd>Esc</kbd>
+        </div>
+        <ul className="palette-list" role="listbox">
+          {found.length === 0 && <li className="muted palette-empty">{t('letter.findNone')}</li>}
+          {found.map((c, i) => (
+            <li key={c.id} role="option" aria-selected={i === index}>
+              <button type="button" className={i === index ? 'on' : ''} onMouseEnter={() => setIndex(i)} onClick={() => run(c)}>
+                <span className="palette-icon">{c.icon && <Icon name={c.icon} />}</span>
+                <span className="palette-label">{c.label}</span>
+                <span className="palette-group">{c.group}</span>
+                {c.keys && <kbd>{c.keys}</kbd>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }

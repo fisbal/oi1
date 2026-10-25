@@ -1,4 +1,6 @@
-// Office Letter's ribbon, laid out like Word's: File, Home, Insert, Layout, Review, View (and Table in a table).
+// Office Letter's ribbon: Word's tabs (File, Home, Insert, Layout, Review, View, Table) plus what Word lacks:
+// Design themes, a Smart tab with one-click tools, an Office In 1 tab that links Letter to every other app,
+// and a command search that finds any command by name.
 
 import { useEditorState, type Editor } from '@tiptap/react';
 import { useState } from 'react';
@@ -6,7 +8,10 @@ import { t, type MessageKey } from '../../shell/i18n';
 import type { Borders } from './extensions';
 import { FONTS, FONT_SIZES, STYLE_IDS, previewStyle, type DocStyles, type StyleId } from './model';
 import { MARGIN_PRESETS, PAGE_SIZES, isDark, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
-import { Btn, ColorGrid, Drop, MenuItem, NumberBox } from './ui';
+import type { AppInfo, TabInfo } from '../../shell/contract';
+import { Btn, ColorGrid, Drop, Group, Icon, MenuItem, NumberBox } from '../../ui/kit';
+import type { CalloutKind, CleanUp } from './smart';
+import { SPACING, THEMES, type SpacingId, type Theme } from './themes';
 
 export type Zoom = number | 'width' | 'page';
 
@@ -29,10 +34,44 @@ export interface RibbonActions {
   wordCount: () => void;
   customMargins: () => void;
   painter: () => void;
+  // Beyond Word
+  commandSearch: () => void;
+  dictate: () => void;
+  readAloud: () => void;
+  outline: () => void;
+  focus: () => void;
+  theme: (theme: Theme) => void;
+  spacing: (id: SpacingId) => void;
+  toc: () => void;
+  callout: (kind: CalloutKind) => void;
+  letterBlock: (kind: 'full' | 'closing') => void;
+  qr: () => void;
+  cleanUp: (what: CleanUp) => void;
+  sort: (dir: 1 | -1) => void;
+  textToTable: () => void;
+  tableToText: () => void;
+  // Links with the other apps
+  editInClass: () => void;
+  insertFromSheet: (tabId: string | null) => void;
+  newSheet: () => void;
+  openApp: (id: string) => void;
+  share: () => void;
+  pdf: () => void;
 }
 
-const TABS = ['home', 'insert', 'layout', 'review', 'view'] as const;
-type TabId = (typeof TABS)[number] | 'table';
+/** What the ribbon shows about the rest of the suite. */
+export interface SuiteState {
+  apps: AppInfo[];
+  sheets: TabInfo[];
+  dictating: boolean;
+  speaking: boolean;
+  outline: boolean;
+  linkedTable: boolean;
+  themeId: string | null;
+}
+
+const TABS = ['home', 'insert', 'design', 'layout', 'review', 'view', 'smart'] as const;
+type TabId = (typeof TABS)[number] | 'oi1' | 'table';
 
 const STYLE_KEYS: Record<StyleId, MessageKey> = {
   normal: 'letter.style.normal', title: 'letter.style.title', subtitle: 'letter.style.subtitle', quote: 'letter.style.quote',
@@ -88,9 +127,10 @@ function changeCase(e: Editor, mode: 'sentence' | 'lower' | 'upper' | 'title' | 
   e.view.dispatch(tr);
 }
 
-export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, view, setView, actions }: {
+export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, view, setView, actions, suite }: {
   editor: Editor; body: Editor; styles: DocStyles; page: PageSettings; setPage: (p: PageSettings) => void;
   lang: string; setLang: (l: string) => void; view: ViewState; setView: (v: Partial<ViewState>) => void; actions: RibbonActions;
+  suite: SuiteState;
 }) {
   const [tab, setTab] = useState<TabId>('home');
   const s = useEditorState({
@@ -141,19 +181,29 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
   const line = { w: 0.75, color: borderColor, space: 1 };
   const box = { w: 0.75, color: borderColor, space: 4 };
 
-  const tabLabel: Record<TabId, MessageKey> = {
-    home: 'letter.tab.home', insert: 'letter.tab.insert', layout: 'letter.tab.layout', review: 'letter.tab.review', view: 'letter.tab.view', table: 'letter.tab.table',
+  const tabLabel: Record<Exclude<TabId, 'oi1'>, MessageKey> = {
+    home: 'letter.tab.home', insert: 'letter.tab.insert', design: 'letter.tab.design', layout: 'letter.tab.layout', review: 'letter.tab.review',
+    view: 'letter.tab.view', smart: 'letter.tab.smart', table: 'letter.tab.table',
   };
 
   return (
     <div className="ribbon">
       <div className="ribbon-tabs" role="tablist">
         <button type="button" className="ribbon-file" onClick={actions.fileMenu}>{t('letter.tab.file')}</button>
-        {[...TABS, ...(s.inTable ? (['table'] as const) : [])].map(id => (
+        {TABS.map(id => (
           <button key={id} type="button" role="tab" aria-selected={shownTab === id} className={shownTab === id ? 'on' : ''}
             onMouseDown={e => e.preventDefault()} onClick={() => setTab(id)}>{t(tabLabel[id])}</button>
         ))}
+        <button type="button" role="tab" aria-selected={shownTab === 'oi1'} className={`ribbon-special${shownTab === 'oi1' ? ' on' : ''}`}
+          onMouseDown={e => e.preventDefault()} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
+        {s.inTable && (
+          <button type="button" role="tab" aria-selected={shownTab === 'table'} className={shownTab === 'table' ? 'on' : ''}
+            onMouseDown={e => e.preventDefault()} onClick={() => setTab('table')}>{t(tabLabel.table)}</button>
+        )}
         <span className="ribbon-quick">
+          <button type="button" className="cmd-search" onMouseDown={e => e.preventDefault()} onClick={actions.commandSearch} title={`${t('letter.commandSearch')} (Alt+Q)`}>
+            <Icon name="search" /><span>{t('letter.commandSearch')}</span><kbd>Alt+Q</kbd>
+          </button>
           <Btn icon="undo" title="letter.undo" onClick={() => run().undo().run()} disabled={!s.canUndo} />
           <Btn icon="redo" title="letter.redo" onClick={() => run().redo().run()} disabled={!s.canRedo} />
         </span>
@@ -267,6 +317,9 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
               <Btn icon="select" title="letter.selectAll" text onClick={() => run().selectAll().run()} />
             </div>
           </Group>
+          <Group label="letter.group.voice">
+            <Btn big icon="mic" title={suite.dictating ? 'letter.dictateStop' : 'letter.dictate'} onClick={actions.dictate} active={suite.dictating} />
+          </Group>
         </>}
 
         {shownTab === 'insert' && <>
@@ -275,14 +328,34 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           </Group>
           <Group label="letter.group.tables">
             <Drop big icon="table" title="letter.table">
-              {close => <TableGrid onPick={(rows, cols) => { run().insertTable({ rows, cols, withHeaderRow: false }).run(); close(); }} />}
+              {close => <>
+                <TableGrid onPick={(rows, cols) => { run().insertTable({ rows, cols, withHeaderRow: false }).run(); close(); }} />
+                <hr />
+                <MenuItem label={t('letter.textToTable')} onClick={() => { actions.textToTable(); close(); }} />
+              </>}
             </Drop>
+            <SheetDrop suite={suite} actions={actions} />
           </Group>
           <Group label="letter.group.illustrations">
             <Btn big icon="image" title="letter.image" onClick={actions.image} />
           </Group>
           <Group label="letter.group.links">
             <Btn big icon="link" title="letter.link" onClick={actions.link} active={s.link} />
+          </Group>
+          <Group label="letter.group.blocks">
+            <Drop big icon="callout" title="letter.callout">
+              {close => (['note', 'tip', 'warning', 'success', 'gold'] as CalloutKind[]).map(k => (
+                <MenuItem key={k} label={<><i className={`callout-dot ${k}`} />{t(`letter.callout.${k}` as MessageKey)}</>} onClick={() => { actions.callout(k); close(); }} />
+              ))}
+            </Drop>
+            <Drop big icon="envelope" title="letter.letterBlock">
+              {close => <>
+                <MenuItem label={t('letter.letterBlock.full')} onClick={() => { actions.letterBlock('full'); close(); }} />
+                <MenuItem label={t('letter.letterBlock.closing')} onClick={() => { actions.letterBlock('closing'); close(); }} />
+              </>}
+            </Drop>
+            <Btn big icon="toc" title="letter.toc" onClick={actions.toc} disabled={!isBody} />
+            <Btn big icon="qr" title="letter.qr" onClick={actions.qr} />
           </Group>
           <Group label="letter.group.headerFooter">
             <Btn big icon="header" title="letter.header" onClick={actions.header} />
@@ -307,6 +380,40 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
               {close => <div className="symbols">{SYMBOLS.map(ch => (
                 <button key={ch} type="button" onClick={() => { run().insertContent(ch).run(); close(); }}>{ch}</button>
               ))}</div>}
+            </Drop>
+          </Group>
+        </>}
+
+        {shownTab === 'design' && <>
+          <Group label="letter.group.themes">
+            <div className="theme-gallery" role="listbox" aria-label={t('letter.group.themes')}>
+              {THEMES.map(th => (
+                <button key={th.id} type="button" role="option" aria-selected={suite.themeId === th.id}
+                  className={`theme-tile${suite.themeId === th.id ? ' on' : ''}`} onClick={() => actions.theme(th)} title={t(th.name)}
+                  style={{ background: th.page ?? '#FFFFFF', color: th.styles.normal.color ?? (isDark(th.page) ? '#FFFFFF' : '#000000') }}>
+                  <span className="theme-title" style={previewStyle({ ...th.styles.normal, ...th.styles.title, size: 15 }, th.styles.normal)}>Aa</span>
+                  <span className="theme-lines"><i style={{ background: th.styles.h1.color ?? '#2F5496' }} /><i /><i /></span>
+                  <span className="theme-name">{t(th.name)}</span>
+                </button>
+              ))}
+            </div>
+          </Group>
+          <Group label="letter.group.spacing">
+            <Drop big icon="spacing" title="letter.paragraphSpacing">
+              {close => (Object.keys(SPACING) as SpacingId[]).map(id => (
+                <MenuItem key={id} label={t(`letter.spacing.${id}` as MessageKey)}
+                  active={styles.normal.after === SPACING[id].after && styles.normal.lineHeight === SPACING[id].lineHeight}
+                  onClick={() => { actions.spacing(id); close(); }} />
+              ))}
+            </Drop>
+          </Group>
+          <Group label="letter.group.pageBackground">
+            <Drop big icon="pagecolor" title="letter.pageColor" swatch={page.color}>
+              {close => <ColorGrid none="letter.noColor" value={page.color} onPick={c => { setPage({ ...page, color: c }); close(); }} />}
+            </Drop>
+            <Drop big icon="pageborder" title="letter.pageBorder" swatch={page.border?.color ?? null}>
+              {close => <ColorGrid none="letter.border.none" value={page.border?.color}
+                onPick={c => { setPage({ ...page, border: c ? { w: 1.5, color: c, space: 24 } : null }); close(); }} />}
             </Drop>
           </Group>
         </>}
@@ -340,15 +447,6 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
               })}
             </Drop>
           </Group>
-          <Group label="letter.group.pageBackground">
-            <Drop big icon="pagecolor" title="letter.pageColor" swatch={page.color}>
-              {close => <ColorGrid none="letter.noColor" value={page.color} onPick={c => { setPage({ ...page, color: c }); close(); }} />}
-            </Drop>
-            <Drop big icon="pageborder" title="letter.pageBorder" swatch={page.border?.color ?? null}>
-              {close => <ColorGrid none="letter.border.none" value={page.border?.color}
-                onPick={c => { setPage({ ...page, border: c ? { w: 1.5, color: c, space: 24 } : null }); close(); }} />}
-            </Drop>
-          </Group>
           <Group label="letter.group.indent">
             <div className="stack">
               <NumberBox label={t('letter.indentLeft')} unit={unit} step={unit === 'in' ? 0.1 : 0.25} min={0}
@@ -372,6 +470,9 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
             <Btn big icon="spell" title="letter.spelling" onClick={() => setView({ spell: !view.spell })} active={view.spell} />
             <Btn big icon="count" title="letter.wordCount" onClick={actions.wordCount} />
           </Group>
+          <Group label="letter.group.speech">
+            <Btn big icon="speak" title={suite.speaking ? 'letter.readAloudStop' : 'letter.readAloud'} onClick={actions.readAloud} active={suite.speaking} />
+          </Group>
           <Group label="letter.group.language">
             <Drop big icon="language" title="letter.language">
               {close => LANGS.map(l => (
@@ -388,7 +489,12 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
             <Btn big icon="web" title="letter.webLayout" onClick={() => setView({ layout: 'web' })} active={view.layout === 'web'} />
           </Group>
           <Group label="letter.group.show">
+            <Btn big icon="outline" title="letter.outline" onClick={actions.outline} active={suite.outline} />
             <Btn big icon="marks" title="letter.showMarks" onClick={() => setView({ marks: !view.marks })} active={view.marks} />
+          </Group>
+          <Group label="letter.group.immersive">
+            <Btn big icon="focus" title="letter.focus" onClick={actions.focus} />
+            <Btn big icon="speak" title={suite.speaking ? 'letter.readAloudStop' : 'letter.readAloud'} onClick={actions.readAloud} active={suite.speaking} />
           </Group>
           <Group label="letter.group.zoom">
             <Btn big icon="zoomin" title="letter.zoom100" onClick={() => setView({ zoom: 1 })} active={view.zoom === 1} />
@@ -421,18 +527,85 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
               {close => <ColorGrid none="letter.noColor" onPick={c => { run().setCellAttribute('background', c).run(); close(); }} />}
             </Drop>
           </Group>
+          <Group label="letter.group.withClass">
+            <Btn big icon="sheet" title={suite.linkedTable ? 'letter.openLinkedSheet' : 'letter.editInClass'} onClick={actions.editInClass} />
+            <Btn big icon="texttable" title="letter.tableToText" onClick={actions.tableToText} />
+          </Group>
+        </>}
+
+        {shownTab === 'smart' && <>
+          <Group label="letter.group.find">
+            <Btn big icon="search" title="letter.commandSearch" onClick={actions.commandSearch} />
+            <Btn big icon="outline" title="letter.outline" onClick={actions.outline} active={suite.outline} />
+          </Group>
+          <Group label="letter.group.cleanUp">
+            <Drop big icon="clean" title="letter.cleanUp">
+              {close => (['all', 'quotes', 'spaces', 'empty'] as CleanUp[]).map(w => (
+                <MenuItem key={w} label={t(`letter.cleanUp.${w}` as MessageKey)} onClick={() => { actions.cleanUp(w); close(); }} />
+              ))}
+            </Drop>
+            <div className="stack">
+              <Btn icon="sort" title="letter.sortAZ" text onClick={() => actions.sort(1)} />
+              <Btn icon="sort" title="letter.sortZA" text onClick={() => actions.sort(-1)} />
+              <Drop icon="case" title="letter.changeCase" text>
+                {close => (['sentence', 'lower', 'upper', 'title', 'toggle'] as const).map(m => (
+                  <MenuItem key={m} label={t(`letter.case.${m}` as MessageKey)} onClick={() => { changeCase(editor, m); close(); }} />
+                ))}
+              </Drop>
+            </div>
+          </Group>
+          <Group label="letter.group.convert">
+            <Btn big icon="texttable" title="letter.textToTable" onClick={actions.textToTable} />
+            <Btn big icon="toc" title="letter.toc" onClick={actions.toc} disabled={!isBody} />
+            <Btn big icon="qr" title="letter.qr" onClick={actions.qr} />
+          </Group>
+          <Group label="letter.group.voice">
+            <Btn big icon="mic" title={suite.dictating ? 'letter.dictateStop' : 'letter.dictate'} onClick={actions.dictate} active={suite.dictating} />
+            <Btn big icon="speak" title={suite.speaking ? 'letter.readAloudStop' : 'letter.readAloud'} onClick={actions.readAloud} active={suite.speaking} />
+            <Btn big icon="focus" title="letter.focus" onClick={actions.focus} />
+          </Group>
+        </>}
+
+        {shownTab === 'oi1' && <>
+          <Group label="letter.group.withClass">
+            <Btn big icon="sheet" title={suite.linkedTable ? 'letter.openLinkedSheet' : 'letter.editInClass'} onClick={actions.editInClass} disabled={!s.inTable} />
+            <SheetDrop suite={suite} actions={actions} />
+            <Btn big icon="new" title="letter.newSheet" onClick={actions.newSheet} />
+          </Group>
+          <Group label="letter.group.withProdfos">
+            <Btn big icon="pdf" title="letter.savePdf" onClick={actions.pdf} />
+            <Btn big icon="prodfos" title="letter.openProdfos" onClick={() => actions.openApp('prodfos')} />
+          </Group>
+          <Group label="letter.group.apps">
+            <div className="app-keys">
+              {suite.apps.filter(a => a.id !== 'letter').map(a => (
+                <button key={a.id} type="button" className="app-key" disabled={!a.ready} onClick={() => actions.openApp(a.id)}
+                  style={{ '--accent': a.color } as React.CSSProperties} title={a.ready ? a.name : `${a.name} (${t('home.soon')})`}>
+                  <i />{a.name.replace('Office ', '')}
+                </button>
+              ))}
+            </div>
+          </Group>
+          <Group label="letter.group.share">
+            <Btn big icon="share" title="letter.share" onClick={actions.share} />
+          </Group>
         </>}
       </div>
     </div>
   );
 }
 
-function Group({ label, children }: { label: MessageKey; children: React.ReactNode }) {
+/** Insert a table from an open Office Class sheet or from an .xlsx or .csv file. */
+function SheetDrop({ suite, actions }: { suite: SuiteState; actions: RibbonActions }) {
   return (
-    <div className="rgroup" role="group" aria-label={t(label)}>
-      <div className="rgroup-body">{children}</div>
-      <div className="rgroup-label">{t(label)}</div>
-    </div>
+    <Drop big icon="sheet" title="letter.fromClass">
+      {close => <>
+        {suite.sheets.length > 0 && <span className="kicker">{t('letter.openSheets')}</span>}
+        {suite.sheets.map(x => <MenuItem key={x.tabId} label={x.title} onClick={() => { actions.insertFromSheet(x.tabId); close(); }} />)}
+        {suite.sheets.length > 0 && <hr />}
+        <MenuItem label={t('letter.fromSheetFile')} onClick={() => { actions.insertFromSheet(null); close(); }} />
+      </>}
+    </Drop>
   );
 }
 

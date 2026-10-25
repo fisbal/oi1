@@ -155,7 +155,11 @@ export const TextStyleExtras = Extension.create({
   },
 });
 
-/** Background color of table cells, like Word's cell shading, and tables drawn without lines. */
+/**
+ * Background color of table cells, like Word's cell shading, and tables drawn without lines.
+ * A table can also be linked to an Office Class sheet (`link` and the sheet's tab `linkTab`), and its cells
+ * remember the sheet's formulas, so the sheet can be rebuilt from the letter.
+ */
 export const CellBackground = Extension.create({
   name: 'cellBackground',
   addGlobalAttributes() {
@@ -167,6 +171,16 @@ export const CellBackground = Extension.create({
           parseHTML: el => (el.getAttribute('data-borders') === 'none' ? 'none' : null),
           renderHTML: attrs => (attrs.borders === 'none' ? { 'data-borders': 'none' } : {}),
         },
+        link: {
+          default: null,
+          parseHTML: el => el.getAttribute('data-link'),
+          renderHTML: attrs => (attrs.link ? { 'data-link': attrs.link } : {}),
+        },
+        linkTab: {
+          default: null,
+          parseHTML: el => el.getAttribute('data-link-tab'),
+          renderHTML: attrs => (attrs.linkTab ? { 'data-link-tab': attrs.linkTab } : {}),
+        },
       },
     }, {
       types: ['tableCell', 'tableHeader'],
@@ -175,6 +189,11 @@ export const CellBackground = Extension.create({
           default: null,
           parseHTML: el => (el.style.backgroundColor ? cssToHex(el.style.backgroundColor) : el.getAttribute('data-background')),
           renderHTML: attrs => (attrs.background ? { style: `background-color: ${attrs.background}`, 'data-background': attrs.background } : {}),
+        },
+        formula: {
+          default: null,
+          parseHTML: el => el.getAttribute('data-formula'),
+          renderHTML: attrs => (attrs.formula ? { 'data-formula': attrs.formula } : {}),
         },
       },
     }];

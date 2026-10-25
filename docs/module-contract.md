@@ -12,7 +12,7 @@ The exact types live in [`src/shell/contract.ts`](../src/shell/contract.ts).
 const letter: OI1Module = {
   id: 'letter',
   extensions: ['.docx', '.html', '.txt'], // files this module opens
-  mount(el, shell, file) {                // draw inside `el`; `file` is set when opened with a file
+  mount(el, shell, file, handoff) {       // draw inside `el`; `file` or `handoff` is set when opened with one
     return { unmount() {} };
   },
 };
@@ -28,12 +28,43 @@ export default letter;
 | `shell.storage.get/set` and `load/save` | Autosave storage, kept separate for each tab: `get/set` for small values (localStorage), `load/save` for big ones like a whole document (IndexedDB). |
 | `shell.recent.list()` / `open(id)` | Files this module opened or saved lately. The shell keeps them by itself. |
 | `shell.setTitle(title)` | Changes the label on this module's tab. |
-| `shell.openModule(id, file?)` | Opens a module in a new tab, optionally with a file. |
+| `shell.openModule(id, file?, handoff?)` | Opens a module in a new tab, optionally with a file or a handoff. Returns the new tab's id. |
 | `shell.goHome()` | Returns to the home screen. |
 
 Each open tab is its own `mount()` call, so a module can be open in several tabs at once.
 The shell remembers open tabs and brings them back after a reload. The home screen's
 "Open a file" button, its Recent list and drag-and-drop send a file to whichever module lists its extension.
+
+## The linking rule: every module links to the others
+
+Office In 1 is one office, not a row of separate apps. **Every module must offer a way to reach
+the others from where the user is working**, and pass its work along without a save and reopen:
+
+- an **"Office In 1" ribbon tab** (gold dot) with the actions that cross apps, and a key for every app;
+- **send** what is selected to another app, and **ask** another app for something to insert;
+- when a table or other piece goes from one app to another, keep a **link** so it can be updated later
+  (for example a Class sheet in a letter: "Update letter" in Class, "Edit in Class" in Letter).
+
+| Service | What it does |
+| --- | --- |
+| `shell.tabId` | This tab's id, so others can send things back. |
+| `shell.apps()` / `shell.tabs(moduleId?)` | Every app (name, color, ready or not) and every open tab, for "send to" menus. |
+| `shell.showTab(tabId)` | Brings another tab to the front. |
+| `shell.send(tabId, handoff)` | Hands something to another tab. Resolves to `true` when that tab took it. |
+| `shell.onReceive((handoff, from) => boolean)` | Takes what other tabs send. Return `true` when handled. |
+| `shell.ask(tabId, 'table')` / `shell.onAsk(...)` | Asks another tab for something (Letter asks Class for the selected cells). |
+| `shell.notify(message)` | A short message at the bottom of the window. |
+
+A `Handoff` is one of `{ kind: 'table', table, title?, link? }`, `{ kind: 'html', html }` or
+`{ kind: 'file', file }`. A `TableData` keeps each cell's shown text, its formula and bold, so a
+table can go Class → Letter → Class without losing formulas. A `link` (`{ tabId, id, moduleId, title }`)
+names the other side; the receiver replaces the piece with the same link id instead of adding a new one.
+
+## Shared look
+
+Modules use the ribbon, buttons, menus, dialogs and file menu in [`src/ui/`](../src/ui/) (`kit.tsx`, `FileMenu.tsx`),
+so every app has the same "scene" look as ProDFos: void black, cream text, gold accents, Playfair Display
+for titles and DM Sans for text, glass panels and 3D keys. Each app has its own accent color in `modules.ts`.
 
 ## Languages
 

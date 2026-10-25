@@ -1,8 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#3a3a8c"/>
-  <rect x="96" y="96" width="148" height="148" rx="28" fill="#2b579a" stroke="#fff" stroke-width="10"/>
-  <rect x="268" y="96" width="148" height="148" rx="28" fill="#217346" stroke="#fff" stroke-width="10"/>
-  <rect x="96" y="268" width="148" height="148" rx="28" fill="#b7472a" stroke="#fff" stroke-width="10"/>
-  <rect x="268" y="268" width="148" height="148" rx="28" fill="#a4262c" stroke="#fff" stroke-width="10"/>
-  <text x="256" y="300" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="120" text-anchor="middle" fill="#fff" stroke="#3a3a8c" stroke-width="14" paint-order="stroke">OI1</text>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#B8892E"/><stop offset=".55" stop-color="#F2D78B"/><stop offset="1" stop-color="#D4A843"/>
+    </linearGradient>
+    <radialGradient id="n" cx=".5" cy=".38" r=".7">
+      <stop offset="0" stop-color="#D4A843" stop-opacity=".28"/><stop offset="1" stop-color="#07070A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#07070A"/>
+  <rect width="512" height="512" rx="112" fill="url(#n)"/>
+  <rect x="10" y="10" width="492" height="492" rx="104" fill="none" stroke="url(#g)" stroke-opacity=".45" stroke-width="4"/>
+  <circle cx="148" cy="148" r="22" fill="#7FA7E8"/>
+  <circle cx="364" cy="148" r="22" fill="#5FC79A"/>
+  <circle cx="148" cy="364" r="22" fill="#E8875F"/>
+  <circle cx="364" cy="364" r="22" fill="#E25C5C"/>
+  <text x="256" y="352" font-family="'Playfair Display', Georgia, serif" font-weight="700" font-size="280" text-anchor="middle" fill="url(#g)">1</text>
 </svg>

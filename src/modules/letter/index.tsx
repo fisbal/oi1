@@ -7,9 +7,9 @@ import './letter.css';
 const letter: OI1Module = {
   id: 'letter',
   extensions: EXTENSIONS,
-  mount(el, shell, file) {
+  mount(el, shell, file, handoff) {
     const root = createRoot(el);
-    root.render(<Letter shell={shell} file={file} />);
+    root.render(<Letter shell={shell} file={file} handoff={handoff} />);
     return { unmount: () => root.unmount() };
   },
 };

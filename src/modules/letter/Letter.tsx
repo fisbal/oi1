@@ -1,14 +1,26 @@
 import { EditorContent, useEditor, useEditorState, type Editor, type JSONContent } from '@tiptap/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import type { FileRef, OpenedFile, RecentFile, ShellApi } from '../../shell/contract';
-import { t } from '../../shell/i18n';
+import type { FileRef, Handoff, HandoffLink, OpenedFile, RecentFile, ShellApi, TableData } from '../../shell/contract';
+import { getLanguage, t } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
+import { FileMenu } from '../../ui/FileMenu';
 import { htmlBody, textToHtml, wrapHtml } from './html';
 import { defaultStyles, emptyDoc, stylesCss, type DocStyles, type LetterDoc } from './model';
-import { PX_PER_IN, defaultPage, pageInches, type PageSettings } from './page';
-import { FileMenu, FindBar, MarginsDialog, WordCountDialog, type SaveFormat } from './panels';
+import { PX_PER_IN, defaultPage, isDark, pageInches, type PageSettings } from './page';
+import { CommandPalette, FindBar, MarginsDialog, OutlinePane, WordCountDialog, type Command } from './panels';
 import { Ribbon, type RibbonActions, type ViewState, type Zoom } from './Ribbon';
 import { letterExtensions, migrate, readAsDataUrl } from './setup';
+import {
+  calloutJson, cleanUp, findLinkedTable, letterBlockJson, qrDataUrl, readingStats, replaceTable, sortSelection,
+  tableAt, tableData, tableJson, tableToText, textToTable, tocJson,
+} from './smart';
+import { SPACING, THEMES } from './themes';
+
+type SaveFormat = 'docx' | 'html' | 'txt' | 'pdf';
+const newLinkId = () => `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+const SHEET_EXTENSIONS = ['.xlsx', '.csv', '.tsv'];
+/** A full language tag for speech, like 'fr-FR', from the letter's proofing language or the interface. */
+const speechLang = (lang: string) => lang || ({ en: 'en-US', fr: 'fr-FR', es: 'es-ES', pt: 'pt-PT', de: 'de-DE' } as Record<string, string>)[getLanguage()] || navigator.language;
 
 export const EXTENSIONS = ['.docx', '.html', '.htm', '.txt'];
 const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -34,16 +46,16 @@ async function savedLetter(shell: ShellApi): Promise<LetterDoc | null> {
   return null;
 }
 
-export default function Letter({ shell, file }: { shell: ShellApi; file?: OpenedFile }) {
+export default function Letter({ shell, file, handoff }: { shell: ShellApi; file?: OpenedFile; handoff?: Handoff }) {
   const [initial, setInitial] = useState<LetterDoc | null>(null);
   useEffect(() => {
     void savedLetter(shell).then(d => setInitial(d ?? emptyDoc(t('letter.untitled'))));
   }, [shell]);
   if (!initial) return <div className="letter" />;
-  return <LetterEditor shell={shell} file={file} initial={initial} />;
+  return <LetterEditor shell={shell} file={file} handoff={handoff} initial={initial} />;
 }
 
-function LetterEditor({ shell, file, initial }: { shell: ShellApi; file?: OpenedFile; initial: LetterDoc }) {
+function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?: OpenedFile; handoff?: Handoff; initial: LetterDoc }) {
   useLanguage();
   const [page, setPage] = useState<PageSettings>(initial.page);
   const [styles, setStyles] = useState<DocStyles>(initial.styles);
@@ -59,7 +71,11 @@ function LetterEditor({ shell, file, initial }: { shell: ShellApi; file?: Opened
   }));
   const setView = useCallback((v: Partial<ViewState>) => setViewState(cur => ({ ...cur, ...v })), []);
   const [layout, setLayout] = useState({ pages: 1, tail: 96 });
-  const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins'>(null);
+  const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands'>(null);
+  const [outline, setOutline] = useState(() => window.innerWidth >= 1200 && shell.storage.get('outline') === '1');
+  const [focusMode, setFocusMode] = useState(false);
+  const [dictating, setDictating] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const [hfVersion, setHfVersion] = useState(0);
   const touched = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -118,6 +134,8 @@ function LetterEditor({ shell, file, initial }: { shell: ShellApi; file?: Opened
   });
   editors.current = { body, header, footer };
   const activeEditor = (active === 'header' ? header : active === 'footer' ? footer : body) ?? body;
+  const activeRef = useRef(active);
+  activeRef.current = active;
 
   // Spelling and proofing language.
   useEffect(() => {
@@ -144,6 +162,8 @@ function LetterEditor({ shell, file, initial }: { shell: ShellApi; file?: Opened
     },
   }) ?? t('letter.untitled');
   const words = useEditorState({ editor: body, selector: ({ editor }) => editor?.storage.characterCount.words() ?? 0 }) ?? 0;
+  const inTable = useEditorState({ editor: body, selector: ({ editor }) => !!editor && editor.isActive('table') }) ?? false;
+  const linkedTable = useEditorState({ editor: body, selector: ({ editor }) => (editor ? !!tableAt(editor)?.node.attrs.link : false) }) ?? false;
   useEffect(() => { shell.setTitle(title); }, [title, shell]);
 
   // ---------- page geometry and pagination ----------
@@ -359,6 +379,218 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     setActive(where);
   };
 
+
+  // ---------- beyond Word: smart tools ----------
+  const recognition = useRef<{ stop(): void } | null>(null);
+  const dictate = () => {
+    if (recognition.current) { recognition.current.stop(); return; }
+    type Recognition = { lang: string; continuous: boolean; interimResults: boolean; start(): void; stop(): void; onresult: ((e: { resultIndex: number; results: { isFinal: boolean; 0: { transcript: string } }[] }) => void) | null; onend: (() => void) | null; onerror: ((e: { error: string }) => void) | null };
+    const w = window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
+    const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!SR) { alert(t('letter.dictateUnsupported')); return; }
+    const r = new SR();
+    r.lang = speechLang(lang);
+    r.continuous = true;
+    r.interimResults = false;
+    r.onresult = e => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i];
+        if (!res.isFinal) continue;
+        const text = res[0].transcript.trim();
+        if (!text) continue;
+        const ed = editors.current[activeRef.current] ?? body;
+        const before = ed?.state.doc.textBetween(Math.max(0, ed.state.selection.from - 1), ed.state.selection.from) ?? '';
+        ed?.chain().focus().insertContent(`${before && !/\s$/.test(before) ? ' ' : ''}${text}`).run();
+      }
+    };
+    r.onerror = e => { if (e.error === 'not-allowed') alert(t('letter.dictateBlocked')); };
+    r.onend = () => { recognition.current = null; setDictating(false); };
+    r.start();
+    recognition.current = r;
+    setDictating(true);
+  };
+  useEffect(() => () => { recognition.current?.stop(); window.speechSynthesis?.cancel(); }, []);
+
+  const readAloud = () => {
+    const synth = window.speechSynthesis;
+    if (!synth) { alert(t('letter.readAloudUnsupported')); return; }
+    if (speaking) { synth.cancel(); setSpeaking(false); return; }
+    const ed = activeEditor;
+    if (!ed) return;
+    const { from, to, empty } = ed.state.selection;
+    const text = empty ? ed.state.doc.textBetween(from, ed.state.doc.content.size, '\n') || ed.getText() : ed.state.doc.textBetween(from, to, '\n');
+    if (!text.trim()) return;
+    synth.cancel();
+    // Long letters are read paragraph by paragraph, so browsers do not stop half way.
+    const parts = text.split(/\n+/).filter(p => p.trim());
+    parts.forEach((part, i) => {
+      const u = new SpeechSynthesisUtterance(part);
+      u.lang = speechLang(lang);
+      if (i === parts.length - 1) u.onend = () => setSpeaking(false);
+      synth.speak(u);
+    });
+    setSpeaking(true);
+  };
+
+  const enterFocus = () => {
+    setFocusMode(true);
+    void rootRef.current?.requestFullscreen?.().catch(() => {});
+  };
+  useEffect(() => {
+    const change = () => { if (!document.fullscreenElement) setFocusMode(false); };
+    document.addEventListener('fullscreenchange', change);
+    return () => document.removeEventListener('fullscreenchange', change);
+  }, []);
+  const exitFocus = () => {
+    setFocusMode(false);
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+  };
+
+  /** The page a spot in the letter is on, for the table of contents. */
+  const pageOf = (pos: number): number | null => {
+    const sheet = sheetRef.current;
+    if (!sheet || !isPrint || !body) return null;
+    try {
+      const y = (body.view.coordsAtPos(pos).top - sheet.getBoundingClientRect().top) / scale;
+      return Math.max(1, Math.floor(y / (ph + PAGE_GAP)) + 1);
+    } catch { return null; }
+  };
+
+  // ---------- links with Office Class and the other apps ----------
+  const linkFor = (id: string): HandoffLink => ({ tabId: shell.tabId, id, moduleId: 'letter', title });
+
+  /** Puts a table from a sheet into the letter: updates the linked copy when there is one, otherwise inserts it. */
+  const placeTable = (table: TableData, link: HandoffLink | undefined, from: string | null): boolean => {
+    if (!body) return false;
+    if (link) {
+      const at = findLinkedTable(body.state.doc, link.id);
+      if (at) {
+        replaceTable(body, at, table);
+        if (from && at.node.attrs.linkTab !== from) {
+          const again = findLinkedTable(body.state.doc, link.id);
+          if (again) body.view.dispatch(body.state.tr.setNodeMarkup(again.pos, undefined, { ...again.node.attrs, linkTab: from }));
+        }
+        shell.notify(t('letter.tableUpdated'));
+        return true;
+      }
+    }
+    const attrs = link ? { link: link.id, linkTab: from } : {};
+    body.chain().focus().insertContent([tableJson(table, attrs), { type: 'paragraph' }]).run();
+    return true;
+  };
+
+  useEffect(() => {
+    if (!body) return;
+    const stopReceive = shell.onReceive((h, from) => {
+      if (h.kind === 'file') { openHere(h.file); return true; }
+      if (h.kind === 'html') { body.chain().focus().insertContent(h.html).run(); return true; }
+      return placeTable(h.table, h.link, from);
+    });
+    return stopReceive;
+  });
+
+  // A letter opened by another app with a table: a heading and the table, linked back to the sheet.
+  useEffect(() => {
+    if (!body || handoff?.kind !== 'table') return;
+    body.commands.setContent({ type: 'doc', content: [
+      { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: handoff.title || t('letter.untitled') }] },
+      { type: 'paragraph' },
+    ] }, { emitUpdate: false });
+    body.commands.focus('end');
+    placeTable(handoff.table, handoff.link, handoff.link?.tabId ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [body]);
+
+  const editInClass = () => {
+    const ed = activeEditor ?? body;
+    const at = ed && tableAt(ed);
+    if (!ed || !at) { shell.notify(t('letter.clickInTable')); return; }
+    const data = tableData(at.node);
+    const id = (at.node.attrs.link as string | null) ?? newLinkId();
+    const linkTab = at.node.attrs.linkTab as string | null;
+    if (linkTab && shell.tabs('class').some(x => x.tabId === linkTab)) {
+      void shell.send(linkTab, { kind: 'table', title, table: data, link: linkFor(id) });
+      shell.showTab(linkTab);
+      return;
+    }
+    const tabId = shell.openModule('class', undefined, { kind: 'table', title, table: data, link: linkFor(id) });
+    if (tabId) ed.view.dispatch(ed.state.tr.setNodeMarkup(at.pos, undefined, { ...at.node.attrs, link: id, linkTab: tabId }));
+  };
+
+  const insertFromSheet = async (tabId: string | null) => {
+    if (tabId) {
+      const h = await shell.ask(tabId, 'table');
+      if (h?.kind === 'table') { placeTable(h.table, h.link, tabId); shell.notify(t('letter.tableInserted')); }
+      else shell.notify(t('letter.sheetGone'));
+      return;
+    }
+    const f = await shell.openFile(SHEET_EXTENSIONS);
+    if (!f) return;
+    try {
+      const [{ computeSheet, currencyFor, usedRange }, { sheetToTable }] = await Promise.all([import('../../formats/sheet'), import('../../formats/table')]);
+      let book;
+      if (f.name.toLowerCase().endsWith('.xlsx')) book = await (await import('../../formats/xlsx')).readXlsx(await f.arrayBuffer());
+      else {
+        const { parseCsv } = await import('../../formats/csv');
+        const { tableToCells } = await import('../../formats/table');
+        book = { sheets: [{ name: f.name, widths: {}, cells: tableToCells({ rows: parseCsv(await f.text()).map(r => r.map(text => ({ text }))) }) }] };
+      }
+      const sheet = book.sheets[0];
+      const u = usedRange(sheet);
+      if (u.rows < 0) return;
+      placeTable(sheetToTable(sheet, { c1: 0, r1: 0, c2: u.cols, r2: u.rows }, computeSheet(sheet), getLanguage(), currencyFor(getLanguage(), book)), undefined, null);
+    } catch (err) {
+      alert(`${t('letter.openFailed')} ${f.name}\n${String(err)}`);
+    }
+  };
+
+  const share = async () => {
+    const blob = await makeDocx();
+    const f = new File([blob], `${baseName()}.docx`, { type: DOCX_TYPE });
+    if (navigator.canShare?.({ files: [f] })) await navigator.share({ files: [f], title }).catch(() => {});
+    else void save(true);
+  };
+
+  const smart = {
+    commandSearch: () => setPanel('commands'),
+    dictate,
+    readAloud,
+    outline: () => setOutline(o => { shell.storage.set('outline', o ? '0' : '1'); return !o; }),
+    focus: enterFocus,
+    theme: (th: (typeof THEMES)[number]) => { setStyles(th.styles); setPage(p => ({ ...p, color: th.page })); },
+    spacing: (id: keyof typeof SPACING) => setStyles(st => ({ ...st, normal: { ...st.normal, ...SPACING[id] } })),
+    toc: () => {
+      if (!body) return;
+      const content = tocJson(body, pageOf, pw - (m.left + m.right) * PX_PER_IN);
+      if (!content) { shell.notify(t('letter.tocEmpty')); return; }
+      body.chain().focus().insertContent(content).run();
+    },
+    callout: (kind: Parameters<typeof calloutJson>[0]) => activeEditor?.chain().focus().insertContent([calloutJson(kind, isDark(page.color))]).run(),
+    letterBlock: (kind: 'full' | 'closing') => activeEditor?.chain().focus().insertContent(letterBlockJson(kind, lang)).run(),
+    qr: async () => {
+      const ed = activeEditor;
+      if (!ed) return;
+      const text = prompt(t('letter.qrPrompt'), (ed.getAttributes('link').href as string | undefined) ?? 'https://');
+      if (!text?.trim()) return;
+      const src = await qrDataUrl(text.trim());
+      ed.chain().focus().insertContent({ type: 'image', attrs: { src, alt: text.trim(), width: 132 } }).run();
+    },
+    cleanUp: (what: Parameters<typeof cleanUp>[1]) => {
+      if (!body) return;
+      const n = cleanUp(body, what, lang || getLanguage());
+      shell.notify(n ? t('letter.cleanedUp', { n }) : t('letter.cleanNothing'));
+    },
+    sort: (dir: 1 | -1) => { if (activeEditor && !sortSelection(activeEditor, dir, lang || getLanguage())) shell.notify(t('letter.sortHint')); },
+    textToTable: () => { if (activeEditor && !textToTable(activeEditor)) shell.notify(t('letter.sortHint')); },
+    tableToText: () => { if (activeEditor && !tableToText(activeEditor)) shell.notify(t('letter.clickInTable')); },
+    editInClass,
+    insertFromSheet: (tabId: string | null) => void insertFromSheet(tabId),
+    newSheet: () => shell.openModule('class'),
+    openApp: (id: string) => shell.openModule(id),
+    share: () => void share(),
+    pdf: () => print(),
+  };
+
   const actions: RibbonActions = {
     fileMenu: () => setPanel('file'),
     paste: async () => {
@@ -414,12 +646,16 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     },
     wordCount: () => setPanel('count'),
     customMargins: () => setPanel('margins'),
+    ...smart,
   };
 
   // ---------- keyboard shortcuts, like Word ----------
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.altKey || !isShown()) return;
+      if (!isShown()) return;
+      if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'q') { e.preventDefault(); setPanel('commands'); return; }
+      if (e.key === 'Escape' && focusMode && !document.fullscreenElement) { exitFocus(); return; }
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       const k = e.key.toLowerCase();
       const run = (fn: () => unknown) => { e.preventDefault(); fn(); };
       if (k === 's') run(() => save(e.shiftKey));
@@ -439,18 +675,25 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     '--pw': px(pw), '--ph': px(ph), '--pg-gap': px(PAGE_GAP),
     '--mt': px(m.top * PX_PER_IN), '--mb': px(m.bottom * PX_PER_IN), '--ml': px(m.left * PX_PER_IN), '--mr': px(m.right * PX_PER_IN),
     '--hd': px(page.headerDistance * PX_PER_IN), '--fd': px(page.footerDistance * PX_PER_IN),
-    '--pn': '"#"', '--pt': `"${layout.pages}"`, '--pb-label': JSON.stringify(t('letter.pageBreak')),
+    '--pn': '"#"', '--pt': `"${layout.pages}"`, '--pb-label': JSON.stringify(t('letter.pageBreak')), '--link-label': JSON.stringify(t('letter.linkedToClass')),
     background: !isPrint ? page.color ?? undefined : undefined,
     transform: scale !== 1 ? `scale(${scale})` : undefined,
   } as CSSProperties;
   const zoomPct = Math.round(scale * 100);
+  const themeId = THEMES.find(th => th.page === page.color && JSON.stringify(th.styles) === JSON.stringify(styles))?.id ?? null;
+  const readMinutes = readingStats(body.getText()).readMinutes;
+  const suite = { apps: shell.apps(), sheets: shell.tabs('class'), dictating, speaking, outline, linkedTable, themeId };
+  const commands = buildCommands(actions, body, activeEditor, setView, view, inTable);
   const setZoom = (z: Zoom) => setView({ zoom: typeof z === 'number' ? Math.min(5, Math.max(0.1, z)) : z });
 
   return (
-    <div className={`letter ${scope}${painting ? ' painting' : ''}`} ref={rootRef}>
+    <div className={`letter ${scope}${painting ? ' painting' : ''}${focusMode ? ' focus-mode' : ''}`} ref={rootRef}>
       <style>{stylesCss(styles, page, `.${scope}`)}</style>
       <Ribbon editor={activeEditor} body={body} styles={styles} page={page} setPage={setPage} lang={lang} setLang={setLang}
-        view={view} setView={setView} actions={actions} />
+        view={view} setView={setView} actions={actions} suite={suite} />
+      {focusMode && <button type="button" className="focus-exit" onClick={exitFocus}>{t('letter.focusExit')}</button>}
+      <div className="letter-body">
+      {outline && !focusMode && <OutlinePane editor={body} onClose={() => smart.outline()} />}
       <div className="canvas" ref={canvasRef}>
         {(panel === 'find' || panel === 'replace') && <FindBar editor={body} replace={panel === 'replace'} onClose={() => { setPanel(null); body.commands.focus(); }} />}
         <div className="sizer" style={{ width: isPrint ? pw * scale : undefined, height: isPrint ? sheetHeight * scale : undefined }}>
@@ -474,9 +717,12 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
           </div>
         </div>
       </div>
+      </div>
       <footer className="status">
         <span>{isPrint ? t('letter.pageOf', { n: cursorPage, total: layout.pages }) : t('letter.webLayout')}</span>
         <button type="button" className="status-btn" onClick={() => setPanel('count')}>{words === 1 ? t('letter.word') : t('letter.words', { n: words })}</button>
+        {words > 0 && <span className="status-read">{t('letter.minutesRead', { n: readMinutes })}</span>}
+        {dictating && <span className="status-live"><i />{t('letter.listening')}</span>}
         <span className="status-file" title={fileName || `${title}.docx`}>{fileName || `${title}.docx`}{dirty && fileRef ? ' •' : ''}</span>
         <span className="status-zoom">
           <button type="button" aria-label={t('letter.zoomOut')} title={t('letter.zoomOut')} onClick={() => setZoom(Math.round((scale - 0.1) * 10) / 10)} disabled={!isPrint}>−</button>
@@ -490,11 +736,86 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
         <FileMenu fileName={fileName || `${title}.docx`} onClose={() => setPanel(null)}
           onNew={() => shell.openModule('letter')}
           onOpen={async () => { const f = await shell.openFile(EXTENSIONS); if (f) openHere(f); }}
-          onSave={() => void save()} onSaveAs={saveAs} onPrint={print}
+          onSave={() => void save()} onPrint={print}
+          saveChoices={[
+            { id: 'docx', icon: 'save', label: t('letter.format.docx'), hint: '.docx' },
+            { id: 'pdf', icon: 'pdf', label: 'PDF', hint: t('letter.format.pdfHint') },
+            { id: 'html', icon: 'web', label: t('letter.format.html'), hint: '.html' },
+            { id: 'txt', icon: 'left', label: t('letter.format.txt'), hint: '.txt' },
+          ] as { id: SaveFormat; icon: string; label: string; hint: string }[]} onSaveAs={saveAs}
           listRecent={shell.recent.list} onOpenRecent={r => void openRecent(r)} />
       )}
       {panel === 'count' && <WordCountDialog editor={body} pages={layout.pages} onClose={() => setPanel(null)} />}
       {panel === 'margins' && <MarginsDialog page={page} onApply={setPage} onClose={() => setPanel(null)} />}
+      {panel === 'commands' && <CommandPalette commands={commands} onClose={() => { setPanel(null); activeEditor?.commands.focus(); }} />}
     </div>
   );
+}
+
+/** Every command, by name, for the command search (Alt+Q). */
+function buildCommands(a: RibbonActions, body: Editor, ed: Editor, setView: (v: Partial<ViewState>) => void, view: ViewState, inTable: boolean): Command[] {
+  const run = () => ed.chain().focus();
+  const g = {
+    home: t('letter.tab.home'), insert: t('letter.tab.insert'), design: t('letter.tab.design'), layout: t('letter.tab.layout'),
+    review: t('letter.tab.review'), view: t('letter.tab.view'), smart: t('letter.tab.smart'), oi1: 'Office In 1', file: t('letter.tab.file'), table: t('letter.tab.table'),
+  };
+  const c = (id: string, label: string, group: string, runIt: () => unknown, icon?: string, keys?: string, disabled?: boolean): Command =>
+    ({ id, label, group, run: () => { runIt(); }, icon, keys, disabled });
+  return [
+    c('save', t('letter.save'), g.file, () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true })), 'save', 'Ctrl+S'),
+    c('file', t('letter.tab.file'), g.file, a.fileMenu, 'open'),
+    c('pdf', t('letter.savePdf'), g.file, a.pdf, 'pdf', 'Ctrl+P'),
+    c('share', t('letter.share'), g.oi1, a.share, 'share'),
+    c('bold', t('letter.bold'), g.home, () => run().toggleBold().run(), undefined, 'Ctrl+B'),
+    c('italic', t('letter.italic'), g.home, () => run().toggleItalic().run(), undefined, 'Ctrl+I'),
+    c('underline', t('letter.underline'), g.home, () => run().toggleUnderline().run(), undefined, 'Ctrl+U'),
+    c('strike', t('letter.strike'), g.home, () => run().toggleStrike().run()),
+    c('bullets', t('letter.bullets'), g.home, () => run().toggleBulletList().run(), 'bullets'),
+    c('numbers', t('letter.numbers'), g.home, () => run().toggleOrderedList().run(), 'numbers'),
+    c('left', t('letter.alignLeft'), g.home, () => run().setTextAlign('left').run(), 'left'),
+    c('center', t('letter.alignCenter'), g.home, () => run().setTextAlign('center').run(), 'center'),
+    c('right', t('letter.alignRight'), g.home, () => run().setTextAlign('right').run(), 'right'),
+    c('justify', t('letter.justify'), g.home, () => run().setTextAlign('justify').run(), 'justify'),
+    c('h1', t('letter.heading1'), g.home, () => run().setHeading({ level: 1 }).run()),
+    c('h2', t('letter.heading2'), g.home, () => run().setHeading({ level: 2 }).run()),
+    c('h3', t('letter.heading3'), g.home, () => run().setHeading({ level: 3 }).run()),
+    c('clear', t('letter.clearFormatting'), g.home, () => run().unsetAllMarks().run(), 'clear'),
+    c('find', t('letter.find'), g.home, () => a.find(false), 'find', 'Ctrl+F'),
+    c('replace', t('letter.replace'), g.home, () => a.find(true), 'replace', 'Ctrl+H'),
+    c('dictate', t('letter.dictate'), g.home, a.dictate, 'mic'),
+    c('table', t('letter.table'), g.insert, () => run().insertTable({ rows: 3, cols: 3, withHeaderRow: false }).run(), 'table'),
+    c('fromClass', t('letter.fromSheetFile'), g.insert, () => a.insertFromSheet(null), 'sheet'),
+    c('image', t('letter.image'), g.insert, a.image, 'image'),
+    c('link', t('letter.link'), g.insert, a.link, 'link'),
+    c('pagebreak', t('letter.pageBreak'), g.insert, () => body.chain().focus().setPageBreak().run(), 'pagebreak', 'Ctrl+Enter'),
+    c('toc', t('letter.toc'), g.insert, a.toc, 'toc'),
+    c('note', `${t('letter.callout')}: ${t('letter.callout.note')}`, g.insert, () => a.callout('note'), 'callout'),
+    c('tip', `${t('letter.callout')}: ${t('letter.callout.tip')}`, g.insert, () => a.callout('tip'), 'callout'),
+    c('warning', `${t('letter.callout')}: ${t('letter.callout.warning')}`, g.insert, () => a.callout('warning'), 'callout'),
+    c('letterBlock', t('letter.letterBlock.full'), g.insert, () => a.letterBlock('full'), 'envelope'),
+    c('closing', t('letter.letterBlock.closing'), g.insert, () => a.letterBlock('closing'), 'signature'),
+    c('qr', t('letter.qr'), g.insert, a.qr, 'qr'),
+    c('header', t('letter.header'), g.insert, a.header, 'header'),
+    c('footer', t('letter.footer'), g.insert, a.footer, 'footer'),
+    c('pagenum', t('letter.pageNumber.bottomTotal'), g.insert, () => a.pageNumber('bottom', true), 'pagenum'),
+    c('date', t('letter.date'), g.insert, () => run().insertContent(new Date().toLocaleDateString(undefined, { dateStyle: 'long' })).run(), 'date'),
+    ...THEMES.map(th => c(`theme-${th.id}`, `${t('letter.group.themes')}: ${t(th.name)}`, g.design, () => a.theme(th), 'theme')),
+    c('margins', t('letter.margins.custom'), g.layout, a.customMargins, 'margins'),
+    c('count', t('letter.wordCount'), g.review, a.wordCount, 'count'),
+    c('read', t('letter.readAloud'), g.review, a.readAloud, 'speak'),
+    c('outline', t('letter.outline'), g.view, a.outline, 'outline'),
+    c('focus', t('letter.focus'), g.view, a.focus, 'focus'),
+    c('marks', t('letter.showMarks'), g.view, () => setView({ marks: !view.marks }), 'marks'),
+    c('web', t('letter.webLayout'), g.view, () => setView({ layout: 'web' }), 'web'),
+    c('print', t('letter.printLayout'), g.view, () => setView({ layout: 'print' }), 'print'),
+    c('cleanAll', t('letter.cleanUp.all'), g.smart, () => a.cleanUp('all'), 'clean'),
+    c('quotes', t('letter.cleanUp.quotes'), g.smart, () => a.cleanUp('quotes'), 'clean'),
+    c('sortAZ', t('letter.sortAZ'), g.smart, () => a.sort(1), 'sort'),
+    c('sortZA', t('letter.sortZA'), g.smart, () => a.sort(-1), 'sort'),
+    c('textToTable', t('letter.textToTable'), g.smart, a.textToTable, 'texttable'),
+    c('tableToText', t('letter.tableToText'), g.table, a.tableToText, 'texttable', undefined, !inTable),
+    c('editInClass', t('letter.editInClass'), g.oi1, a.editInClass, 'sheet', undefined, !inTable),
+    c('newSheet', t('letter.newSheet'), g.oi1, a.newSheet, 'sheet'),
+    c('prodfos', t('letter.openProdfos'), g.oi1, () => a.openApp('prodfos'), 'prodfos'),
+  ];
 }
