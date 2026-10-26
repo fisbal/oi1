@@ -67,6 +67,7 @@ export interface RibbonActions {
   tableToText: () => void;
   // Links with the other apps
   editInClass: () => void;
+  makeSlides: () => void;
   insertFromSheet: (tabId: string | null) => void;
   newSheet: () => void;
   openApp: (id: string) => void;
@@ -747,6 +748,9 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
             <Btn big icon="sheet" title={suite.linkedTable ? 'letter.openLinkedSheet' : 'letter.editInClass'} onClick={actions.editInClass} disabled={!s.inTable} />
             <SheetDrop suite={suite} actions={actions} />
             <Btn big icon="new" title="letter.newSheet" onClick={actions.newSheet} />
+          </Group>
+          <Group label="letter.group.withStage">
+            <Btn big icon="stage" title="letter.makeSlides" onClick={actions.makeSlides} />
           </Group>
           <Group label="letter.group.withProdfos">
             <Btn big icon="pdf" title="letter.savePdf" onClick={actions.pdf} />

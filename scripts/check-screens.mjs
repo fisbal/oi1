@@ -58,6 +58,7 @@ try {
         if (slide) {
           const b = slide.getBoundingClientRect();
           if (b.left < -1 || b.right > vw + 1) out.issues.push(`the slide is wider than the screen (${Math.round(b.width)} of ${vw})`);
+          if (b.width < vw * 0.4) out.issues.push(`the slide is too small to work on (${Math.round(b.width)}px of ${vw})`);
         }
         const ribbon = document.querySelector('.ribbon');
         if (ribbon) {
