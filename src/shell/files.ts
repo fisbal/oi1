@@ -77,6 +77,19 @@ async function write(handle: FileSystemFileHandle, blob: Blob) {
   await writable.close();
 }
 
+/** True inside the Office In 1 app for Windows or Android (Tauri), not in a browser. */
+export const inApp = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+/** The app's own save dialog, for Android where the web view can neither pick a place nor download. */
+async function saveInApp(name: string, blob: Blob): Promise<FileRef | null> {
+  const [{ save }, { writeFile }] = await Promise.all([import('@tauri-apps/plugin-dialog'), import('@tauri-apps/plugin-fs')]);
+  const ext = name.slice(name.lastIndexOf('.') + 1);
+  const path = await save({ defaultPath: name, filters: ext ? [{ name: ext.toUpperCase(), extensions: [ext] }] : undefined });
+  if (!path) return null;
+  await writeFile(path, new Uint8Array(await blob.arrayBuffer()));
+  return { name: decodeURIComponent(path.split(/[\\/]/).pop() || name) };
+}
+
 export function downloadFile(name: string, content: Blob | string, mimeType: string) {
   const blob = typeof content === 'string' ? new Blob([content], { type: mimeType }) : content;
   const url = URL.createObjectURL(blob);
@@ -119,6 +132,10 @@ export async function saveFile(name: string, content: Blob | string | (() => Pro
     return { ref: { name: handle.name, handle }, blob };
   }
   const blob = await toBlob();
+  if (inApp()) {
+    const ref = await saveInApp(name, blob);
+    return ref ? { ref, blob } : null;
+  }
   downloadFile(name, blob, mimeType);
   return { ref: { name }, blob };
 }

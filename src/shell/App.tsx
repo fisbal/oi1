@@ -3,6 +3,7 @@ import type { Handoff, MountedModule, OpenedFile, RecentFile, ShellApi } from '.
 import { idb } from './db';
 import { pickFile, saveFile, wrapFile } from './files';
 import { LANGUAGES, getLanguage, setLanguage, t, type LanguageCode } from './i18n';
+import { findUpdate, type AppUpdate } from './update';
 import { moduleForFile, modules } from './modules';
 import { addRecent, listRecent, onRecentChange, openRecent, removeRecent } from './recent';
 import { Backdrop, BrandMark, SceneArt, Wordmark, useTilt } from './Scene';
@@ -190,6 +191,7 @@ export default function App() {
   return (
     <>
       <Backdrop />
+      <UpdateBanner />
       <header className="topbar">
         <button className="launcher-btn" title={t('shell.apps')} aria-label={t('shell.apps')} aria-expanded={launcher}
           onClick={() => setLauncher(o => !o)}>
@@ -346,4 +348,27 @@ function TabHost({ tab, hidden, makeApi }: { tab: Tab; hidden: boolean; makeApi:
   }, [tab.tabId, tab.moduleId]);
 
   return <div ref={ref} className="module-host" hidden={hidden} />;
+}
+
+/** Tells the installed app (Windows, Android) that a new version is out, and installs it on a tap. */
+function UpdateBanner() {
+  const [update, setUpdate] = useState<AppUpdate | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [later, setLater] = useState(false);
+  useEffect(() => {
+    let stop = false;
+    const look = () => void findUpdate().then(u => { if (!stop && u) setUpdate(u); });
+    const first = window.setTimeout(look, 4000);
+    const again = window.setInterval(look, 6 * 3600 * 1000);
+    return () => { stop = true; window.clearTimeout(first); window.clearInterval(again); };
+  }, []);
+  if (!update || later) return null;
+  return (
+    <div className="update-banner" role="status">
+      <span className="grow">{t(busy ? (update.kind === 'apk' ? 'update.apkHint' : 'update.installing') : 'update.ready', { version: update.version })}</span>
+      <button type="button" className="primary" disabled={busy && update.kind === 'install'}
+        onClick={() => { setBusy(true); void update.run().catch(() => setBusy(false)); }}>{t('update.now')}</button>
+      <button type="button" onClick={() => setLater(true)}>{t('update.later')}</button>
+    </div>
+  );
 }

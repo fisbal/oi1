@@ -1,0 +1,237 @@
+name: Build and release OI1
+
+# Every build of Office In 1 ships everywhere at once:
+#   web      type-checked, tested, built and checked on phone, tablet, PC and Mac screens;
+#            on main, published to GitHub Pages (gh-pages branch)
+#   windows  the Windows installer (.exe) and .msi, made with Tauri
+#   mac      the Mac app (.dmg, Apple silicon and Intel), made with Tauri
+#   android  the Android app (.apk), made with Tauri and signed
+#   release  on main, a GitHub Release with all of them plus the source code
+# Pull requests run the same builds as a check, without publishing.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Every build gets its own version, so a new APK installs over the old one and Windows sees an update.
+  OI1_VERSION: 0.1.${{ github.run_number }}
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm version "$OI1_VERSION" --no-git-tag-version --allow-same-version
+      - run: npm test
+      - run: npm run build
+      - name: Check every app on phones, tablets, PCs and Macs
+        run: |
+          npx playwright install --with-deps chromium
+          npm run check:screens
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screens
+          path: screens/
+          if-no-files-found: ignore
+      - name: Publish to gh-pages
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          cd dist
+          touch .nojekyll
+          git init -q -b gh-pages
+          git -c user.name=ci -c user.email=ci@local add -A
+          git -c user.name=ci -c user.email=ci@local commit -qm "OI1 ${{ github.sha }}"
+          git push -qf https://x-access-token:${{ github.token }}@github.com/${{ github.repository }} HEAD:gh-pages
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm version "$env:OI1_VERSION" --no-git-tag-version --allow-same-version
+      - name: Build the installers
+        shell: bash
+        env:
+          # Signs the update so installed apps trust it (the public half is in tauri.conf.json).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PUBLIC_KEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$TAURI_SIGNING_PUBLIC_KEY" ]; then
+            npx tauri build --ci --config "{\"plugins\":{\"updater\":{\"pubkey\":\"$TAURI_SIGNING_PUBLIC_KEY\"}}}"
+          else
+            echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set; this build cannot update installed apps."
+            npx tauri build --ci --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          fi
+      - name: Name the installers
+        shell: bash
+        run: |
+          mkdir out
+          cp src-tauri/target/release/bundle/nsis/*-setup.exe out/OfficeIn1-Setup.exe
+          cp src-tauri/target/release/bundle/msi/*.msi out/OfficeIn1.msi
+          # The signature of the installer, for latest.json (the file keeps its content when renamed).
+          if ls src-tauri/target/release/bundle/nsis/*-setup.exe.sig >/dev/null 2>&1; then
+            cp src-tauri/target/release/bundle/nsis/*-setup.exe.sig out/OfficeIn1-Setup.exe.sig
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: out/*
+
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm version "$OI1_VERSION" --no-git-tag-version --allow-same-version
+      - name: Build the Mac app (Apple silicon and Intel)
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PUBLIC_KEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$TAURI_SIGNING_PUBLIC_KEY" ]; then
+            npx tauri build --ci --target universal-apple-darwin --bundles app,dmg --config "{\"plugins\":{\"updater\":{\"pubkey\":\"$TAURI_SIGNING_PUBLIC_KEY\"}}}"
+          else
+            npx tauri build --ci --target universal-apple-darwin --bundles app,dmg --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          fi
+          B=src-tauri/target/universal-apple-darwin/release/bundle
+          mkdir out
+          cp "$B"/dmg/*.dmg out/OfficeIn1.dmg
+          if ls "$B"/macos/*.app.tar.gz.sig >/dev/null 2>&1; then
+            cp "$B"/macos/*.app.tar.gz out/OfficeIn1-mac.app.tar.gz
+            cp "$B"/macos/*.app.tar.gz.sig out/OfficeIn1-mac.app.tar.gz.sig
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: out/*
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm version "$OI1_VERSION" --no-git-tag-version --allow-same-version
+      # The runner ships the Android NDK; its path is a machine variable, so it is copied for Tauri here.
+      - name: Point Tauri at the Android NDK
+        run: echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
+      - name: Make the Android project
+        run: |
+          npx tauri android init --ci
+          npx tauri icon public/icons/icon.svg
+      - name: Build the APK
+        run: npx tauri android build --apk --ci --target aarch64 armv7 x86_64
+      - name: Sign the APK
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          UNSIGNED=$(ls src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk | head -1)
+          mkdir out
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" aligned.apk
+          if [ -n "$KEYSTORE" ]; then
+            echo "$KEYSTORE" | base64 -d > release.jks
+            "$BT/apksigner" sign --ks release.jks --ks-pass env:KEYSTORE_PASSWORD --ks-key-alias "$KEY_ALIAS" --out out/OfficeIn1.apk aligned.apk
+          else
+            # No signing key in the repository secrets yet: sign with a key made for this build only.
+            # The APK installs, but cannot update an earlier one signed with another key.
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; the APK is signed with a throwaway key."
+            keytool -genkeypair -keystore temp.jks -storepass android -keypass android -alias oi1 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Office In 1"
+            "$BT/apksigner" sign --ks temp.jks --ks-pass pass:android --ks-key-alias oi1 --out out/OfficeIn1.apk aligned.apk
+          fi
+          "$BT/apksigner" verify out/OfficeIn1.apk
+          rm -f release.jks temp.jks
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: out/OfficeIn1.apk
+
+  release:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [web, windows, mac, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Write latest.json for the Windows updater
+        run: |
+          if [ -f out/OfficeIn1-Setup.exe.sig ]; then
+            jq -n --arg v "$OI1_VERSION" --arg sig "$(cat out/OfficeIn1-Setup.exe.sig)" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --arg url "https://github.com/${{ github.repository }}/releases/download/v$OI1_VERSION/OfficeIn1-Setup.exe" \
+              '{version: $v, notes: "Office In 1 \($v)", pub_date: $date, platforms: {"windows-x86_64": {signature: $sig, url: $url}}}' > out/latest.json
+            if [ -f out/OfficeIn1-mac.app.tar.gz.sig ]; then
+              MAC_URL="https://github.com/${{ github.repository }}/releases/download/v$OI1_VERSION/OfficeIn1-mac.app.tar.gz"
+              jq --arg sig "$(cat out/OfficeIn1-mac.app.tar.gz.sig)" --arg url "$MAC_URL" \
+                '.platforms["darwin-aarch64"] = {signature: $sig, url: $url} | .platforms["darwin-x86_64"] = {signature: $sig, url: $url}' out/latest.json > out/l.json && mv out/l.json out/latest.json
+            fi
+            cat out/latest.json
+          fi
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.OI1_VERSION }}
+          target_commitish: ${{ github.sha }}
+          name: Office In 1 ${{ env.OI1_VERSION }}
+          make_latest: true
+          body: |
+            Office In 1 ${{ env.OI1_VERSION }}
+
+            - Web: https://fisbal.github.io/oi1/
+            - Android: OfficeIn1.apk
+            - Windows: OfficeIn1-Setup.exe (or OfficeIn1.msi)
+            - Mac (Apple silicon and Intel): OfficeIn1.dmg (the first time: right-click the app, then Open)
+            - Installed apps update themselves: Windows installs this version and restarts, Android offers the new APK.
+            - Source code: the zip and tar.gz below
+          files: out/*

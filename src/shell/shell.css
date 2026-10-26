@@ -79,6 +79,11 @@
 }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
+/* Phones and tablets: no text inflation when turned sideways, no double-tap zoom on buttons, and room for notches. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+button, a, [role=tab], .rb, input, select, textarea { touch-action: manipulation; }
+body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0); box-sizing: border-box; }
+html, body { overscroll-behavior: none; }
 html.theme-fade, html.theme-fade * { transition: background-color .35s ease, color .35s ease, border-color .35s ease !important; }
 #root { display: flex; flex-direction: column; position: relative; isolation: isolate; }
 body { font-family: var(--sans); background: var(--void); color: var(--ink); display: flex; flex-direction: column; -webkit-font-smoothing: antialiased; }
@@ -318,3 +323,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Gold text needs a deeper shade on ivory to stay readable. */
 :root[data-theme="light"] .kicker, :root[data-theme="light"] .slab .tag { color: #8A6414; }
 :root[data-theme="light"] .slab .tag { border-color: rgba(154,116,36,.35); background: rgba(255,255,255,.8); }
+
+/* ---------- "A new version is ready" in the installed apps ---------- */
+.update-banner {
+  position: fixed; z-index: 95; right: 16px; bottom: 16px; max-width: min(460px, calc(100vw - 32px)); display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px 10px 16px; border-radius: 18px; border: 1px solid var(--hair); background: rgba(var(--bg-rgb), .94); color: var(--ink); font-size: 13.5px;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 14px 34px rgba(var(--shade-rgb), calc(.5 * var(--shade-k))); animation: reveal .4s var(--ease) both;
+}
+.update-banner .grow { flex: 1; min-width: 0; }
+.update-banner button { flex: none; height: 30px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--hair); background: rgba(var(--fg-rgb), .05); color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 650; }
+.update-banner button.primary { background: var(--gold-gradient); color: var(--on-gold); border-color: rgba(var(--fg-rgb), .35); }
+.update-banner button:disabled { opacity: .6; }
+@supports (height: 100dvh) { body { height: 100dvh; } }
