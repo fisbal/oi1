@@ -219,3 +219,10 @@
   .st-notes { display: none; }
   .st-presenter { grid-template-columns: 1fr; grid-template-rows: auto 1fr 1fr auto; }
 }
+
+/* Short screens (a phone held sideways): the slide gets the room; notes come back on taller screens. */
+@media (max-height: 520px) {
+  .st-notes, .st-notes-bar { display: none; }
+  .st-rail { width: 120px; padding: 6px; }
+  .st-rail-num { display: none; }
+}

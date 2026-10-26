@@ -43,27 +43,36 @@ export function themeVars(theme: DeckTheme): CSSProperties {
   } as CSSProperties;
 }
 
-/** Text that shrinks to fit its box, like PowerPoint's AutoFit. Reports the scale it used. */
+/**
+ * Text that shrinks to fit its box, like PowerPoint's AutoFit. The text is zoomed down as a whole (sizes set on
+ * words shrink too) and laid out at the matching wider width, so lines break as they would at the smaller size.
+ */
 function FitText({ html, children, autofit, base, onFit, id }: { html: string; children?: ReactNode; autofit: boolean; base: number; onFit?: (id: string, k: number) => void; id: string }) {
   const outer = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
   const [k, setK] = useState(1);
   useLayoutEffect(() => {
-    if (!autofit || children) return;
-    const el = outer.current;
-    if (!el) return;
+    const el = outer.current, body = inner.current;
+    if (!el || !body) return;
+    if (!autofit || children) { if (k !== 1) setK(1); return; }
+    const fits = (z: number) => {
+      body.style.zoom = String(z);
+      body.style.width = `${100 / z}%`;
+      return body.offsetHeight * z <= el.clientHeight + 1;
+    };
     let next = 1;
-    el.style.fontSize = `${base}pt`;
     // A few steps down until the text fits, never below 40 %.
-    while (next > 0.4 && el.scrollHeight > el.clientHeight + 1) {
-      next = Math.round((next - 0.075) * 1000) / 1000;
-      el.style.fontSize = `${base * next}pt`;
-    }
-    setK(next);
+    while (next > 0.4 && !fits(next)) next = Math.round((next - 0.05) * 1000) / 1000;
+    body.style.zoom = '';
+    body.style.width = '';
+    if (next !== k) setK(next);
     onFit?.(id, next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [html, base, autofit, children, id, onFit]);
+  const z = children ? 1 : k;
   return (
-    <div ref={outer} className="st-fit" style={{ fontSize: `${base * (children ? 1 : k)}pt` }}>
-      {children ?? <div className="st-html" dangerouslySetInnerHTML={{ __html: html }} />}
+    <div ref={outer} className="st-fit" style={{ fontSize: `${base}pt` }}>
+      {children ?? <div ref={inner} className="st-html" style={z !== 1 ? { zoom: z, width: `${100 / z}%` } : undefined} dangerouslySetInnerHTML={{ __html: html }} />}
     </div>
   );
 }
