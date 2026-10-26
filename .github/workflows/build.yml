@@ -161,15 +161,14 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - run: npm version "$OI1_VERSION" --no-git-tag-version --allow-same-version
+      # The runner ships the Android NDK; its path is a machine variable, so it is copied for Tauri here.
+      - name: Point Tauri at the Android NDK
+        run: echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
       - name: Make the Android project
-        env:
-          NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
         run: |
           npx tauri android init --ci
           npx tauri icon public/icons/icon.svg
       - name: Build the APK
-        env:
-          NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
         run: npx tauri android build --apk --ci --target aarch64 armv7 x86_64
       - name: Sign the APK
         env:
