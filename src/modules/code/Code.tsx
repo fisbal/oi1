@@ -9,7 +9,7 @@ import { t } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import { parseCsv } from '../../formats/csv';
 import { FileMenu } from '../../ui/FileMenu';
-import { Btn, Drop, Group, Icon, MenuItem } from '../../ui/kit';
+import { Btn, Drop, Group, Icon, MenuItem, appIcon } from '../../ui/kit';
 import { qrDataUrl } from '../../ui/qr';
 import { buildPreview, buildSite, dirname, extOf, isBinary, normalize, resolvePath, type BuildError, type Files } from './build';
 import { CodeEditor, type EditorApi } from './Editor';
@@ -640,7 +640,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
             </Group>
             <Group label="class.group.apps">
               {shell.apps().filter(a => a.id !== 'code').map(a => (
-                <Btn key={a.id} big icon={a.id === 'letter' ? 'letter' : a.id === 'class' ? 'sheet' : a.id === 'prodfos' ? 'prodfos' : 'apps'} title={a.name.replace('Office ', '')}
+                <Btn key={a.id} big icon={appIcon(a.id)} title={a.name.replace('Office ', '')}
                   onClick={() => shell.openModule(a.id)} disabled={!a.ready} />
               ))}
             </Group>

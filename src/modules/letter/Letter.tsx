@@ -557,6 +557,12 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [body]);
 
+  // The letter as slides in Office Stage: each heading starts a slide, its paragraphs become the points.
+  const makeSlides = () => {
+    if (!body) return;
+    shell.openModule('stage', undefined, { kind: 'html', title, html: body.getHTML() });
+  };
+
   const editInClass = () => {
     const ed = activeEditor ?? body;
     const at = ed && tableAt(ed);
@@ -640,6 +646,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     textToTable: () => { if (activeEditor && !textToTable(activeEditor)) shell.notify(t('letter.sortHint')); },
     tableToText: () => { if (activeEditor && !tableToText(activeEditor)) shell.notify(t('letter.clickInTable')); },
     editInClass,
+    makeSlides,
     insertFromSheet: (tabId: string | null) => void insertFromSheet(tabId),
     newSheet: () => shell.openModule('class'),
     openApp: (id: string) => shell.openModule(id),
@@ -1014,6 +1021,7 @@ function buildCommands(a: RibbonActions, body: Editor, ed: Editor, setView: (v: 
     c('tableToText', t('letter.tableToText'), g.table, a.tableToText, 'texttable', undefined, !inTable),
     c('editInClass', t('letter.editInClass'), g.oi1, a.editInClass, 'sheet', undefined, !inTable),
     c('newSheet', t('letter.newSheet'), g.oi1, a.newSheet, 'sheet'),
+    c('makeSlides', t('letter.makeSlides'), g.oi1, a.makeSlides, 'stage'),
     c('prodfos', t('letter.openProdfos'), g.oi1, () => a.openApp('prodfos'), 'prodfos'),
   ];
 }

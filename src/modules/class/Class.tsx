@@ -18,7 +18,7 @@ import {
 } from '../../formats/sheet';
 import { sheetToTable, tableFromHtml, tableFromText, tableToCells, tableToHtml, tableToText, type Range } from '../../formats/table';
 import { FileMenu } from '../../ui/FileMenu';
-import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, type ComboGroup } from '../../ui/kit';
+import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, type ComboGroup, appIcon } from '../../ui/kit';
 import { FONT_GROUPS, FONT_SIZES, cssFont } from '../letter/model';
 import { CHART_TYPES, ChartSvg, DARK, LIGHT, PALETTES, chartData, svgToPng } from './chart';
 import { condLooks, type CondLook } from './cond';
@@ -642,6 +642,19 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       shell.showTab(letterTab);
     } else shell.openModule('letter', undefined, h);
   };
+  // The table (or the selection) on a new slide in Office Stage, linked so changes can be sent there.
+  const sendToStage = () => {
+    const { table } = sendRange();
+    const id = newId('l');
+    const tabId = shell.openModule('stage', undefined, { kind: 'table', title, table, link: { tabId: shell.tabId, id, moduleId: 'class', title } });
+    if (tabId) setLink({ tabId, id, moduleId: 'stage', title: 'Office Stage' });
+  };
+  const chartToStage = async () => {
+    if (!chart) return;
+    const png = await chartPng(chart);
+    const name = chart.title || title;
+    shell.openModule('stage', undefined, { kind: 'html', title: name, html: `<p><img src="${png}" alt="${name.replace(/"/g, '&quot;')}" width="${chart.w}" height="${chart.h}"></p>` });
+  };
   const saveChartPng = async () => {
     if (!chart) return;
     const png = await chartPng(chart);
@@ -732,12 +745,12 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     if (h.link) setLink(h.link);
     return true;
   }));
-  // A letter asks for a table: give the selection (or the whole table) and link it to that letter.
+  // A letter or a deck asks for a table: give the selection (or the whole table) and link it to that tab.
   useEffect(() => shell.onAsk((_want, from) => {
     const { table } = sendRange();
     const id = newId('l');
-    const target = shell.tabs('letter').find(x => x.tabId === from);
-    setLink({ tabId: from, id, moduleId: 'letter', title: target?.title ?? 'Office Letter' });
+    const target = shell.tabs().find(x => x.tabId === from);
+    setLink({ tabId: from, id, moduleId: target?.moduleId ?? 'letter', title: target?.title ?? 'Office Letter' });
     return { kind: 'table', title, table, link: { tabId: shell.tabId, id, moduleId: 'class', title } };
   }));
   useEffect(() => { if (handoff?.kind === 'file') void loadBook(handoff.file); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
@@ -1654,6 +1667,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             </Group>
             <Group label="class.group.chartShare">
               <Drop big icon="send" title="class.chart.toLetter">{sendLetterMenu(id => void chartToLetter(id))}</Drop>
+              <Btn big icon="stage" title="class.chart.toStage" onClick={() => void chartToStage()} />
               <Btn big icon="image" title="class.chart.savePng" onClick={() => void saveChartPng()} />
               <Btn big icon="trash" title="class.chart.delete" onClick={deleteChart} />
             </Group>
@@ -1665,9 +1679,12 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               </Drop>
               <Btn big icon="sync" title="class.updateLetter" onClick={() => void updateLetter()} disabled={!linkedLetterOpen} />
             </Group>
+            <Group label="class.group.toStage">
+              <Btn big icon="stage" title="class.sendToStage" onClick={sendToStage} />
+            </Group>
             <Group label="class.group.apps">
               {shell.apps().filter(a => a.id !== 'class').map(a => (
-                <Btn key={a.id} big icon={a.id === 'letter' ? 'letter' : a.id === 'prodfos' ? 'prodfos' : a.id === 'code' ? 'code' : 'apps'} title={a.name.replace('Office ', '')}
+                <Btn key={a.id} big icon={appIcon(a.id)} title={a.name.replace('Office ', '')}
                   onClick={() => shell.openModule(a.id)} disabled={!a.ready} />
               ))}
             </Group>

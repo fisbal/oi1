@@ -136,6 +136,7 @@ const ICONS: Record<string, ReactNode> = {
   upload: <>{P('M8 11V2M4.5 5.5 8 2l3.5 3.5M2 10v4h12v-4')}</>,
   download: <>{P('M8 2v9M4.5 7.5 8 11l3.5-3.5M2 10v4h12v-4')}</>,
   code: <>{P('M5.5 4 1.5 8l4 4M10.5 4l4 4-4 4M9.5 2.5l-3 11')}</>,
+  stage: <>{P('M1.5 2.5h13v8h-13zM8 10.5v2.5M5 14.5l3-1.5 3 1.5M4 5h5M4 7.5h3')}</>,
   phone: <>{P('M4.5 1.5h7v13h-7zM7 12.5h2')}</>,
   tablet: <>{P('M2.5 1.5h11v13h-11zM7 12.5h2')}</>,
   desktop: <>{P('M1.5 2.5h13v8.5h-13zM6 14h4M8 11v3')}</>,
@@ -172,6 +173,9 @@ const ICONS: Record<string, ReactNode> = {
   gear: <>{P('M8 10.2a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4zM8 1.5v1.8M8 12.7v1.8M1.5 8h1.8M12.7 8h1.8M3.4 3.4l1.3 1.3M11.3 11.3l1.3 1.3M3.4 12.6l1.3-1.3M11.3 4.7l1.3-1.3')}</>,
   goto: <>{P('M2 4h7M2 8h4M2 12h7M11 6l3 2-3 2')}</>,
 };
+
+/** The icon of each app in OI1, for app switchers and "Send to" menus. */
+export const appIcon = (id: string) => ({ letter: 'letter', class: 'sheet', stage: 'stage', code: 'code', prodfos: 'prodfos' } as Record<string, string>)[id] ?? 'apps';
 
 export function Icon({ name, size = 16 }: { name: string; size?: number }) {
   return (

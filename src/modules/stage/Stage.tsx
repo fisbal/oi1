@@ -104,13 +104,14 @@ export default function Stage({ shell, file, handoff }: { shell: ShellApi; file?
   useEffect(() => {
     void (async () => {
       let saved: Saved | null = null;
-      try {
+      // Something sent from another app starts a new deck; otherwise the last one comes back.
+      if (!handoff || handoff.kind === 'file') try {
         const raw = await shell.storage.load('deck');
         if (raw) saved = JSON.parse(raw) as Saved;
       } catch { /* unreadable autosave */ }
       setInitial(saved ?? { deck: newDeck(), active: 0, name: '' });
     })();
-  }, [shell]);
+  }, [shell, handoff]);
   if (!initial) return <div className="stage" />;
   return <StageEditor shell={shell} file={file} handoff={handoff} initial={initial} />;
 }
@@ -350,14 +351,16 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     setTab('format');
   };
   const addTextBox = () => addItem({ id: newId(), kind: 'shape', geom: 'rect', ...center(480, 72), y: Math.round(deck.h * 0.42), fill: null, line: null, html: '<p></p>', valign: 'top' }, true);
-  const addTable = (rows: number, cols: number, data?: string[][], link?: TableItem['link']) => {
+  const tableItem = (rows: number, cols: number, data?: string[][], link?: TableItem['link']): TableItem => {
     const w = Math.min(deck.w * 0.86, cols * 220);
     const h = Math.min(deck.h * 0.62, rows * 46);
-    const table: TableItem = {
+    return {
       id: newId(), kind: 'table', ...center(Math.round(w), Math.round(h)), y: Math.round(deck.h * 0.28),
       rows: data ?? Array.from({ length: rows }, () => Array.from({ length: cols }, () => '')), header: true, banded: true, ...(link ? { link } : {}),
     };
-    addItem(table);
+  };
+  const addTable = (rows: number, cols: number, data?: string[][], link?: TableItem['link']) => {
+    addItem(tableItem(rows, cols, data, link));
     setTab('table');
   };
   const addImages = async (files: File[]) => {
@@ -691,6 +694,15 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
         if (found) { commit({ ...d, slides }); return true; }
       }
       const link = h.link && from ? { ...h.link, tabId: from } : h.link;
+      // A new deck gets a "title only" slide: the table's name above it.
+      if (pristine()) {
+        const s = newSlide('titleOnly', d);
+        s.items = [...s.items.map(it => (it.kind === 'shape' && it.role === 'title' && h.title ? { ...it, html: linesToHtml([h.title], false) } : it)), tableItem(rows.length, rows[0]?.length ?? 1, rows, link)];
+        commit({ ...d, slides: [s] });
+        setActive(0);
+        setTab('table');
+        return true;
+      }
       addTable(rows.length, rows[0]?.length ?? 1, rows, link);
       if (h.title && slide.items.some(i => i.kind === 'shape' && i.role === 'title' && isEmptyHtml(i.html))) {
         const tt = slide.items.find(i => i.kind === 'shape' && i.role === 'title')!;
@@ -714,7 +726,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       const fresh = pristine();
       commit({ ...d, slides: fresh ? made : [...d.slides.slice(0, active + 1), ...made, ...d.slides.slice(active + 1)] });
       setActive(fresh ? 0 : active + 1);
-      shell.notify(t('stage.slidesMade', { n: made.length }));
+      shell.notify(made.length === 1 ? t('stage.oneSlideMade') : t('stage.slidesMade', { n: made.length }));
       return true;
     }
     return false;
@@ -759,8 +771,10 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     deck: () => deckRef.current,
     active: () => active,
     selection: () => slide.items.filter(i => sel.includes(i.id)),
-    addSlides: (made, replace) => {
+    addSlides: (made, replaceAll) => {
       const d = deckRef.current;
+      // A new, empty deck is replaced rather than kept as a blank first slide.
+      const replace = replaceAll || pristine();
       const slides = replace ? made : [...d.slides.slice(0, active + 1), ...made, ...d.slides.slice(active + 1)];
       commit({ ...d, slides });
       setActive(replace ? 0 : active + 1);
@@ -1211,7 +1225,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       {linkedTable && (
         <div className="link-banner">
           <Icon name="link" />
-          <span className="grow">{t('class.linkedTo', { title: linkedTable.title })}</span>
+          <span className="grow">{t('stage.linkedTo', { title: linkedTable.title })}</span>
           {shell.tabs().some(x => x.tabId === linkedTable.tabId) && <button type="button" onClick={() => shell.showTab(linkedTable.tabId)}>{t('stage.showSheet')}</button>}
           <button type="button" onClick={() => tableCmd(x => ({ ...x, link: undefined }))}>{t('class.unlink')}</button>
         </div>

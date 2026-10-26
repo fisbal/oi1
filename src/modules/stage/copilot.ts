@@ -204,7 +204,10 @@ export function stageCopilot(b: StageBridge): CopilotHost {
     applies: [
       {
         id: 'slides', icon: 'new', label: t('ai.stage.applySlides'), run: (payload, answer) => {
-          const lines = (payload || answer).split('\n').map(l => l.replace(/\s+$/, '')).filter(l => l.trim());
+          let lines = (payload || answer).split('\n').map(l => l.replace(/\s+$/, '')).filter(l => l.trim());
+          // Words before the first "# Title" ("Here are your slides:") are not a slide.
+          const first = lines.findIndex(l => /^#{1,3}\s/.test(l));
+          if (first > 0) lines = lines.slice(first);
           if (!lines.length) return;
           // "# Title" lines start slides; the lines under them are the bullets.
           const specs: SlideSpec[] = [];

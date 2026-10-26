@@ -7,7 +7,7 @@ One office suite, one app:
 | **Office Letter** | Word | Works for everyday letters and documents |
 | **Office Class** | Excel | Works for everyday sheets, charts and Excel files |
 | **Office ProDFos** | PDF reader and tools | Opens inside OI1 from its web version ([fisbal/prodfos](https://github.com/fisbal/prodfos), Flutter) |
-| **Office Stage** | PowerPoint | Planned (Phase 4) |
+| **Office Stage** | PowerPoint | Works for everyday decks, slide shows and PowerPoint files |
 | **Office Assistant** | Copilot | Planned (Phase 6): AI help inside every module |
 | **Office Notes** | OneNote | Planned (Phase 6) |
 | **Office Plan** | Outlook calendar, To Do | Planned (Phase 6) |
@@ -93,9 +93,23 @@ One office suite, one app:
     get files from GitHub, and **Publish website** to GitHub Pages (TypeScript compiled to plain JavaScript on a `gh-pages` branch).
   - **Files:** save and open projects as `.zip`, save a ready-to-host site, open a folder.
   - **Linked:** send code to Letter; turn the cells selected in Class into a JSON data file; Class can ask Code+ for a JSON or CSV table.
+- **Office Stage v1**: slides like PowerPoint.
+  - **Slides:** 9 themes, 6 layouts (title, title and content, section, two columns, title only, blank), text boxes with
+    full formatting and text that shrinks to fit, 20 shapes, pictures (insert, paste or drop), tables, a slide strip you
+    reorder by dragging, speaker notes, backgrounds, duplicate, hide and reset slides.
+  - **Moving things:** drag, resize, rotate, snapping guides, select several, align and arrange, copy and paste,
+    arrow keys, undo and redo; typing on a selected box replaces its text, like PowerPoint.
+  - **Slide show:** F5 from the start, Shift+F5 from this slide, 6 transitions in 3 speeds, keys, clicks or swipes,
+    black or white screen, slide number + Enter; **presenter view** (Alt+F5) with the next slide, notes and a timer.
+  - **Files:** `.pptx` open and save (themes, layouts, notes, tables, pictures and transitions; checked with python-pptx and
+    LibreOffice), PDF through print (one slide per page), and the outline to Letter.
+  - **Fits every screen:** on a phone the slides move to a strip under the slide; held sideways, the slide gets the room.
+  - **Linked:** Letter's **Make slides** turns headings into slides; Class sends a table (linked, so changes can follow)
+    or a chart; Stage can take a table from Class and send a table back.
 - **Copilot (Claude) in every app:** the gold Copilot key at the right of the ribbon (or Ctrl+Shift+Space) opens Claude beside
   your work. Letter: correct (fixes come back as tracked changes you accept or reject), rewrite, summarize, translate,
-  continue. Class: write, explain or fix formulas, clean, analyze or complete a table. Code+: explain, fix, improve, comment
+  continue. Class: write, explain or fix formulas, clean, analyze or complete a table. Stage: make slides about a subject,
+  improve a slide, write speaker notes, correct or translate the text. Code+: explain, fix, improve, comment
   or write code, with the console's errors. Every answer has buttons to put it back in place. It uses your own Claude API key,
   kept on your device only (see [docs/copilot.md](docs/copilot.md)).
 - **Languages:** English, Français, Español, Português and Deutsch, picked automatically from the browser
@@ -119,6 +133,7 @@ src/ui/                  shared ribbon, buttons, dialogs, file menu and the Copi
 src/formats/             formula engine, sheet model, .xlsx and .csv, tables passed between apps
 src/modules/letter/      Office Letter (React + TipTap; docx/ = Word open/save, pagination.ts = pages)
 src/modules/class/       Office Class (the sheet)
+src/modules/stage/       Office Stage (slides; Show.tsx = slide show and presenter view; formats/pptx.ts = PowerPoint files)
 src/modules/code/        Office Code+ (build.ts = runs projects in the browser, github.ts = GitHub REST API)
 src/modules/prodfos/     Office ProDFos (its Flutter web app in a tab)
 docs/                    module contract and notes
@@ -139,7 +154,7 @@ The full plan (architecture, stack choice, roadmap, sources) is in the blueprint
 1. Letter v1: ProseMirror editor, .docx open/save, languages (done)
 2. Scene look, linked apps, Class v1 with charts, fill handle, freeze panes and filters (done); Code+ phase 1 (done); Copilot (Claude) in every app (done)
 3. ProDFos joins the suite
-4. Stage v1: slides, .pptx
+4. Stage v1: slides, slide show, .pptx (done)
 5. Windows and Android apps with Tauri, updating themselves (done); then cloud save and co-editing
 6. Office Notes and Plan (the Assistant is already in every app as the Copilot)
 7. Office Mail, Draw and Form
