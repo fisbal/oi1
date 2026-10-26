@@ -168,6 +168,7 @@ jobs:
         run: |
           npx tauri android init --ci
           npx tauri icon public/icons/icon.svg
+          node scripts/android-zoom.mjs
       - name: Build the APK
         run: npx tauri android build --apk --ci --target aarch64 armv7 x86_64
       - name: Sign the APK

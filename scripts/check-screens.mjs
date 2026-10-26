@@ -6,7 +6,9 @@
 
 import { spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { checkZoomRotationSettings, checkRotationAndPinch } from './zoom-rotation.mjs';
 
 const PORT = 4183;
 const SIZES = [
@@ -74,6 +76,20 @@ try {
       await ctx.close();
     }
   }
+  // Zoom and rotation, required in every app: nothing blocks pinch zoom or locks the orientation, and
+  // a phone and a tablet turned sideways and back re-fit every time (on the home screen and in Letter).
+  problems.push(...checkZoomRotationSettings(fileURLToPath(new URL('..', import.meta.url))));
+  for (const app of ['home', 'Letter']) {
+    const turned = await checkRotationAndPinch(browser, url, {
+      contextOptions: { locale: 'fr-FR', serviceWorkers: 'allow' },
+      prepare: async page => {
+        if (app === 'home') return;
+        await page.locator(`.slab:has-text("Office ${app}")`).first().click();
+        await page.waitForTimeout(1200);
+      },
+    });
+    problems.push(...turned.problems.map(p => `${app}: ${p}`));
+  }
 } finally {
   await browser.close();
   server.kill();
@@ -83,4 +99,4 @@ if (problems.length) {
   console.error(`Screens that do not fit:\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
-console.log(`All apps fit on ${SIZES.map(s => s.name).join(', ')}.`);
+console.log(`All apps fit on ${SIZES.map(s => s.name).join(', ')}, re-fit when a phone or tablet turns, and pinch zooms.`);
