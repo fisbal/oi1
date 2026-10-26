@@ -234,4 +234,7 @@ jobs:
             - Mac (Apple silicon and Intel): OfficeIn1.dmg (the first time: right-click the app, then Open)
             - Installed apps update themselves: Windows installs this version and restarts, Android offers the new APK.
             - Source code: the zip and tar.gz below
-          files: out/*
+          # Only the apps and the update file; the screen check's screenshots stay in the run's artifacts.
+          files: |
+            out/OfficeIn1*
+            out/latest.json
