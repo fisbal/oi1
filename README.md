@@ -20,7 +20,8 @@ One office suite, one app:
 - **Online:** https://fisbal.github.io/oi1/ (built and published automatically on every push to `main`).
 - **Android:** [OfficeIn1.apk](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1.apk)
 - **Windows:** [OfficeIn1-Setup.exe](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1-Setup.exe)
-- The installed apps update themselves. Every merge to `main` builds the web, Android and Windows versions and
+- **Mac:** [OfficeIn1.dmg](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1.dmg)
+- The installed apps update themselves. Every merge to `main` builds the web, Android, Windows and Mac versions, checks every app on phone, tablet, PC and Mac screens, and
   publishes them, with the source code, as a GitHub Release (see [docs/builds.md](docs/builds.md)).
 - **On your computer:** install Node.js 22, then in this folder run `npm install` and `npm run dev`,
   and open the address it prints. `npm test` runs the tests, `npm run build` makes the site in `dist/`.

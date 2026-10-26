@@ -32,7 +32,9 @@
     "active": true,
     "targets": [
       "nsis",
-      "msi"
+      "msi",
+      "app",
+      "dmg"
     ],
     "publisher": "Martin Balla",
     "shortDescription": "Office In 1",
@@ -65,7 +67,10 @@
     "android": {
       "minSdkVersion": 24
     },
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    }
   },
   "plugins": {
     "updater": {

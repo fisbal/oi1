@@ -231,3 +231,19 @@
   background: var(--surface-2); border: 1px solid var(--line); box-shadow: 0 1px 3px rgba(var(--shade-rgb), calc(.4 * var(--shade-k)));
 }
 .split > .rb.big + .drop > .rb:hover:not(:disabled) { color: var(--gold-light); border-color: rgba(212,168,67,.4); background: var(--surface-2); }
+
+/* Short screens (a phone turned sideways, a small laptop window): the ribbon keeps only its tabs, and a tab's
+   buttons open over the work when it is tapped, like Office on phones. They close when the work is tapped. */
+@media (max-height: 520px) {
+  .ribbon-tabs { padding-top: 3px; }
+  .ribbon-tabs > button { height: 30px; }
+  .ribbon-panel {
+    position: absolute; left: 0; right: 0; top: 100%; display: none; min-height: 0;
+    background: var(--bar-gradient); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border-bottom: 1px solid var(--hair); box-shadow: 0 16px 34px rgba(var(--shade-rgb), calc(.45 * var(--shade-k)));
+  }
+  .ribbon:focus-within .ribbon-panel, .ribbon.open .ribbon-panel { display: flex; }
+}
+@media (max-height: 520px) and (hover: hover) {
+  .ribbon:hover .ribbon-panel { display: flex; }
+}

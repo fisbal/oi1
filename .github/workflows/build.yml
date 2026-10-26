@@ -1,8 +1,10 @@
 name: Build and release OI1
 
 # Every build of Office In 1 ships everywhere at once:
-#   web      type-checked, tested and built; on main, published to GitHub Pages (gh-pages branch)
+#   web      type-checked, tested, built and checked on phone, tablet, PC and Mac screens;
+#            on main, published to GitHub Pages (gh-pages branch)
 #   windows  the Windows installer (.exe) and .msi, made with Tauri
+#   mac      the Mac app (.dmg, Apple silicon and Intel), made with Tauri
 #   android  the Android app (.apk), made with Tauri and signed
 #   release  on main, a GitHub Release with all of them plus the source code
 # Pull requests run the same builds as a check, without publishing.
@@ -36,6 +38,17 @@ jobs:
       - run: npm version "$OI1_VERSION" --no-git-tag-version --allow-same-version
       - run: npm test
       - run: npm run build
+      - name: Check every app on phones, tablets, PCs and Macs
+        run: |
+          npx playwright install --with-deps chromium
+          npm run check:screens
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screens
+          path: screens/
+          if-no-files-found: ignore
       - name: Publish to gh-pages
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
@@ -87,6 +100,45 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: windows
+          path: out/*
+
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm version "$OI1_VERSION" --no-git-tag-version --allow-same-version
+      - name: Build the Mac app (Apple silicon and Intel)
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PUBLIC_KEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$TAURI_SIGNING_PUBLIC_KEY" ]; then
+            npx tauri build --ci --target universal-apple-darwin --bundles app,dmg --config "{\"plugins\":{\"updater\":{\"pubkey\":\"$TAURI_SIGNING_PUBLIC_KEY\"}}}"
+          else
+            npx tauri build --ci --target universal-apple-darwin --bundles app,dmg --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          fi
+          B=src-tauri/target/universal-apple-darwin/release/bundle
+          mkdir out
+          cp "$B"/dmg/*.dmg out/OfficeIn1.dmg
+          if ls "$B"/macos/*.app.tar.gz.sig >/dev/null 2>&1; then
+            cp "$B"/macos/*.app.tar.gz out/OfficeIn1-mac.app.tar.gz
+            cp "$B"/macos/*.app.tar.gz.sig out/OfficeIn1-mac.app.tar.gz.sig
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
           path: out/*
 
   android:
@@ -148,7 +200,7 @@ jobs:
 
   release:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    needs: [web, windows, android]
+    needs: [web, windows, mac, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -161,6 +213,11 @@ jobs:
             jq -n --arg v "$OI1_VERSION" --arg sig "$(cat out/OfficeIn1-Setup.exe.sig)" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
               --arg url "https://github.com/${{ github.repository }}/releases/download/v$OI1_VERSION/OfficeIn1-Setup.exe" \
               '{version: $v, notes: "Office In 1 \($v)", pub_date: $date, platforms: {"windows-x86_64": {signature: $sig, url: $url}}}' > out/latest.json
+            if [ -f out/OfficeIn1-mac.app.tar.gz.sig ]; then
+              MAC_URL="https://github.com/${{ github.repository }}/releases/download/v$OI1_VERSION/OfficeIn1-mac.app.tar.gz"
+              jq --arg sig "$(cat out/OfficeIn1-mac.app.tar.gz.sig)" --arg url "$MAC_URL" \
+                '.platforms["darwin-aarch64"] = {signature: $sig, url: $url} | .platforms["darwin-x86_64"] = {signature: $sig, url: $url}' out/latest.json > out/l.json && mv out/l.json out/latest.json
+            fi
             cat out/latest.json
           fi
       - uses: softprops/action-gh-release@v2
@@ -175,6 +232,7 @@ jobs:
             - Web: https://fisbal.github.io/oi1/
             - Android: OfficeIn1.apk
             - Windows: OfficeIn1-Setup.exe (or OfficeIn1.msi)
+            - Mac (Apple silicon and Intel): OfficeIn1.dmg (the first time: right-click the app, then Open)
             - Installed apps update themselves: Windows installs this version and restarts, Android offers the new APK.
             - Source code: the zip and tar.gz below
           files: out/*
