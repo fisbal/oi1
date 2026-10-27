@@ -11,7 +11,7 @@ import { useLanguage } from '../../shell/useLanguage';
 import {
   GEOMS, LAYOUTS, SIZE_16_9, SIZE_4_3, THEMES, TRANSITIONS, changeLayout, cssBackground, defaultSize, htmlText, isEmptyHtml, itemText, linesToHtml,
   newDeck, newId, newSlide, resizeDeck, retheme, slideTitle,
-  type Background, type Deck, type DeckTheme, type Geom, type ThemeGroup, type Item, type LayoutId, type ShapeItem, type Slide, type Stroke, type TableItem, type Transition,
+  type AnimEffect, type AnimKind, type Background, type Deck, type DeckTheme, type Geom, type ThemeGroup, type Item, type LayoutId, type ShapeItem, type Slide, type Stroke, type TableItem, type Transition,
 } from '../../formats/slides';
 import { FileMenu } from '../../ui/FileMenu';
 import { Btn, ColorGrid, Combo, Dialog, Drop, Group, Icon, MenuItem, NumberBox, type ComboGroup } from '../../ui/kit';
@@ -26,6 +26,8 @@ import { Show } from './Show';
 import { stageCopilot, type StageBridge } from './copilot';
 import { DIAGRAMS, WORDART, diagramItems, footerItem, slideNumberItem, wordArtItem, type DiagramKind } from './build';
 import { myThemes, onMyThemes, removeMyTheme } from './mythemes';
+import { AnimTab } from './AnimTab';
+import { addAnim, playState, stepLength, stepsOf } from './anim';
 
 export const EXTENSIONS = ['.pptx'];
 const PPTX_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
@@ -33,7 +35,7 @@ const ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.25, 1.5, 2];
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
 
 interface Saved { deck: Deck; active: number; name: string }
-type Tab = 'home' | 'insert' | 'design' | 'transitions' | 'show' | 'view' | 'oi1' | 'format' | 'table';
+type Tab = 'home' | 'insert' | 'design' | 'transitions' | 'animations' | 'show' | 'view' | 'oi1' | 'format' | 'table';
 type Drag =
   | { kind: 'move'; x0: number; y0: number; start: Map<string, { x: number; y: number }>; moved: boolean; clickEdit: string | null }
   | { kind: 'resize'; id: string; hx: number; hy: number; x0: number; y0: number; orig: Item }
@@ -216,6 +218,8 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   useEffect(() => onMyThemes(() => setMine(myThemes())), []);
   const [themeGroup, setThemeGroup] = useState<ThemeGroup | null>(null);
   const [printing, setPrinting] = useState(false);
+  const [animKind, setAnimKind] = useState<AnimKind>('in');
+  const [preview, setPreview] = useState<{ step: number; run: number } | null>(null);
   const undo = useRef<Deck[]>([]);
   const redo = useRef<Deck[]>([]);
   const editingSnap = useRef(false);
@@ -317,7 +321,9 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const d = deckRef.current;
     const copy = clone(d.slides[i]);
     copy.id = newId('s');
-    copy.items = copy.items.map(it => ({ ...it, id: newId() }));
+    const ids = new Map(copy.items.map(it => [it.id, newId()]));
+    copy.items = copy.items.map(it => ({ ...it, id: ids.get(it.id)! }));
+    if (copy.anims) copy.anims = copy.anims.filter(a => ids.has(a.item)).map(a => ({ ...a, id: newId('a'), item: ids.get(a.item)! }));
     const slides = [...d.slides];
     slides.splice(i + 1, 0, copy);
     commit({ ...d, slides });
@@ -350,6 +356,11 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     changeSlide(s => ({ ...s, items: [...s.items, it] }));
     setSel([it.id]);
     if (edit) setTimeout(() => startEdit(it.id, true), 0);
+  };
+  /** A new item with its animations, like a sticker that pops in and keeps bouncing. */
+  const addAnimated = (it: Item, effects: AnimEffect[]) => {
+    changeSlide(s => effects.reduce((acc, e, i) => addAnim(acc, it.id, e, i ? {} : { start: 'after' }), { ...s, items: [...s.items, it] }));
+    setSel([it.id]);
   };
   const addShape = (geom: Geom) => {
     const line = isLine(geom);
@@ -420,7 +431,11 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const deleteSelected = () => {
     if (!sel.length) return;
     // Emptying a placeholder keeps it, like PowerPoint; anything else goes.
-    changeSlide(s => ({ ...s, items: s.items.flatMap(it => (!sel.includes(it.id) ? [it] : it.kind === 'shape' && it.role && !isEmptyHtml(it.html) ? [{ ...it, html: linesToHtml([], it.role === 'body' || it.role === 'body2') }] : it.kind === 'shape' && it.role ? [it] : [])) }));
+    changeSlide(s => {
+      const items = s.items.flatMap(it => (!sel.includes(it.id) ? [it] : it.kind === 'shape' && it.role && !isEmptyHtml(it.html) ? [{ ...it, html: linesToHtml([], it.role === 'body' || it.role === 'body2') }] : it.kind === 'shape' && it.role ? [it] : []));
+      const anims = s.anims?.filter(a => items.some(it => it.id === a.item));
+      return { ...s, items, anims: anims?.length ? anims : undefined };
+    });
     setSel([]);
   };
   const duplicateSelected = () => {
@@ -829,7 +844,40 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     themes: () => [...THEMES, ...myThemes()],
     setTheme: th => setTheme(th),
     setAllNotes: notes => { const d = deckRef.current; commit({ ...d, slides: d.slides.map((x, i) => (notes[i] ? { ...x, notes: notes[i] } : x)) }); },
+    setAnims: (index, anims) => changeSlide(x => ({ ...x, anims: anims.length ? anims : undefined }), index),
+    addAnimated,
   };
+
+  // ---------- animation preview on the slide ----------
+  const previewSteps = useMemo(() => stepsOf(slide), [slide]);
+  useEffect(() => {
+    if (!preview) return;
+    // Each step plays, then the next one starts a moment later, like clicking through the show.
+    const len = stepLength(previewSteps[preview.step] ?? []);
+    const id = window.setTimeout(() => {
+      setPreview(p => (p && p.step < previewSteps.length - 1 ? { ...p, step: p.step + 1 } : null));
+    }, (len + (preview.step < previewSteps.length - 1 ? 0.5 : 1.5)) * 1000);
+    return () => window.clearTimeout(id);
+  }, [preview, previewSteps]);
+  useEffect(() => { setPreview(null); }, [active]);
+  const startPreview = () => {
+    setEditing(null);
+    setPreview(p => (p ? null : { step: 0, run: Date.now() }));
+  };
+  /** Numbers on the slide showing on which click each item moves, like PowerPoint's animation tags. */
+  const animBadges = () => {
+    let n = 0;
+    const tags = new Map<string, string[]>();
+    for (const a of slide.anims ?? []) {
+      const loop = ['bob', 'beat', 'sway', 'twinkle', 'rotate', 'jelly'].includes(a.effect);
+      if (!loop && a.start === 'click') n++;
+      tags.set(a.item, [...(tags.get(a.item) ?? []), loop ? '∞' : String(n)]);
+    }
+    return slide.items.filter(it => tags.has(it.id)).map(it => (
+      <span key={`ab${it.id}`} className="st-anim-tag" style={{ left: it.x * k - 4, top: it.y * k - 4 }}>{[...new Set(tags.get(it.id))].join(' ')}</span>
+    ));
+  };
+  const previewPlay = useMemo(() => (preview ? playState(slide, preview.step, true) : undefined), [preview, slide]);
 
   // ---------- drawing ----------
   const extras = (it: Item): ItemExtras | undefined => {
@@ -879,7 +927,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const shownTab: Tab = (tab === 'format' && !hasFormat) || (tab === 'table' && !tableSel) ? 'home' : tab;
   const tabs: { id: Tab; label: MessageKey }[] = [
     { id: 'home', label: 'letter.tab.home' }, { id: 'insert', label: 'letter.tab.insert' }, { id: 'design', label: 'letter.tab.design' },
-    { id: 'transitions', label: 'stage.tab.transitions' }, { id: 'show', label: 'stage.tab.show' }, { id: 'view', label: 'letter.tab.view' },
+    { id: 'transitions', label: 'stage.tab.transitions' }, { id: 'animations', label: 'stage.tab.animations' }, { id: 'show', label: 'stage.tab.show' }, { id: 'view', label: 'letter.tab.view' },
   ];
   const themeColors = [deck.theme.bg.color, deck.theme.text, ...deck.theme.accents];
   const setFill = (c: string | null) => changeItems(shapeSel.map(i => i.id), it => (it.kind === 'shape' ? { ...it, fill: c } : it));
@@ -1168,6 +1216,13 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           </Group>
         </>}
 
+        {shownTab === 'animations' && (
+          <AnimTab deck={deck} slide={slide} sel={sel} setSel={setSel} kind={animKind} setKind={setAnimKind}
+            changeSlide={fn => changeSlide(fn)} changeDeck={fn => commit(fn(deckRef.current))} addAnimated={addAnimated}
+            preview={startPreview} previewing={!!preview} show={() => setShow({ start: active, presenter: false })}
+            copilot={() => setCopilot(true)} notify={m => shell.notify(m)} />
+        )}
+
         {shownTab === 'show' && <>
           <Group label="stage.group.start">
             <Btn big icon="play" title="stage.fromStart" onClick={() => setShow({ start: 0, presenter: false })} />
@@ -1368,7 +1423,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
                 if (it && isText(it) && editing?.id !== it.id) startEdit(it.id);
               }}>
               <div className="st-canvas" ref={canvasRef} style={{ width: deck.w, height: deck.h, transform: `scale(${k})` }}>
-                <SlideView deck={deck} slide={slide} extras={extras} />
+                <SlideView key={preview ? `p${preview.run}-${preview.step}` : 'edit'} deck={deck} slide={slide} extras={extras} play={previewPlay} />
               </div>
               <div className="st-overlay">
                 {selected.map(it => selBox(it, selected.length > 1))}
@@ -1377,6 +1432,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
                   const w = Math.max(...selected.map(i => i.x + i.w)) - x, h = Math.max(...selected.map(i => i.y + i.h)) - y;
                   return <div className="st-sel" style={{ left: x * k, top: y * k, width: w * k, height: h * k }} />;
                 })()}
+                {shownTab === 'animations' && !preview && animBadges()}
                 {guides.v.map((x, i) => <i key={`v${i}`} className="st-guide v" style={{ left: x * k, top: 0, height: deck.h * k }} />)}
                 {guides.h.map((y, i) => <i key={`h${i}`} className="st-guide h" style={{ top: y * k, left: 0, width: deck.w * k }} />)}
                 {marquee && <div className="st-marquee" style={{ left: Math.min(marquee.x0, marquee.x1) * k, top: Math.min(marquee.y0, marquee.y1) * k, width: Math.abs(marquee.x1 - marquee.x0) * k, height: Math.abs(marquee.y1 - marquee.y0) * k }} />}

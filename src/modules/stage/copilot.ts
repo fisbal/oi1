@@ -10,6 +10,8 @@ import { THEMES, htmlText, linesToHtml, newId, newSlide, slideTitle, itemText, t
 import { DIAGRAMS, diagramItems, type DiagramKind } from './build';
 import { DECO_SHAPES, THEME_FONTS, saveMyTheme, themeFromSpec, type ThemeSpec } from './mythemes';
 import { formatHtml } from './text';
+import { ANIMS, kindOf, wordSticker } from './anim';
+import type { Anim, AnimEffect } from '../../formats/slides';
 
 export interface StageBridge {
   deck(): Deck;
@@ -23,6 +25,94 @@ export interface StageBridge {
   themes(): DeckTheme[];
   setTheme(theme: DeckTheme): void;
   setAllNotes(notes: string[]): void;
+  /** Replaces the animations of a slide. */
+  setAnims(index: number, anims: Anim[]): void;
+  /** Puts a new item on the slide with these animations (an entrance and a loop, for a sticker). */
+  addAnimated(item: Item, effects: AnimEffect[]): void;
+}
+
+const EFFECTS = ANIMS.map(a => a.id);
+const ANIMATE_SCHEMA = {
+  type: 'object',
+  properties: {
+    slides: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          slide: { type: 'integer' },
+          anims: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                item: { type: 'integer' },
+                effect: { type: 'string', enum: EFFECTS },
+                start: { type: 'string', enum: ['click', 'with', 'after'] },
+                by: { type: 'string', enum: ['all', 'word', 'letter'] },
+                dir: { type: 'string', enum: ['left', 'right', 'up', 'down'] },
+              },
+              required: ['item', 'effect', 'start', 'by', 'dir'],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ['slide', 'anims'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['slides'],
+  additionalProperties: false,
+};
+
+const ANIMATE_RULES = [
+  'You animate presentation slides like a great motion designer, so they tell their story and keep the audience awake, without being tiring.',
+  `Effects: entrances ${ANIMS.filter(a => a.kind === 'in').map(a => a.id).join(', ')}; emphasis ${ANIMS.filter(a => a.kind === 'em').map(a => a.id).join(', ')}; exits ${ANIMS.filter(a => a.kind === 'out').map(a => a.id).join(', ')}; loops that keep moving (for stickers, emojis, icons only) ${ANIMS.filter(a => a.kind === 'loop').map(a => a.id).join(', ')}.`,
+  'Rules: the title comes first, usually "after" so it plays by itself; bullet text comes word by word ("by": "word") or as a whole on a click; diagram pieces follow each other ("after"); a number or key fact can pop or pulse; a warning can shake; a closing "thank you" can bounce and then loop.',
+  'Use at most one entrance per item. Give each slide 2 to 6 animations, and leave decorative lines alone. "dir" matters only for fly, wipe and flyOut; otherwise use "left".',
+  'Slides and their items are given by number; use the same numbers. Reply for every slide you were given.',
+].join('\n');
+
+const STICKER_SCHEMA = {
+  type: 'object',
+  properties: {
+    text: { type: 'string' },
+    emoji: { type: 'string' },
+    color: { type: 'string' },
+    font: { type: 'string', enum: THEME_FONTS },
+    entrance: { type: 'string', enum: ANIMS.filter(a => a.kind === 'in').map(a => a.id) },
+    loop: { type: 'string', enum: ANIMS.filter(a => a.kind === 'loop').map(a => a.id) },
+  },
+  required: ['text', 'emoji', 'color', 'font', 'entrance', 'loop'],
+  additionalProperties: false,
+};
+
+/** The slide's items, numbered, for Claude to animate. */
+function itemsList(s: Slide): string {
+  return s.items.map((it, n) => {
+    const what = it.kind === 'image' ? 'picture' : it.kind === 'table' ? 'table' : it.role ? `${it.role} placeholder` : it.name ? it.name.toLowerCase() : `${it.geom} shape`;
+    const text = itemText(it).replace(/\s+/g, ' ').trim().slice(0, 90);
+    return `${n}: ${what}${text ? ` "${text}"` : ''}`;
+  }).join('\n');
+}
+
+/** Animations from Claude's answer for one slide, skipping unknown items and effects. */
+export function animsFromSpec(s: Slide, specs: { item: number; effect: string; start: string; by: string; dir: string }[]): Anim[] {
+  const out: Anim[] = [];
+  for (const x of specs) {
+    const it = s.items[x.item];
+    if (!it || !EFFECTS.includes(x.effect as AnimEffect)) continue;
+    const effect = x.effect as AnimEffect;
+    if (kindOf(effect) === 'in' && out.some(a => a.item === it.id && kindOf(a.effect) === 'in')) continue;
+    out.push({
+      id: newId('a'), item: it.id, effect,
+      start: kindOf(effect) === 'loop' ? 'with' : x.start === 'with' || x.start === 'after' ? x.start : 'click',
+      ...(it.kind === 'shape' && (x.by === 'word' || x.by === 'letter') ? { by: x.by } : {}),
+      ...(effect === 'fly' || effect === 'wipe' || effect === 'flyOut' ? { dir: (['left', 'right', 'up', 'down'].includes(x.dir) ? x.dir : 'left') as Anim['dir'] } : {}),
+    });
+  }
+  return out;
 }
 
 const SLIDES_SCHEMA = {
@@ -205,6 +295,31 @@ export function stageCopilot(b: StageBridge): CopilotHost {
     return { label: t('ai.stage.slide', { n: i + 1 }), text: `${slideText(s, i)}\n\nDeck outline:\n${outline(d)}`, at: { slide: s.id } };
   };
 
+  /** Claude animates these slides; their old animations are replaced. */
+  const animate = async (ai: AiApi, which: number[], signal: AbortSignal) => {
+    const d = b.deck();
+    const list = which.filter(i => d.slides[i]?.items.length).slice(0, 30);
+    if (!list.length) return t('ai.stage.none');
+    const answer = await ai.ask({
+      system: ANIMATE_RULES,
+      messages: [{ role: 'user', content: `<context>\nDeck outline:\n${outline(d)}\n\n${list.map(i => `Slide ${i + 1}:\n${itemsList(d.slides[i])}`).join('\n\n')}\n</context>` }],
+      schema: ANIMATE_SCHEMA,
+      effort: 'medium',
+      signal,
+    });
+    const got = (JSON.parse(answer) as { slides: { slide: number; anims: { item: number; effect: string; start: string; by: string; dir: string }[] }[] }).slides;
+    let n = 0, count = 0;
+    for (const g of got) {
+      const i = g.slide - 1;
+      const s = b.deck().slides[i];
+      if (!s || !list.includes(i)) continue;
+      const anims = animsFromSpec(s, g.anims);
+      b.setAnims(i, anims);
+      n++; count += anims.length;
+    }
+    return n ? t('ai.stage.animated', { n: count, slides: n }) : t('ai.stage.none');
+  };
+
   return {
     app: 'Office Stage',
     role: [
@@ -254,6 +369,33 @@ export function stageCopilot(b: StageBridge): CopilotHost {
           saveMyTheme(theme);
           b.setTheme(theme);
           return t('ai.stage.fontsDone', { head, body });
+        },
+      },
+      {
+        id: 'animate', icon: 'play', label: t('ai.stage.animate'), needsContext: true,
+        run: (ai, _ctx, signal) => animate(ai, [b.active()], signal),
+      },
+      {
+        id: 'animateAll', icon: 'play', label: t('ai.stage.animateAll'), needsContext: true,
+        run: (ai, _ctx, signal) => animate(ai, b.deck().slides.map((_, i) => i), signal),
+      },
+      {
+        id: 'sticker', icon: 'sparkle', label: t('ai.stage.sticker'), fill: t('ai.stage.stickerFill'),
+        ask: async (ai, request, _ctx, signal) => {
+          const d = b.deck();
+          const answer = await ai.ask({
+            system: `You design one animated sticker for a presentation slide: a few words (1 to 4, in the language of the request) with one fitting emoji, a background color as #RRGGBB that stands out on this theme (background ${d.theme.bg.color}, accents ${d.theme.accents.join(', ')}), a font that matches the mood, an entrance and a loop that keeps it alive.`,
+            messages: [{ role: 'user', content: request }],
+            schema: STICKER_SCHEMA,
+            effort: 'low',
+            signal,
+          });
+          const sp = JSON.parse(answer) as { text: string; emoji: string; color: string; font: string; entrance: AnimEffect; loop: AnimEffect };
+          const color = /^#[0-9a-f]{6}$/i.test(sp.color) ? sp.color.toUpperCase() : d.theme.accents[0];
+          const font = THEME_FONTS.includes(sp.font) ? sp.font : undefined;
+          const item = wordSticker(sp.text.slice(0, 40), Array.from(sp.emoji ?? '').slice(0, 4).join(''), color, d, font);
+          b.addAnimated(item, [EFFECTS.includes(sp.entrance) ? sp.entrance : 'pop', EFFECTS.includes(sp.loop) ? sp.loop : 'beat']);
+          return t('ai.stage.stickerDone', { text: sp.text });
         },
       },
       {

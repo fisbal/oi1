@@ -56,6 +56,30 @@ export type Item = ShapeItem | ImageItem | TableItem;
 export type Transition = 'none' | 'fade' | 'push' | 'wipe' | 'cover' | 'zoom';
 export const TRANSITIONS: Transition[] = ['none', 'fade', 'push', 'wipe', 'cover', 'zoom'];
 
+/** in: comes in; em: gets attention; out: leaves; loop: keeps moving while on screen (Office Stage's own). */
+export type AnimKind = 'in' | 'em' | 'out' | 'loop';
+export type AnimEffect =
+  | 'appear' | 'fade' | 'fly' | 'zoom' | 'pop' | 'bounce' | 'drop' | 'wipe' | 'blur' | 'spin' | 'float' | 'typewriter'
+  | 'pulse' | 'shake' | 'wiggle' | 'glow' | 'grow' | 'flash'
+  | 'fadeOut' | 'flyOut' | 'zoomOut' | 'shrink'
+  | 'bob' | 'beat' | 'sway' | 'twinkle' | 'rotate' | 'jelly';
+
+/** One animation in a slide's order, like a line of PowerPoint's animation pane. */
+export interface Anim {
+  id: string;
+  /** The item it moves. */
+  item: string;
+  effect: AnimEffect;
+  /** On a click, with the one before, or after the one before. */
+  start: 'click' | 'with' | 'after';
+  /** Text all at once, word by word or letter by letter. */
+  by?: 'all' | 'word' | 'letter';
+  dir?: 'left' | 'right' | 'up' | 'down';
+  /** Seconds. */
+  dur?: number;
+  delay?: number;
+}
+
 export interface Background { color: string; to?: string; angle?: number }
 
 export type LayoutId = 'title' | 'content' | 'section' | 'two' | 'titleOnly' | 'blank';
@@ -70,6 +94,7 @@ export interface Slide {
   transition?: Transition;
   speed?: 'fast' | 'med' | 'slow';
   hidden?: boolean;
+  anims?: Anim[];
 }
 
 /** A rectangle drawn behind every slide by the theme, in parts of the slide (0 to 1). */

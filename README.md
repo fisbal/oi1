@@ -100,6 +100,12 @@ One office suite, one app:
     chevrons, roundels…), saved in the .pptx. Colors taken from a theme follow it when you change theme.
   - **Insert:** diagrams made from the slide's bullets (steps, cycle, timeline, pyramid, grid), WordArt titles,
     QR codes, slide numbers and a footer on every slide.
+  - **Animations:** 28 effects to come in, get attention, leave, or keep moving (loops PowerPoint does not have), text
+    all at once, word by word or letter by letter (typewriter), on a click, with or after the one before, duration and
+    delay, an order list, numbers on the slide and a preview right on the slide. **Animated stickers:** 24 emojis and
+    12 word badges ("Bonjour", "Merci", "Bravo"… in the app's language) that pop in and keep bouncing. **Animate for
+    me** picks the animations by itself; Copilot can animate one slide or the whole deck from its meaning, or make a
+    sticker from a few words. Saved in the .pptx (PowerPoint plays the closest standard effects).
   - **Slides:** 6 layouts (title, title and content, section, two columns, title only, blank), text boxes with
     full formatting and text that shrinks to fit, 20 shapes, pictures (insert, paste or drop), tables, a slide strip you
     reorder by dragging, speaker notes, backgrounds, duplicate, hide and reset slides.
@@ -107,7 +113,7 @@ One office suite, one app:
     arrow keys, undo and redo; typing on a selected box replaces its text, like PowerPoint.
   - **Slide show:** F5 from the start, Shift+F5 from this slide, 6 transitions in 3 speeds, keys, clicks or swipes,
     black or white screen, slide number + Enter; **presenter view** (Alt+F5) with the next slide, notes and a timer.
-  - **Files:** `.pptx` open and save (themes, layouts, notes, tables, pictures and transitions; checked with python-pptx and
+  - **Files:** `.pptx` open and save (themes, layouts, notes, tables, pictures, transitions and animations; checked with python-pptx and
     LibreOffice), PDF through print (one slide per page), and the outline to Letter.
   - **Fits every screen:** on a phone the slides move to a strip under the slide; held sideways, the slide gets the room.
   - **Linked:** Letter's **Make slides** turns headings into slides; Class sends a table (linked, so changes can follow)
@@ -116,7 +122,7 @@ One office suite, one app:
   your work. Letter: correct (fixes come back as tracked changes you accept or reject), rewrite, summarize, translate,
   continue. Class: write, explain or fix formulas, clean, analyze or complete a table. Stage: make a whole presentation about a subject
   (slides, diagrams and the theme that suits it), **create a new theme** or **choose fonts** from a description (kept in
-  Design › My themes), pick the best theme, turn a slide into a diagram, improve a slide, write speaker notes for one or
+  Design › My themes), **animate a slide or the whole deck**, make an animated sticker, pick the best theme, turn a slide into a diagram, improve a slide, write speaker notes for one or
   all slides, correct or translate the text. Code+: explain, fix, improve, comment
   or write code, with the console's errors. Every answer has buttons to put it back in place. It uses your own Claude API key,
   kept on your device only (see [docs/copilot.md](docs/copilot.md)).

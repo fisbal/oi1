@@ -6,6 +6,7 @@ import type { Deck } from '../../formats/slides';
 import { t } from '../../shell/i18n';
 import { Icon } from '../../ui/kit';
 import { SlideView } from './SlideView';
+import { playState, stepsOf } from './anim';
 
 const SPEED = { fast: 350, med: 650, slow: 1000 };
 
@@ -20,7 +21,11 @@ function useWindowSize() {
 }
 
 /** One slide scaled into a box, with the transition it arrives with. */
-function Frame({ deck, index, prev, back, w, h }: { deck: Deck; index: number; prev: number | null; back: boolean; w: number; h: number }) {
+function Frame({ deck, index, prev, back, w, h, step, animate = true }: {
+  deck: Deck; index: number; prev: number | null; back: boolean; w: number; h: number;
+  /** The animation step on this slide; left out, everything shows as built. */
+  step?: number; animate?: boolean;
+}) {
   const k = Math.min(w / deck.w, h / deck.h);
   const slide = deck.slides[index];
   const tr = prev === null ? 'none' : slide.transition ?? 'none';
@@ -29,9 +34,11 @@ function Frame({ deck, index, prev, back, w, h }: { deck: Deck; index: number; p
   const inAnim = tr === 'fade' ? anim('st-fade-in') : tr === 'push' ? anim(back ? 'st-push-in-back' : 'st-push-in') : tr === 'wipe' ? anim(back ? 'st-wipe-in-back' : 'st-wipe-in')
     : tr === 'cover' ? anim(back ? 'st-cover-in-back' : 'st-cover-in') : tr === 'zoom' ? anim('st-zoom-in') : undefined;
   const outAnim = tr === 'push' ? anim(back ? 'st-push-out-back' : 'st-push-out') : tr === 'zoom' ? anim('st-zoom-out') : undefined;
+  const built = (i: number) => playState(deck.slides[i], stepsOf(deck.slides[i]).length - 1, false);
+  const play = step === undefined ? undefined : playState(slide, step, animate, inAnim ? ms / 1000 : 0);
   const layer = (i: number, a: string | undefined, key: string) => (
     <div key={key} className="st-layer" style={{ animation: a }}>
-      <SlideView deck={deck} slide={deck.slides[i]} style={{ transform: `scale(${k})` }} />
+      <SlideView deck={deck} slide={deck.slides[i]} style={{ transform: `scale(${k})` }} play={i === index ? play : built(i)} />
     </div>
   );
   return (
@@ -46,6 +53,7 @@ export function Show({ deck, start, presenter: startPresenter, onEnd }: { deck: 
   const order = deck.slides.map((s, i) => (s.hidden && i !== start ? -1 : i)).filter(i => i >= 0);
   const [pos, setPos] = useState(Math.max(0, order.indexOf(start)));
   const [prev, setPrev] = useState<{ index: number; back: boolean } | null>(null);
+  const [step, setStep] = useState({ n: 0, animate: true });
   const [blank, setBlank] = useState<null | '#000' | '#fff'>(null);
   const [ended, setEnded] = useState(false);
   const [pointer, setPointer] = useState(false);
@@ -65,9 +73,20 @@ export function Show({ deck, start, presenter: startPresenter, onEnd }: { deck: 
     setPrev({ index: order[pos], back: to < pos });
     setPos(to);
     setBlank(null);
+    // Going back shows the slide as built; going forward plays its animations from the start.
+    setStep(to < pos ? { n: stepsOf(deck.slides[order[to]]).length - 1, animate: false } : { n: 0, animate: true });
   };
-  const next = () => (ended ? end() : go(pos + 1));
-  const back = () => (ended ? setEnded(false) : go(pos - 1));
+  const steps = stepsOf(deck.slides[index]).length;
+  const next = () => {
+    if (ended) { end(); return; }
+    if (step.n < steps - 1) { setStep({ n: step.n + 1, animate: true }); setBlank(null); return; }
+    go(pos + 1);
+  };
+  const back = () => {
+    if (ended) { setEnded(false); return; }
+    if (step.n > 0) { setStep({ n: step.n - 1, animate: false }); return; }
+    go(pos - 1);
+  };
   const end = () => {
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
     onEnd(index);
@@ -129,7 +148,7 @@ export function Show({ deck, start, presenter: startPresenter, onEnd }: { deck: 
         <div className="now">
           <span className="label">{t('stage.current')}</span>
           <div className="slot" style={{ display: 'grid', placeItems: 'center' }}>
-            {ended ? <div style={{ color: '#aaa' }}>{t('stage.endOfShow')}</div> : <Frame deck={deck} index={index} prev={prev?.index ?? null} back={!!prev?.back} w={slotW} h={slotH} />}
+            {ended ? <div style={{ color: '#aaa' }}>{t('stage.endOfShow')}</div> : <Frame deck={deck} index={index} prev={prev?.index ?? null} back={!!prev?.back} w={slotW} h={slotH} step={step.n} animate={step.animate} />}
           </div>
         </div>
         <div className="side">
@@ -163,7 +182,7 @@ export function Show({ deck, start, presenter: startPresenter, onEnd }: { deck: 
       onContextMenu={e => e.preventDefault()}>
       {ended
         ? <div style={{ color: '#bbb', font: '500 18px var(--sans)' }}>{t('stage.endOfShow')}</div>
-        : <Frame deck={deck} index={index} prev={prev?.index ?? null} back={!!prev?.back} w={size.w} h={size.h} />}
+        : <Frame deck={deck} index={index} prev={prev?.index ?? null} back={!!prev?.back} w={size.w} h={size.h} step={step.n} animate={step.animate} />}
       {blank && <div className="st-show-blank" style={{ background: blank }} />}
       <div className="st-show-bar">
         <button type="button" aria-label={t('stage.previous')} title={t('stage.previous')} onClick={back}><Icon name="prev" /></button>
