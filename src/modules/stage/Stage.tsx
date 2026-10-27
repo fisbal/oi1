@@ -10,11 +10,12 @@ import { getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import {
   GEOMS, LAYOUTS, SIZE_16_9, SIZE_4_3, THEMES, TRANSITIONS, changeLayout, cssBackground, defaultSize, htmlText, isEmptyHtml, itemText, linesToHtml,
-  newDeck, newId, newSlide, resizeDeck, slideTitle,
-  type Background, type Deck, type DeckTheme, type Geom, type Item, type LayoutId, type ShapeItem, type Slide, type Stroke, type TableItem, type Transition,
+  newDeck, newId, newSlide, resizeDeck, retheme, slideTitle,
+  type Background, type Deck, type DeckTheme, type Geom, type ThemeGroup, type Item, type LayoutId, type ShapeItem, type Slide, type Stroke, type TableItem, type Transition,
 } from '../../formats/slides';
 import { FileMenu } from '../../ui/FileMenu';
-import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, NumberBox, type ComboGroup } from '../../ui/kit';
+import { Btn, ColorGrid, Combo, Dialog, Drop, Group, Icon, MenuItem, NumberBox, type ComboGroup } from '../../ui/kit';
+import { qrDataUrl } from '../../ui/qr';
 import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
 import { FONT_GROUPS, FONT_SIZES, cssFont } from '../letter/model';
 import { readAsDataUrl } from '../letter/setup';
@@ -23,6 +24,8 @@ import { SlideThumb, SlideView, shade, type ItemExtras } from './SlideView';
 import { NO_TEXT, editorState, formatHtml, htmlState, slideExtensions, type TextState } from './text';
 import { Show } from './Show';
 import { stageCopilot, type StageBridge } from './copilot';
+import { DIAGRAMS, WORDART, diagramItems, footerItem, slideNumberItem, wordArtItem, type DiagramKind } from './build';
+import { myThemes, onMyThemes, removeMyTheme } from './mythemes';
 
 export const EXTENSIONS = ['.pptx'];
 const PPTX_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
@@ -208,6 +211,10 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const [guides, setGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
   const [railDrop, setRailDrop] = useState<{ i: number; after: boolean } | null>(null);
   const [cell, setCell] = useState<{ r: number; c: number } | null>(null);
+  const [askText, setAskText] = useState<null | { title: string; value: string; ok: (v: string) => void }>(null);
+  const [mine, setMine] = useState<DeckTheme[]>(myThemes);
+  useEffect(() => onMyThemes(() => setMine(myThemes())), []);
+  const [themeGroup, setThemeGroup] = useState<ThemeGroup | null>(null);
   const [printing, setPrinting] = useState(false);
   const undo = useRef<Deck[]>([]);
   const redo = useRef<Deck[]>([]);
@@ -350,6 +357,43 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     addItem({ id: newId(), kind: 'shape', geom, ...b, html: line ? '' : '<p></p>' });
     setTab('format');
   };
+  /** A diagram from the slide's bullets (they become the diagram), or from sample points on an empty slide. */
+  const addDiagram = (kind: DiagramKind) => {
+    const s = slide;
+    const body = s.items.find(it => it.kind === 'shape' && (it.role === 'body' || it.role === 'body2') && htmlText(it.html).trim()) as ShapeItem | undefined;
+    const picked = one?.kind === 'shape' && htmlText(one.html).trim() ? one : body;
+    const lines = picked ? htmlText(picked.html).split('\n').map(l => l.trim()).filter(Boolean) : [];
+    const points = lines.length >= 2 ? lines : [1, 2, 3, 4].map(n => t('stage.diagram.point', { n }));
+    const items = diagramItems(kind, points, deckRef.current);
+    if (picked) {
+      // The text the diagram came from makes way for it; a placeholder slide keeps only its title.
+      const title = s.items.find(it => it.kind === 'shape' && it.role === 'title');
+      const rest = s.items.filter(it => it.id !== picked.id && !(it.kind === 'shape' && (it.role === 'body' || it.role === 'body2') && isEmptyHtml(it.html)));
+      const layout: LayoutId = title && picked.role ? 'titleOnly' : s.layout;
+      const moved = layout !== s.layout ? changeLayout({ ...s, items: rest }, layout, deckRef.current) : { ...s, items: rest };
+      changeSlide(() => ({ ...moved, items: [...moved.items, ...items] }));
+    } else changeSlide(x => ({ ...x, items: [...x.items, ...items] }));
+    setSel(items.filter(it => it.kind === 'shape' && !isLine(it.geom)).map(it => it.id));
+  };
+  const addWordArt = (style: (typeof WORDART)[number]['id']) => addItem(wordArtItem(style, t('stage.wordart.sample'), deckRef.current), true);
+  const addQr = () => setAskText({
+    title: t('stage.qr.ask'), value: 'https://', ok: v => {
+      const url = v.trim();
+      if (!url || url === 'https://') return;
+      void qrDataUrl(url, deckRef.current.theme.dark ? '#000000' : deckRef.current.theme.text).then(src => addItem({ id: newId(), kind: 'image', src, alt: url, ...center(220, 220) }));
+    },
+  });
+  const numberSlides = () => {
+    const d = deckRef.current;
+    commit({ ...d, slides: d.slides.map((x, i) => ({ ...x, items: [...x.items.filter(it => it.name !== 'Slide number'), slideNumberItem(i + 1, d)] })) });
+    shell.notify(t('stage.numbered', { n: d.slides.length }));
+  };
+  const addFooter = () => setAskText({
+    title: t('stage.footer.ask'), value: deckRef.current.slides.flatMap(x => x.items).find(it => it.name === 'Footer' && it.kind === 'shape') ? htmlText((deckRef.current.slides.flatMap(x => x.items).find(it => it.name === 'Footer') as ShapeItem).html) : '', ok: v => {
+      const d = deckRef.current;
+      commit({ ...d, slides: d.slides.map(x => ({ ...x, items: [...x.items.filter(it => it.name !== 'Footer'), ...(v.trim() ? [footerItem(v.trim(), d)] : [])] })) });
+    },
+  });
   const addTextBox = () => addItem({ id: newId(), kind: 'shape', geom: 'rect', ...center(480, 72), y: Math.round(deck.h * 0.42), fill: null, line: null, html: '<p></p>', valign: 'top' }, true);
   const tableItem = (rows: number, cols: number, data?: string[][], link?: TableItem['link']): TableItem => {
     const w = Math.min(deck.w * 0.86, cols * 220);
@@ -782,6 +826,9 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     replaceSlide: s => changeSlide(() => s),
     setNotes: notes => changeSlide(s => ({ ...s, notes })),
     setItemHtml: (id, html) => changeItems([id], it => (it.kind === 'shape' ? { ...it, html } : it)),
+    themes: () => [...THEMES, ...myThemes()],
+    setTheme: th => setTheme(th),
+    setAllNotes: notes => { const d = deckRef.current; commit({ ...d, slides: d.slides.map((x, i) => (notes[i] ? { ...x, notes: notes[i] } : x)) }); },
   };
 
   // ---------- drawing ----------
@@ -845,7 +892,12 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const setBg = (bg: Background | null) => changeSlide(s => ({ ...s, bg }));
   const setTransition = (tr: Transition) => changeSlide(s => ({ ...s, transition: tr === 'none' ? undefined : tr }));
   const transitionAll = () => { const d = deckRef.current; commit({ ...d, slides: d.slides.map(s => ({ ...s, transition: slide.transition, speed: slide.speed })) }); shell.notify(t('stage.appliedAll')); };
-  const setTheme = (th: DeckTheme) => commit({ ...deckRef.current, theme: th });
+  const setTheme = (th: DeckTheme) => commit(retheme(deckRef.current, th));
+  const currentGroup: ThemeGroup = deck.theme.id === 'file' ? 'mine' : deck.theme.group ?? 'classic';
+  const shownGroup: ThemeGroup = themeGroup ?? currentGroup;
+  const galleryThemes = shownGroup === 'mine'
+    ? [...mine, ...(deck.theme.id === 'file' || (deck.theme.group === 'mine' && !mine.some(m => m.id === deck.theme.id)) ? [deck.theme] : [])]
+    : THEMES.filter(th => (th.group ?? 'classic') === shownGroup);
   const tableCmd = (fn: (t: TableItem) => TableItem) => { if (tableSel) changeItems([tableSel.id], it => fn(it as TableItem)); };
   const at = cell ?? { r: (tableSel?.rows.length ?? 1) - 1, c: (tableSel?.rows[0]?.length ?? 1) - 1 };
   const slideMenu = (onPick: (l: LayoutId) => void, current?: LayoutId) => (close: () => void) => (
@@ -1012,20 +1064,63 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           <Group label="letter.group.text">
             <Btn big icon="texttable" title="stage.textBox" onClick={addTextBox} />
             <Btn big icon="date" title="letter.date" onClick={() => addItem({ id: newId(), kind: 'shape', geom: 'rect', ...center(320, 48), y: deck.h - 64, fill: null, line: null, html: `<p>${new Date().toLocaleDateString(lang)}</p>`, valign: 'middle' })} />
+            <Drop big icon="wordart" title="stage.wordart">
+              {close => <div className="st-wordart">
+                {WORDART.map(w => (
+                  <button key={w.id} type="button" title={t(`stage.wordart.${w.id}` as MessageKey)} onClick={() => { close(); addWordArt(w.id); }}
+                    style={{ fontFamily: cssFont(w.font), color: deck.theme.accents[w.accent % deck.theme.accents.length], background: cssBackground(deck.theme.bg) }}>
+                    {w.upper ? 'ABC' : 'Abc'}<span>{t(`stage.wordart.${w.id}` as MessageKey)}</span>
+                  </button>
+                ))}
+              </div>}
+            </Drop>
+          </Group>
+          <Group label="stage.group.diagrams">
+            <Drop big icon="diagram" title="stage.diagrams" wide>
+              {close => <div className="st-diagrams">
+                {DIAGRAMS.map(k => {
+                  const d = { ...deck, slides: [] };
+                  const s = newSlide('blank', d);
+                  s.items = diagramItems(k, ['', '', '', ''], d);
+                  return (
+                    <button key={k} type="button" onClick={() => { close(); addDiagram(k); }}>
+                      <SlideThumb deck={deck} slide={s} width={120} />
+                      {t(`stage.diagram.${k}` as MessageKey)}
+                    </button>
+                  );
+                })}
+                <p className="st-hint">{t('stage.diagram.hint')}</p>
+              </div>}
+            </Drop>
+          </Group>
+          <Group label="stage.group.extras">
+            <Btn big icon="qr" title="stage.qr" onClick={addQr} />
+            <Btn big icon="pagenum" title="stage.slideNumbers" onClick={numberSlides} />
+            <Btn big icon="footer" title="stage.footer" onClick={addFooter} />
           </Group>
         </>}
 
         {shownTab === 'design' && <>
           <Group label="stage.group.themes">
-            <div className="st-gallery">
-              {[...THEMES, ...(deck.theme.id === 'file' ? [deck.theme] : [])].map(th => (
-                <button key={th.id + th.name} type="button" className={`st-gallery-item${deck.theme.id === th.id && deck.theme.name === th.name ? ' on' : ''}`} title={th.name} onClick={() => setTheme(th)}>
-                  <span className="st-theme-chip" style={{ background: cssBackground(th.bg) }}>
-                    <b style={{ color: th.title, fontFamily: cssFont(th.head) }}>Aa</b>
-                    {th.accents.slice(0, 4).map((c, i) => <i key={i} style={{ left: 8 + i * 15, background: c }} />)}
+            <div className="st-gallery-wrap">
+              <div className="st-gallery-groups" role="tablist" aria-label={t('stage.group.themes')}>
+                {(['classic', 'life', 'military', 'mine'] as ThemeGroup[]).map(g => (
+                  <button key={g} type="button" role="tab" aria-selected={shownGroup === g} className={shownGroup === g ? 'on' : ''} onClick={() => setThemeGroup(g)}>
+                    {t(`stage.themes.${g}` as MessageKey)}
+                  </button>
+                ))}
+              </div>
+              <div className="st-gallery">
+                {galleryThemes.map(th => (
+                  <span key={th.id + th.name} className="st-gallery-cell">
+                    <button type="button" className={`st-gallery-item${deck.theme.id === th.id && deck.theme.name === th.name ? ' on' : ''}`} title={themeName(th)} aria-label={themeName(th)} onClick={() => setTheme(th)}>
+                      <ThemeChip th={th} />
+                    </button>
+                    {th.group === 'mine' && th.id !== 'file' && <button type="button" className="st-gallery-x" title={t('stage.themes.remove')} aria-label={`${t('stage.themes.remove')} ${th.name}`} onClick={() => removeMyTheme(th.id)}>×</button>}
                   </span>
-                </button>
-              ))}
+                ))}
+                {shownGroup === 'mine' && !galleryThemes.length && <span className="st-gallery-empty">{t('stage.themes.mineEmpty')}</span>}
+              </div>
             </div>
           </Group>
           <Group label="stage.group.customize">
@@ -1318,6 +1413,11 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
         </span>
       </footer>
 
+      {askText && (
+        <Dialog title={askText.title} onClose={() => setAskText(null)} onOk={() => askText.ok(askText.value)}>
+          <input className="st-ask" autoFocus value={askText.value} aria-label={askText.title} onChange={e => setAskText({ ...askText, value: e.target.value })} />
+        </Dialog>
+      )}
       <input ref={imageInput} type="file" accept={IMAGE_TYPES.join(',')} multiple hidden onChange={e => { void addImages(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
 
       {show && <Show deck={deck} start={show.start} presenter={show.presenter} onEnd={i => { setShow(null); setActive(i); rootRef.current?.focus(); }} />}
@@ -1369,3 +1469,26 @@ function TablePicker({ onPick }: { onPick: (rows: number, cols: number) => void 
 }
 
 export type { ReactNode };
+
+/** A theme's name in the user's language; themes from files or Copilot keep their own. */
+export function themeName(th: DeckTheme): string {
+  const key = `stage.theme.${th.id}` as MessageKey;
+  return (th.group !== 'mine' && th.id !== 'file' && t(key)) || th.name;
+}
+
+/** The small picture of a theme in the gallery: its background, decorations, title font and colors. */
+function ThemeChip({ th }: { th: DeckTheme }) {
+  return (
+    <span className="st-theme-chip" style={{ background: cssBackground(th.bg) }}>
+      {(th.deco ?? []).map((d, i) => {
+        const style: CSSProperties = { left: `${d.x * 100}%`, top: `${d.y * 100}%`, width: `${d.w * 100}%`, height: `${d.h * 100}%`, opacity: d.opacity ?? 1, transform: d.rot ? `rotate(${d.rot}deg)` : undefined };
+        if (d.geom && d.geom !== 'rect' && d.geom !== 'ellipse') {
+          return <svg key={i} className="st-chip-deco" style={style} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d={geomPath(d.geom, 100, 100)} fill={d.color} /></svg>;
+        }
+        return <span key={i} className="st-chip-deco" style={{ ...style, background: d.to ? `linear-gradient(90deg, ${d.color}, ${d.to})` : d.color, borderRadius: d.round || d.geom === 'ellipse' ? '50%' : undefined }} />;
+      })}
+      <b style={{ color: th.title, fontFamily: cssFont(th.head) }}>Aa</b>
+      {th.accents.slice(0, 4).map((c, i) => <i key={i} style={{ left: 8 + i * 15, background: c }} />)}
+    </span>
+  );
+}

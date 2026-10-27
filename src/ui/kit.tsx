@@ -112,6 +112,8 @@ const ICONS: Record<string, ReactNode> = {
   callout: <>{P('M2 3h12v8H7l-3 3v-3H2zM5 6h6M5 8.5h4')}</>,
   theme: <>{P('M8 15A7 7 0 1 1 15 8c0 2-1.5 3-3 3h-1.5a1.5 1.5 0 0 0-1 2.6A1.4 1.4 0 0 1 8 15zM4.5 7.5h.01M7 4.5h.01M10.5 5h.01')}</>,
   clean: <>{P('M10 2l4 4-6 6H4V8zM2 14h12M7 5l4 4')}</>,
+  diagram: <>{P('M1.5 6h3.5v4H1.5zM6.5 6h3.5v4H6.5zM11.5 6h3v4h-3')}{P('M5 8h1.5M10 8h1.5')}</>,
+  wordart: <>{P('M2 13 6 3l4 10M3.5 9.5h5')}{P('M11 13c3 0 3-4 0-4M11 9V6')}</>,
   qr: <>{P('M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM4 4h1v1H4zM11 4h1v1h-1zM4 11h1v1H4zM9 9h2v2H9zM12 9h2M9 12v2M12 12h2v2h-2z')}</>,
   sort: <>{P('M4 2v12M1.5 11.5 4 14l2.5-2.5M9 3h5M9 6.5h4M9 10h3M9 13.5h2')}</>,
   texttable: <>{P('M1 3h6M1 6h6M1 9h4M9 3h6v10H9zM9 8h6M12 3v10')}</>,

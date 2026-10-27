@@ -4,6 +4,7 @@
 // .pptx files are read into this shape and written back from it (see pptx.ts).
 
 import type { HandoffLink } from '../shell/contract';
+import { LIFE_THEMES, MILITARY_THEMES } from './themes-more';
 
 export type Geom =
   | 'rect' | 'roundRect' | 'ellipse' | 'triangle' | 'rtTriangle' | 'diamond' | 'pentagon' | 'hexagon' | 'octagon'
@@ -72,7 +73,16 @@ export interface Slide {
 }
 
 /** A rectangle drawn behind every slide by the theme, in parts of the slide (0 to 1). */
-export interface Deco { x: number; y: number; w: number; h: number; color: string; to?: string; opacity?: number; round?: boolean }
+export interface Deco {
+  x: number; y: number; w: number; h: number; color: string; to?: string; opacity?: number; round?: boolean;
+  /** A shape other than a rectangle or an oval, like a star or a chevron. */
+  geom?: Geom;
+  /** Turned this many degrees clockwise. */
+  rot?: number;
+}
+
+/** Where a theme sits in the gallery; 'mine' holds the themes Copilot made. */
+export type ThemeGroup = 'classic' | 'life' | 'military' | 'mine';
 
 export interface DeckTheme {
   id: string;
@@ -88,6 +98,7 @@ export interface DeckTheme {
   deco?: Deco[];
   /** Theme pictures and shapes read from a .pptx master, drawn behind the slides. */
   decoItems?: Item[];
+  group?: ThemeGroup;
 }
 
 export interface Deck {
@@ -153,6 +164,23 @@ export const THEMES: DeckTheme[] = [
     deco: [{ x: -0.06, y: 0.78, w: 0.22, h: 0.4, color: '#F2A7C3', opacity: 0.35, round: true }, { x: 0.9, y: -0.1, w: 0.18, h: 0.32, color: '#8FD3C7', opacity: 0.35, round: true }],
   },
 ];
+
+THEMES.push(...LIFE_THEMES, ...MILITARY_THEMES);
+
+/** A deck on another theme. Colors taken from the old theme's accents follow the new one, like PowerPoint's
+ *  theme colors: shapes, lines, tables and colored text made from accent 2 stay accent 2. */
+export function retheme(deck: Deck, theme: DeckTheme): Deck {
+  const map = new Map<string, string>();
+  deck.theme.accents.forEach((c, i) => { const to = theme.accents[i]; if (to && !map.has(c.toUpperCase())) map.set(c.toUpperCase(), to); });
+  const swap = (c: string | null | undefined) => (c ? map.get(c.toUpperCase()) ?? c : c);
+  const swapHtml = (html: string) => html.replace(/(color:\s*)(#[0-9a-fA-F]{6})/g, (m, k: string, c: string) => (map.has(c.toUpperCase()) ? k + map.get(c.toUpperCase()) : m));
+  const item = (it: Item): Item => {
+    if (it.kind === 'shape') return { ...it, fill: swap(it.fill) as string | null | undefined, line: it.line ? { ...it.line, color: swap(it.line.color)! } : it.line, html: swapHtml(it.html) };
+    if (it.kind === 'table') return it.color ? { ...it, color: swap(it.color)! } : it;
+    return it.line ? { ...it, line: { ...it.line, color: swap(it.line.color)! } } : it;
+  };
+  return { ...deck, theme, slides: deck.slides.map(s => ({ ...s, items: s.items.map(item) })) };
+}
 
 export const themeById = (id: string) => THEMES.find(t => t.id === id) ?? THEMES[0];
 

@@ -48,38 +48,52 @@ try {
         await page.waitForTimeout(1200);
         if (app === 'Code+') { const tpl = page.locator('.code .tpl').first(); if (await tpl.count()) { await tpl.click(); await page.waitForTimeout(1000); } }
       }
-      const r = await page.evaluate(() => {
-        const vw = window.innerWidth, vh = window.innerHeight;
-        const out = { overflow: document.scrollingElement.scrollWidth - vw, issues: [] };
-        const pageEl = document.querySelector('.page-frame') ?? document.querySelector('.sheet.web-layout');
-        if (pageEl) {
-          const b = pageEl.getBoundingClientRect();
-          if (b.left < -1 || b.right > vw + 1) out.issues.push(`the page is wider than the screen (${Math.round(b.left)}…${Math.round(b.right)} of ${vw})`);
-        }
-        const slide = document.querySelector('.st-canvas');
-        if (slide) {
-          const b = slide.getBoundingClientRect();
-          if (b.left < -1 || b.right > vw + 1) out.issues.push(`the slide is wider than the screen (${Math.round(b.width)} of ${vw})`);
-          if (b.width < vw * 0.4) out.issues.push(`the slide is too small to work on (${Math.round(b.width)}px of ${vw})`);
-        }
-        const ribbon = document.querySelector('.ribbon');
-        if (ribbon) {
-          const bottom = ribbon.getBoundingClientRect().bottom;
-          if (vh - bottom < vh * 0.5) out.issues.push(`only ${Math.round(vh - bottom)}px of ${vh} left under the ribbon`);
-        }
-        return out;
-      });
-      if (r.overflow > 1) problems.push(`${size.name} ${app}: the page scrolls sideways by ${r.overflow}px`);
-      for (const i of r.issues) problems.push(`${size.name} ${app}: ${i}`);
-      for (const e of errors) problems.push(`${size.name} ${app}: script error: ${e}`);
+      const measure = async (label) => {
+        const r = await page.evaluate(() => {
+          const vw = window.innerWidth, vh = window.innerHeight;
+          const out = { overflow: document.scrollingElement.scrollWidth - vw, issues: [] };
+          const pageEl = document.querySelector('.page-frame') ?? document.querySelector('.sheet.web-layout');
+          if (pageEl) {
+            const b = pageEl.getBoundingClientRect();
+            if (b.left < -1 || b.right > vw + 1) out.issues.push(`the page is wider than the screen (${Math.round(b.left)}…${Math.round(b.right)} of ${vw})`);
+          }
+          const slide = document.querySelector('.st-canvas');
+          if (slide) {
+            const b = slide.getBoundingClientRect();
+            if (b.left < -1 || b.right > vw + 1) out.issues.push(`the slide is wider than the screen (${Math.round(b.width)} of ${vw})`);
+            if (b.width < vw * 0.4) out.issues.push(`the slide is too small to work on (${Math.round(b.width)}px of ${vw})`);
+          }
+          const ribbon = document.querySelector('.ribbon');
+          if (ribbon) {
+            const bottom = ribbon.getBoundingClientRect().bottom;
+            if (vh - bottom < vh * 0.5) out.issues.push(`only ${Math.round(vh - bottom)}px of ${vh} left under the ribbon`);
+          }
+          return out;
+        });
+        if (r.overflow > 1) problems.push(`${size.name} ${label}: the page scrolls sideways by ${r.overflow}px`);
+        for (const i of r.issues) problems.push(`${size.name} ${label}: ${i}`);
+        for (const e of errors) problems.push(`${size.name} ${label}: script error: ${e}`);
+      };
+      await measure(app);
       await page.screenshot({ path: `screens/${size.name}-${app.replace('+', 'plus')}.png` });
+      // Stage's Design tab holds the theme gallery (classic, everyday life, military, my themes): it must fit too.
+      if (app === 'Stage') {
+        await page.locator('.module-host:not([hidden]) .ribbon-tabs [role=tab]').nth(2).click();
+        await page.waitForTimeout(400);
+        for (const g of [1, 2]) {
+          await page.locator('.module-host:not([hidden]) .st-gallery-groups button').nth(g).click();
+          await page.waitForTimeout(300);
+          await measure(`Stage design (theme group ${g})`);
+        }
+        await page.screenshot({ path: `screens/${size.name}-Stage-design.png` });
+      }
       await ctx.close();
     }
   }
   // Zoom and rotation, required in every app: nothing blocks pinch zoom or locks the orientation, and
-  // a phone and a tablet turned sideways and back re-fit every time (on the home screen and in Letter).
+  // a phone and a tablet turned sideways and back re-fit every time (on the home screen, in Letter and in Stage).
   problems.push(...checkZoomRotationSettings(fileURLToPath(new URL('..', import.meta.url))));
-  for (const app of ['home', 'Letter']) {
+  for (const app of ['home', 'Letter', 'Stage']) {
     const turned = await checkRotationAndPinch(browser, url, {
       contextOptions: { locale: 'fr-FR', serviceWorkers: 'allow' },
       prepare: async page => {
