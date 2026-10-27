@@ -94,7 +94,13 @@ One office suite, one app:
   - **Files:** save and open projects as `.zip`, save a ready-to-host site, open a folder.
   - **Linked:** send code to Letter; turn the cells selected in Class into a JSON data file; Class can ask Code+ for a JSON or CSV table.
 - **Office Stage v1**: slides like PowerPoint.
-  - **Slides:** 9 themes, 6 layouts (title, title and content, section, two columns, title only, blank), text boxes with
+  - **Themes:** 34 themes in a gallery by kind: 9 classic, 20 for everyday life (wedding, birthday, baby, family, travel,
+    beach, cooking, garden, sport, fitness, school, graduation, faith, Christmas, the four seasons, music, health, home)
+    and 5 military (army, navy, air force, camouflage, command). Each has its colors, fonts and decorations (stars,
+    chevrons, roundels…), saved in the .pptx. Colors taken from a theme follow it when you change theme.
+  - **Insert:** diagrams made from the slide's bullets (steps, cycle, timeline, pyramid, grid), WordArt titles,
+    QR codes, slide numbers and a footer on every slide.
+  - **Slides:** 6 layouts (title, title and content, section, two columns, title only, blank), text boxes with
     full formatting and text that shrinks to fit, 20 shapes, pictures (insert, paste or drop), tables, a slide strip you
     reorder by dragging, speaker notes, backgrounds, duplicate, hide and reset slides.
   - **Moving things:** drag, resize, rotate, snapping guides, select several, align and arrange, copy and paste,
@@ -108,8 +114,10 @@ One office suite, one app:
     or a chart; Stage can take a table from Class and send a table back.
 - **Copilot (Claude) in every app:** the gold Copilot key at the right of the ribbon (or Ctrl+Shift+Space) opens Claude beside
   your work. Letter: correct (fixes come back as tracked changes you accept or reject), rewrite, summarize, translate,
-  continue. Class: write, explain or fix formulas, clean, analyze or complete a table. Stage: make slides about a subject,
-  improve a slide, write speaker notes, correct or translate the text. Code+: explain, fix, improve, comment
+  continue. Class: write, explain or fix formulas, clean, analyze or complete a table. Stage: make a whole presentation about a subject
+  (slides, diagrams and the theme that suits it), **create a new theme** or **choose fonts** from a description (kept in
+  Design › My themes), pick the best theme, turn a slide into a diagram, improve a slide, write speaker notes for one or
+  all slides, correct or translate the text. Code+: explain, fix, improve, comment
   or write code, with the console's errors. Every answer has buttons to put it back in place. It uses your own Claude API key,
   kept on your device only (see [docs/copilot.md](docs/copilot.md)).
 - **Languages:** English, Français, Español, Português and Deutsch, picked automatically from the browser

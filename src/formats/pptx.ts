@@ -7,7 +7,7 @@
 import JSZip from 'jszip';
 import {
   GEOMS, THEMES, cssBackground, defaultSize, htmlText, layoutBox, layoutRoles, newId, themeById,
-  type Background, type Deck, type DeckTheme, type Geom, type Item, type LayoutId, type Role, type ShapeItem, type Slide, type Stroke, type Transition,
+  type Background, type Deck, type Deco, type DeckTheme, type Geom, type Item, type LayoutId, type Role, type ShapeItem, type Slide, type Stroke, type Transition,
 } from './slides';
 
 export const PPTX_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
@@ -328,7 +328,8 @@ function masterXml(d: Deck, layoutRids: string[]) {
     const fill = dc.to
       ? `<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:srgbClr val="${hex(dc.color)}">${dc.opacity !== undefined && dc.opacity < 1 ? `<a:alpha val="${Math.round(dc.opacity * 100000)}"/>` : ''}</a:srgbClr></a:gs><a:gs pos="100000"><a:srgbClr val="${hex(dc.to)}">${dc.opacity !== undefined && dc.opacity < 1 ? `<a:alpha val="${Math.round(dc.opacity * 100000)}"/>` : ''}</a:srgbClr></a:gs></a:gsLst><a:lin ang="0" scaled="0"/></a:gradFill>`
       : solid(dc.color, dc.opacity);
-    return `<p:sp><p:nvSpPr><p:cNvPr id="${20 + i}" name="Decoration ${i + 1}"/><p:cNvSpPr/><p:nvPr userDrawn="1"/></p:nvSpPr><p:spPr>${xfrm(b)}<a:prstGeom prst="${dc.round ? 'ellipse' : 'rect'}"><a:avLst/></a:prstGeom>${fill}<a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp>`;
+    const prst = dc.geom ?? (dc.round ? 'ellipse' : 'rect');
+    return `<p:sp><p:nvSpPr><p:cNvPr id="${20 + i}" name="Decoration ${i + 1}"/><p:cNvSpPr/><p:nvPr userDrawn="1"/></p:nvSpPr><p:spPr>${xfrm({ ...b, rot: dc.rot })}<a:prstGeom prst="${prst}"><a:avLst/></a:prstGeom>${fill}<a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp>`;
   }).join('');
   const tb = box('content', 'title', d), bb = box('content', 'body', d);
   const lvl = (n: number, sz: number) => {
@@ -438,7 +439,9 @@ export async function writePptx(deck: Deck, lang = 'en-US', title = ''): Promise
   zip.file('ppt/presProps.xml', `${XML}<p:presentationPr ${NSS}/>`);
   zip.file('ppt/viewProps.xml', `${XML}<p:viewPr ${NSS}><p:normalViewPr><p:restoredLeft sz="15620"/><p:restoredTop sz="94660"/></p:normalViewPr><p:gridSpacing cx="76200" cy="76200"/></p:viewPr>`);
   zip.file('ppt/tableStyles.xml', `${XML}<a:tblStyleLst xmlns:a="${NS_A}" def="{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"/>`);
-  zip.file('ppt/theme/theme1.xml', themeXml(deck.theme, `OI1 ${deck.theme.id}${deck.theme.id === 'file' ? ` ${deck.theme.name}` : ''}`));
+  // Built-in themes are found again by id; others (from a file, or made by Copilot) keep their name.
+  const builtIn = THEMES.some(t => t.id === deck.theme.id);
+  zip.file('ppt/theme/theme1.xml', themeXml(deck.theme, `OI1 ${builtIn ? deck.theme.id : `file ${deck.theme.name}`}`));
 
   // Master and layouts.
   const mRels = used.map((_, i) => `<Relationship Id="rId${i + 1}" Type="${REL}/slideLayout" Target="../slideLayouts/slideLayout${i + 1}.xml"/>`);
@@ -794,6 +797,29 @@ const LAYOUT_FROM: Record<string, LayoutId> = {
 };
 
 /** Reads a .pptx file into a deck. */
+/** One of the decorations Office Stage writes on a theme's master (see masterXml), back as a decoration. */
+function decoOf(sp: El, w: number, h: number): Deco | null {
+  const spPr = kid(sp, 'spPr');
+  const xf = kid(spPr, 'xfrm'), off = kid(xf, 'off'), ext = kid(xf, 'ext');
+  if (!off || !ext) return null;
+  const prst = kid(spPr, 'prstGeom')?.getAttribute('prst') ?? 'rect';
+  const clrs = all(kid(spPr, 'solidFill') ?? kid(spPr, 'gradFill'), 'srgbClr');
+  if (!clrs.length) return null;
+  const alpha = all(clrs[0], 'alpha')[0]?.getAttribute('val');
+  const rot = num(xf?.getAttribute('rot')) / 60000;
+  const d: Deco = {
+    x: num(off.getAttribute('x')) / EMU / w, y: num(off.getAttribute('y')) / EMU / h,
+    w: num(ext.getAttribute('cx')) / EMU / w, h: num(ext.getAttribute('cy')) / EMU / h,
+    color: `#${clrs[0].getAttribute('val')}`,
+  };
+  if (clrs[1]) d.to = `#${clrs[1].getAttribute('val')}`;
+  if (alpha) d.opacity = num(alpha) / 100000;
+  if (prst === 'ellipse') d.round = true;
+  else if (prst !== 'rect' && (GEOMS as string[]).includes(prst)) d.geom = prst as Geom;
+  if (rot) d.rot = rot;
+  return d;
+}
+
 export async function readPptx(data: ArrayBuffer): Promise<Deck> {
   const zip = await JSZip.loadAsync(data);
   const relsRoot = parse(await zip.file('_rels/.rels')!.async('text'));
@@ -841,11 +867,18 @@ export async function readPptx(data: ArrayBuffer): Promise<Deck> {
       dark: lum(bg.color) < 0.45,
     };
     // Pictures and shapes on the master are drawn behind every slide.
-    if (masterTree && !own) {
+    if (masterTree && (!own || own[1] === 'file')) {
       const deco: Item[] = [];
       const ctx: ReadCtx = { zip, colors, slidePart: master!, layoutTree: null, masterTree: null, sizes, fonts, layout: 'blank', bodyCount: 0, group: null };
       const tree = masterTree.cloneNode(true) as El;
       for (const sp of Array.from(tree.children)) if ((sp.localName === 'sp' || sp.localName === 'pic') && phOf(sp)) sp.remove();
+      // Our own decorations (a theme made by Copilot) come back as decorations, with their transparency.
+      if (own) {
+        const ours = Array.from(tree.children).filter(sp => sp.localName === 'sp' && /^Decoration \d+$/.test(all(sp, 'cNvPr')[0]?.getAttribute('name') ?? ''));
+        const decos = ours.map(sp => decoOf(sp, w, h)).filter((x): x is Deco => !!x);
+        if (decos.length) theme.deco = decos;
+        ours.forEach(sp => sp.remove());
+      }
       await readItems(tree, ctx, deco);
       if (deco.length) theme.decoItems = deco;
     }

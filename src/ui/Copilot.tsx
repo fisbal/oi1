@@ -33,6 +33,8 @@ export interface CopilotAction {
   choices?: { label: string; prompt: string }[];
   /** The app does the whole job itself and returns what to show, like a letter's tracked corrections. */
   run?: (ai: AiApi, ctx: CopilotContext | null, signal: AbortSignal) => Promise<string>;
+  /** With `fill`: once the user finishes the sentence and sends it, the app does the job with their words. */
+  ask?: (ai: AiApi, request: string, ctx: CopilotContext | null, signal: AbortSignal) => Promise<string>;
   /** Needs something selected or open to work on. */
   needsContext?: boolean;
 }
@@ -150,6 +152,7 @@ export function Copilot({ host, ai, onClose }: { host: CopilotHost; ai: AiApi; o
   const list = useRef<HTMLDivElement>(null);
   const nextId = useRef(1);
   const hostRef = useRef(host);
+  const armed = useRef<CopilotAction | null>(null);
   hostRef.current = host;
 
   // Follow what the user selects while the panel is open.
@@ -196,7 +199,7 @@ export function Copilot({ host, ai, onClose }: { host: CopilotHost; ai: AiApi; o
   const runAction = (a: CopilotAction, choice?: { label: string; prompt: string }) => {
     if (a.choices && !choice) { setOpen(o => (o === a.id ? null : a.id)); return; }
     setOpen(null);
-    if (a.fill) { setInput(a.fill); window.setTimeout(() => { box.current?.focus(); box.current?.setSelectionRange(a.fill!.length, a.fill!.length); }, 0); return; }
+    if (a.fill) { armed.current = a.ask ? a : null; setInput(a.fill); window.setTimeout(() => { box.current?.focus(); box.current?.setSelectionRange(a.fill!.length, a.fill!.length); }, 0); return; }
     void send(choice?.prompt ?? a.prompt ?? '', choice ? `${a.label} · ${choice.label}` : a.label, a);
   };
 
@@ -204,6 +207,13 @@ export function Copilot({ host, ai, onClose }: { host: CopilotHost; ai: AiApi; o
     const q = input.trim();
     if (!q || busy) return;
     setInput('');
+    const a = armed.current;
+    armed.current = null;
+    // Still the sentence the action started ("Make a theme for …"): the app does the job with the user's words.
+    if (a?.ask && a.fill && q.startsWith(a.fill.trim()) && q.length > a.fill.trim().length) {
+      void send(q, q, { ...a, needsContext: false, run: (ai, c, signal) => a.ask!(ai, q, c, signal) });
+      return;
+    }
     void send(q, q);
   };
 

@@ -171,12 +171,21 @@ export function Backdrop({ deck, slide }: { deck: Deck; slide: Slide }) {
   const theme = deck.theme;
   return <>
     <div className="st-bg" style={{ background: cssBackground(slide.bg ?? theme.bg) }} />
-    {!slide.bg && (theme.deco ?? []).map((d, i) => (
-      <div key={i} className="st-deco" style={{
+    {!slide.bg && (theme.deco ?? []).map((d, i) => {
+      const box = {
         left: `${d.x * 100}%`, top: `${d.y * 100}%`, width: `${d.w * 100}%`, height: `${d.h * 100}%`,
-        background: d.to ? `linear-gradient(90deg, ${d.color}, ${d.to})` : d.color, opacity: d.opacity ?? 1, borderRadius: d.round ? '50%' : undefined,
-      }} />
-    ))}
+        opacity: d.opacity ?? 1, transform: d.rot ? `rotate(${d.rot}deg)` : undefined,
+      };
+      if (d.geom && d.geom !== 'rect' && d.geom !== 'ellipse') {
+        const w = d.w * deck.w, h = d.h * deck.h;
+        return (
+          <svg key={i} className="st-deco" style={box} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true">
+            <path d={geomPath(d.geom, w, h)} fill={d.color} />
+          </svg>
+        );
+      }
+      return <div key={i} className="st-deco" style={{ ...box, background: d.to ? `linear-gradient(90deg, ${d.color}, ${d.to})` : d.color, borderRadius: d.round || d.geom === 'ellipse' ? '50%' : undefined }} />;
+    })}
     {!slide.bg && (theme.decoItems ?? []).map(it => <ItemView key={it.id} it={it} theme={theme} layout={slide.layout} />)}
   </>;
 }
