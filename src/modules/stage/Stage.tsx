@@ -14,7 +14,7 @@ import {
   type AnimEffect, type AnimKind, type Background, type Deck, type DeckTheme, type Geom, type ThemeGroup, type Item, type LayoutId, type ShapeItem, type Slide, type Stroke, type TableItem, type Transition,
 } from '../../formats/slides';
 import { FileMenu } from '../../ui/FileMenu';
-import { Btn, ColorGrid, Combo, Dialog, Drop, Group, Icon, MenuItem, NumberBox, type ComboGroup } from '../../ui/kit';
+import { Btn, ColorGrid, Combo, Dialog, Drop, Group, Icon, MenuItem, NumberBox, RibbonToggle, type ComboGroup } from '../../ui/kit';
 import { qrDataUrl } from '../../ui/qr';
 import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
 import { FONT_GROUPS, FONT_SIZES, cssFont } from '../letter/model';
@@ -981,6 +981,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
         <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
         {tabs.map(x => <button key={x.id} type="button" role="tab" aria-selected={shownTab === x.id} className={shownTab === x.id ? 'on' : ''} onClick={() => setTab(x.id)}>{t(x.label)}</button>)}
         <button type="button" role="tab" aria-selected={shownTab === 'oi1'} className={`ribbon-special${shownTab === 'oi1' ? ' on' : ''}`} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
+        <RibbonToggle />
         {hasFormat && <button type="button" role="tab" aria-selected={shownTab === 'format'} className={shownTab === 'format' ? 'on' : ''} onClick={() => setTab('format')}>{t('stage.tab.format')}</button>}
         {tableSel && <button type="button" role="tab" aria-selected={shownTab === 'table'} className={shownTab === 'table' ? 'on' : ''} onClick={() => setTab('table')}>{t('letter.tab.table')}</button>}
         <span className="ribbon-quick">
