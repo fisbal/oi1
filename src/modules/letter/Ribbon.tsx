@@ -9,7 +9,7 @@ import { BULLET_CHARS, BULLET_STYLES, NUMBER_STYLES, numberLabel, type BorderSid
 import { FONT_GROUPS, FONT_SIZES, STYLE_IDS, cssFont, previewStyle, type DocStyles, type StyleId } from './model';
 import { MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, WATERMARKS, isDark, pageInches, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
 import type { AppInfo, TabInfo } from '../../shell/contract';
-import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, NumberBox, type ComboGroup } from '../../ui/kit';
+import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, NumberBox, RibbonToggle, type ComboGroup } from '../../ui/kit';
 import { CopilotButton } from '../../ui/Copilot';
 import { CALLOUTS, CALLOUT_KINDS, CLEAN_UPS, TABLE_STYLES, applyTableStyle, type CalloutKind, type CleanUp, type TableStyleId } from './smart';
 import { LETTER_PARTS, type LetterPart } from './templates/parts';
@@ -280,6 +280,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
         ))}
         <button type="button" role="tab" aria-selected={shownTab === 'oi1'} className={`ribbon-special${shownTab === 'oi1' ? ' on' : ''}`}
           onMouseDown={e => e.preventDefault()} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
+        <RibbonToggle />
         {s.inTable && (
           <button type="button" role="tab" aria-selected={shownTab === 'table'} className={shownTab === 'table' ? 'on' : ''}
             onMouseDown={e => e.preventDefault()} onClick={() => setTab('table')}>{t(tabLabel.table)}</button>

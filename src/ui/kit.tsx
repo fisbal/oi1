@@ -5,6 +5,7 @@ import './kit.css';
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { t, type MessageKey } from '../shell/i18n';
+import { onRibbonMin, ribbonMin, setRibbonMin } from './ribbonMin';
 
 // ---------- icons (16 x 16, drawn with the text color) ----------
 
@@ -228,6 +229,19 @@ export function Group({ label, children }: { label: MessageKey | string; childre
       <div className="rgroup-body">{children}</div>
       <div className="rgroup-label">{tr(label)}</div>
     </div>
+  );
+}
+
+/** The arrow after the ribbon tabs that folds the ribbon down to its tabs for more room, or keeps it open. */
+export function RibbonToggle() {
+  const [min, setMin] = useState(ribbonMin);
+  useEffect(() => onRibbonMin(() => setMin(ribbonMin())), []);
+  const name = t(min ? 'ribbon.expand' : 'ribbon.collapse');
+  return (
+    <button type="button" className={`ribbon-toggle${min ? ' min' : ''}`} title={`${name} (Ctrl+F1)`} aria-label={name} aria-pressed={!min}
+      onMouseDown={e => e.preventDefault()} onClick={() => setRibbonMin(!min)}>
+      <Icon name="caret" size={14} />
+    </button>
   );
 }
 

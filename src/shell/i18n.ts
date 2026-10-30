@@ -11,6 +11,8 @@ const en = {
   'tab.confirmClose': 'Close this tab? Save the file first if you want to keep it.',
   'shell.home': 'Home',
   'shell.language': 'Language',
+  'ribbon.collapse': 'Collapse the ribbon',
+  'ribbon.expand': 'Show the ribbon',
   'shell.cannotOpen': 'OI1 cannot open this kind of file yet:',
 
   'kind.letter': 'Documents',
@@ -1350,6 +1352,8 @@ const fr: Messages = {
   'tab.confirmClose': 'Fermer cet onglet ? Enregistrez d’abord le fichier si vous voulez le garder.',
   'shell.home': 'Accueil',
   'shell.language': 'Langue',
+  'ribbon.collapse': 'Réduire le ruban',
+  'ribbon.expand': 'Afficher le ruban',
   'shell.cannotOpen': 'OI1 ne peut pas encore ouvrir ce type de fichier :',
 
   'kind.letter': 'Documents',
@@ -2686,6 +2690,8 @@ const es: Messages = {
   'tab.confirmClose': '¿Cerrar esta pestaña? Guarda el archivo antes si quieres conservarlo.',
   'shell.home': 'Inicio',
   'shell.language': 'Idioma',
+  'ribbon.collapse': 'Contraer la cinta',
+  'ribbon.expand': 'Mostrar la cinta',
   'shell.cannotOpen': 'OI1 todavía no puede abrir este tipo de archivo:',
 
   'kind.letter': 'Documentos',
@@ -4022,6 +4028,8 @@ const pt: Messages = {
   'tab.confirmClose': 'Fechar esta aba? Salve o arquivo antes se quiser mantê-lo.',
   'shell.home': 'Início',
   'shell.language': 'Idioma',
+  'ribbon.collapse': 'Recolher a faixa de opções',
+  'ribbon.expand': 'Mostrar a faixa de opções',
   'shell.cannotOpen': 'O OI1 ainda não abre este tipo de arquivo:',
 
   'kind.letter': 'Documentos',
@@ -5358,6 +5366,8 @@ const de: Messages = {
   'tab.confirmClose': 'Diesen Tab schließen? Speichern Sie die Datei vorher, wenn Sie sie behalten möchten.',
   'shell.home': 'Start',
   'shell.language': 'Sprache',
+  'ribbon.collapse': 'Menüband reduzieren',
+  'ribbon.expand': 'Menüband anzeigen',
   'shell.cannotOpen': 'OI1 kann diesen Dateityp noch nicht öffnen:',
 
   'kind.letter': 'Dokumente',
