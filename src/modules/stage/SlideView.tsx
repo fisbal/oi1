@@ -55,7 +55,21 @@ function FitText({ html, children, autofit, base, onFit, id }: { html: string; c
   useLayoutEffect(() => {
     const el = outer.current, body = inner.current;
     if (!el || !body) return;
-    if (!autofit || children) { if (k !== 1) setK(1); return; }
+    if (!autofit) { if (k !== 1) setK(1); return; }
+    if (children) {
+      // While typing, the text shrinks as it grows, like PowerPoint: the font size steps down (the editor keeps
+      // its real coordinates, so the cursor and clicks stay right), and grows back when lines are removed.
+      const refit = () => {
+        let z = 1;
+        body.style.fontSize = '';
+        while (z > 0.4 && body.offsetHeight > el.clientHeight + 1) { z = Math.round((z - 0.05) * 1000) / 1000; body.style.fontSize = `${z}em`; }
+        onFit?.(id, z);
+      };
+      refit();
+      const watch = new MutationObserver(refit);
+      watch.observe(body, { childList: true, subtree: true, characterData: true });
+      return () => watch.disconnect();
+    }
     const fits = (z: number) => {
       body.style.zoom = String(z);
       body.style.width = `${100 / z}%`;
@@ -70,10 +84,10 @@ function FitText({ html, children, autofit, base, onFit, id }: { html: string; c
     onFit?.(id, next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [html, base, autofit, children, id, onFit]);
-  const z = children ? 1 : k;
   return (
     <div ref={outer} className="st-fit" style={{ fontSize: `${base}pt` }}>
-      {children ?? <div ref={inner} className="st-html" style={z !== 1 ? { zoom: z, width: `${100 / z}%` } : undefined} dangerouslySetInnerHTML={{ __html: html }} />}
+      {children ? <div ref={inner} className="st-editwrap">{children}</div>
+        : <div ref={inner} className="st-html" style={k !== 1 ? { zoom: k, width: `${100 / k}%` } : undefined} dangerouslySetInnerHTML={{ __html: html }} />}
     </div>
   );
 }
@@ -170,9 +184,10 @@ function ItemBody({ it, theme, layout, extras, play }: { it: Item; theme: DeckTh
             padding: `${pad.t}px ${pad.r}px ${pad.b}px ${pad.l}px`, color: textColor(it, theme),
             fontFamily: it.role === 'title' ? 'var(--st-head)' : 'var(--st-body)',
             textAlign: it.role ? defaultAlign(it.role, layout) : 'center',
-            lineHeight: it.spacing ?? (it.role === 'title' ? 0.95 : 1.12),
+            // Titles a little tighter than text, but not below 1: script fonts' tall letters would touch the next line.
+            lineHeight: it.spacing ?? (it.role === 'title' ? 1.04 : 1.12),
           }}>
-          <FitText id={it.id} html={play?.by && play.animation ? splitHtml(it.html, play.by, play.animation, play.stagger ?? 0.1) : it.html} autofit={!!it.autofit && !editing} base={base} onFit={extras?.onFit}>{extras?.editor}</FitText>
+          <FitText id={it.id} html={play?.by && play.animation ? splitHtml(it.html, play.by, play.animation, play.stagger ?? 0.1) : it.html} autofit={!!it.autofit} base={base} onFit={extras?.onFit}>{extras?.editor}</FitText>
         </div>
       )}
     </div>

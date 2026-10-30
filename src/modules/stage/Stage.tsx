@@ -671,7 +671,8 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       const files = Array.from(e.clipboardData?.files ?? []).filter(f => IMAGE_TYPES.includes(f.type));
       if (files.length) { e.preventDefault(); void addImages(files); return; }
       const text = e.clipboardData?.getData('text/plain') ?? '';
-      if (clip.current && clip.current.map(itemText).filter(Boolean).join('\n') === text) { e.preventDefault(); pasteItems(); return; }
+      // Our own boxes when the clipboard holds their text, or nothing yet (pictures and shapes copy no text).
+      if (clip.current && (!text.trim() || clip.current.map(itemText).filter(Boolean).join('\n') === text)) { e.preventDefault(); pasteItems(); return; }
       if (text.trim()) {
         e.preventDefault();
         const lines = text.trim().split(/\r?\n/).filter(Boolean);
@@ -895,8 +896,8 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     return undefined;
   };
 
+  // The handles stay while typing, so a placeholder clicked straight into its text can still be resized or turned.
   const handles = (it: Item) => {
-    if (editing?.id === it.id) return null;
     const line = it.kind === 'shape' && isLine(it.geom);
     const pts: [number, number][] = line ? [[-1, -1], [1, 1]] : [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
     return <>

@@ -48,6 +48,8 @@ jobs:
         run: npm run check:ribbon
       - name: Check no text overlaps or is cut, in every language
         run: npm run check:text
+      - name: Use every app like a person (typing, handles, move, copy, undo, speed)
+        run: npm run check:interactions
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4
