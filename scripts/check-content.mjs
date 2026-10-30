@@ -27,6 +27,11 @@ const SHORT_BY_NATURE = {
   'Send to Letter': 'lists the open letters',
   'Outline to Office Letter': 'lists the open letters',
   'Send code to Letter': 'lists the open letters',
+  'Cite again': 'lists the sources already cited, so it grows with them',
+  'Cross-reference': 'lists the headings and captions of the letter',
+  'Bibliography': 'a few titles for the same list, like Word',
+  'Line numbers': 'none, every paragraph, every 5 or every 10, like Word',
+  'Text direction': 'left to right or right to left',
 };
 // Lists still being brought to MIN_CHOICES, one app per pull request. This list only shrinks.
 const TODO = {
@@ -35,7 +40,7 @@ const TODO = {
   Stage: ['Choose a layout', 'Layout', 'WordArt', 'Diagram', 'Slide size', 'Word stickers'],
 };
 // Tabs still being filled, with the pull request that fills them.
-const TODO_TABS = ['Letter > References'];
+const TODO_TABS = [];
 
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
 const url = `http://localhost:${PORT}/`;

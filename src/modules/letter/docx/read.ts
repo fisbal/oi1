@@ -234,6 +234,16 @@ class Context {
   }
 
   /** Our style for a Word paragraph style id. */
+  /** Word's Caption style (or one based on it), kept as Letter's caption paragraphs. */
+  isCaption(id: string | undefined): boolean {
+    const seen = new Set<string>();
+    for (let cur = id; cur && !seen.has(cur); cur = this.styles.get(cur)?.basedOn) {
+      seen.add(cur);
+      if ((this.styles.get(cur)?.name ?? cur).toLowerCase() === 'caption') return true;
+    }
+    return false;
+  }
+
   ourStyle(id: string | undefined): StyleId {
     const seen = new Set<string>();
     for (let cur = id; cur && !seen.has(cur); cur = this.styles.get(cur)?.basedOn) {
@@ -409,7 +419,7 @@ class Reader {
       const level = ours.startsWith('h') ? Number(ours.slice(1)) : 0;
       const node: JSONContent = level
         ? { type: 'heading', attrs: { level, ...attrs } }
-        : { type: 'paragraph', attrs: ours === 'normal' ? { ...attrs } : { ...attrs, styleId: ours } };
+        : { type: 'paragraph', attrs: ours === 'normal' ? (ctx.isCaption(styleId) ? { ...attrs, styleId: 'caption' } : { ...attrs }) : { ...attrs, styleId: ours } };
       if (content.length) node.content = content;
       return node;
     };
@@ -883,6 +893,8 @@ export async function readDocx(data: ArrayBuffer): Promise<LetterDoc> {
   const settings = await xml(zip, (await relOfType('settings')) ?? 'word/settings.xml');
   const hyph = kid(settings?.documentElement ?? null, 'autoHyphenation');
   if (hyph && attr(hyph, 'val') !== 'false' && attr(hyph, 'val') !== '0') page.hyphenate = true;
+  const ln = kid(sect, 'lnNumType');
+  if (ln) { const by = Number(attr(ln, 'countBy') ?? 1); page.lineNumbers = by >= 10 ? 'every10' : by >= 5 ? 'every5' : 'all'; }
   const track = onOff(kid(settings?.documentElement ?? null, 'trackRevisions')) === true;
   const reader = new Reader(zip, ctx, styles);
   const comments = readComments(await xml(zip, (await relOfType('comments')) ?? 'word/comments.xml'),
