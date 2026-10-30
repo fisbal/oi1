@@ -44,6 +44,8 @@ jobs:
           npm run check:screens
       - name: Check every tab has content and every list 20 choices
         run: npm run check:content
+      - name: Check the ribbon folds away for more room
+        run: npm run check:ribbon
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4
