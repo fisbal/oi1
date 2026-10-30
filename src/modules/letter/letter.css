@@ -298,6 +298,21 @@
 .table-styles button.no-lines i { border-color: transparent; }
 .table-styles button:hover { transform: translateY(-2px); border-color: var(--gold); }
 .sheet.hyphenate .doc-text { hyphens: auto; -webkit-hyphens: auto; }
+/* Layout > Line numbers: a number in the left margin before each paragraph, every 5 or 10 if asked. */
+/* The number hangs from the text column (not the paragraph), so indented paragraphs keep it in the margin. */
+.sheet.ln .body-area .doc-text { counter-reset: ln; position: relative; }
+.sheet.ln .body-area .doc-text > :is(p, h1, h2, h3, h4, h5, h6) { counter-increment: ln; }
+.sheet.ln .body-area .doc-text > :is(p, h1, h2, h3, h4, h5, h6)::before {
+  content: counter(ln); position: absolute; inset-inline-start: -34px; width: 24px; text-align: end; text-indent: 0;
+  font: 400 9pt var(--sans); color: #8A8A8A; font-style: normal; font-weight: 400;
+}
+.sheet.ln-every5 .body-area .doc-text > :not(:nth-child(5n))::before,
+.sheet.ln-every10 .body-area .doc-text > :not(:nth-child(10n))::before { content: none; }
+/* References: citations and index entries show faintly on screen only. */
+.doc-text .cite { color: inherit; border-bottom: 1px dotted rgba(68,114,196,.5); }
+.doc-text .xe { background: rgba(212,168,67,.12); }
+@media print { .doc-text .cite { border: 0; } .doc-text .xe { background: none; } }
+.doc-text p[data-style="caption"] { font-size: .85em; font-style: italic; color: #44546A; margin-top: 4px; }
 
 /* ---------- Review: comments, tracked changes ---------- */
 .doc-text .cmt { background: rgba(232, 176, 40, .2); border-bottom: 2px solid rgba(200, 144, 26, .55); border-radius: 1px; }
@@ -397,3 +412,15 @@
 .oi-dialog label.check { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .docs-count { font-size: 11px; opacity: .7; padding: 2px 6px; white-space: nowrap; }
 @media (max-width: 640px) { .fill-list { grid-template-columns: 1fr; } .list-gallery { grid-template-columns: repeat(5, 60px); } .theme-grid { grid-template-columns: repeat(4, 62px); } }
+
+/* References tab menus. */
+.menu-columns { display: grid; grid-template-columns: repeat(2, minmax(140px, 1fr)); gap: 0 4px; }
+.menu-note { max-width: 260px; padding: 8px 10px; margin: 0; font-size: 12.5px; white-space: normal; }
+.seg-row { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; max-width: 340px; }
+.seg-row button {
+  padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: 12px var(--sans);
+}
+.seg-row button.on { border-color: var(--gold); background: rgba(212,168,67,.14); }
+.source-ai { display: flex; gap: 8px; margin: 4px 0 12px; }
+.source-ai input { flex: 1; min-width: 0; }
+@media (max-width: 640px) { .menu-columns { grid-template-columns: 1fr 1fr; } .menu-columns .menu-item { padding: 7px 6px; } }

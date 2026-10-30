@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { BULLET_CHARS, BULLET_STYLES, NUMBER_STYLES, numberLabel, type BorderSide, type Borders } from './extensions';
 import { FONT_GROUPS, FONT_SIZES, STYLE_IDS, cssFont, previewStyle, type DocStyles, type StyleId } from './model';
-import { MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, WATERMARKS, isDark, pageInches, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
+import { LINE_NUMBERS, MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, WATERMARKS, isDark, pageInches, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
 import type { AppInfo, TabInfo } from '../../shell/contract';
 import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, NumberBox, RibbonToggle, type ComboGroup } from '../../ui/kit';
 import { CopilotButton } from '../../ui/Copilot';
@@ -17,6 +17,10 @@ import { SPACING, THEMES, type SpacingId, type Theme } from './themes';
 import { CASE_MODES, PASTE_KINDS, changeCase, type PasteKind } from './textTools';
 import { LETTERS, type LetterCat } from './templates/letters';
 import { CV_TEMPLATES } from './templates/cv';
+import {
+  BIBLIOGRAPHY_TITLES, CAPTION_LABELS, CITATION_STYLES, CITATION_STYLE_IDS, REF_FORMS,
+  type CaptionLabel, type CitationStyle, type RefForm, type RefTarget, type Source,
+} from './references';
 
 export type Zoom = number | 'width' | 'page';
 
@@ -88,6 +92,18 @@ export interface RibbonActions {
   footnote: () => void;
   editFootnote: () => void;
   nextFootnote: () => void;
+  citeStyle: CitationStyle;
+  setCiteStyle: (st: CitationStyle) => void;
+  newCitation: (ai: boolean) => void;
+  cite: (src: Source) => void;
+  citedSources: () => Source[];
+  bibliography: (title: string) => void;
+  caption: (label: CaptionLabel) => void;
+  tableOfFigures: () => void;
+  refTargets: () => RefTarget[];
+  crossRef: (target: RefTarget, form: RefForm) => void;
+  markIndex: () => void;
+  insertIndex: () => void;
   copilot: () => void;
   // Doc adm/Mil
   docTemplate: (id: string) => void;
@@ -566,6 +582,23 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
             </Drop>
             <Btn big icon="hyphen" title="letter.hyphenation" active={!!page.hyphenate} onClick={() => setPage({ ...page, hyphenate: !page.hyphenate || undefined })} />
           </Group>
+          <Group label="letter.group.paragraphLayout">
+            <Drop big icon="lines" title="letter.lineNumbers" active={!!page.lineNumbers}>
+              {close => <>
+                <MenuItem active={!page.lineNumbers} label={t('letter.lineNumbers.none')} onClick={() => { setPage({ ...page, lineNumbers: null }); close(); }} />
+                {LINE_NUMBERS.map(id => (
+                  <MenuItem key={id} active={page.lineNumbers === id} label={t(`letter.lineNumbers.${id}` as MessageKey)}
+                    onClick={() => { setPage({ ...page, lineNumbers: id }); close(); }} />
+                ))}
+              </>}
+            </Drop>
+            <Drop big icon="rtl" title="letter.textDirection" active={!!page.rtl}>
+              {close => (['ltr', 'rtl'] as const).map(d => (
+                <MenuItem key={d} active={!!page.rtl === (d === 'rtl')} label={t(`letter.dir.${d}` as MessageKey)}
+                  onClick={() => { setPage({ ...page, rtl: d === 'rtl' || undefined }); close(); }} />
+              ))}
+            </Drop>
+          </Group>
           <Group label="letter.group.indent">
             <div className="stack">
               <NumberBox label={t('letter.indentLeft')} unit={unit} step={unit === 'in' ? 0.1 : 0.25} min={0}
@@ -594,6 +627,52 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
               <Btn icon="pen" title="letter.footnoteEdit" text onClick={actions.editFootnote} disabled={!suite.footnoteHere} />
               <Btn icon="next" title="letter.footnoteNext" text onClick={actions.nextFootnote} disabled={!suite.footnotes} />
             </div>
+          </Group>
+          <Group label="letter.group.citations">
+            <Btn big icon="cite" title="letter.citeInsert" onClick={() => actions.newCitation(false)} disabled={!isBody} />
+            <div className="stack">
+              <Drop icon="cite" title="letter.citeStyle" text label={<span className="rb-label">{CITATION_STYLES[actions.citeStyle].label}</span>}>
+                {close => CITATION_STYLE_IDS.map(id => (
+                  <MenuItem key={id} active={actions.citeStyle === id} label={CITATION_STYLES[id].label}
+                    onClick={() => { actions.setCiteStyle(id); close(); }} />
+                ))}
+              </Drop>
+              <Drop icon="next" title="letter.citeAgain" text>
+                {close => {
+                  const list = actions.citedSources();
+                  return list.length ? list.map(src => (
+                    <MenuItem key={src.id} label={src.title} hint={src.year} onClick={() => { actions.cite(src); close(); }} />
+                  )) : <p className="muted menu-note">{t('letter.citeNone')}</p>;
+                }}
+              </Drop>
+              <Btn icon="sparkle" title="letter.sourceAi" text onClick={() => actions.newCitation(true)} disabled={!isBody} />
+            </div>
+            <Drop big icon="book" title="letter.bibliography">
+              {close => BIBLIOGRAPHY_TITLES.map(id => (
+                <MenuItem key={id} label={t(`letter.bib.${id}` as MessageKey)} onClick={() => { actions.bibliography(t(`letter.bib.${id}` as MessageKey)); close(); }} />
+              ))}
+            </Drop>
+          </Group>
+          <Group label="letter.group.captions">
+            <Drop big icon="caption" title="letter.captionInsert">
+              {close => <div className="menu-columns">{CAPTION_LABELS.map(id => (
+                <MenuItem key={id} label={t(`letter.caption.${id}` as MessageKey)} onClick={() => { close(); actions.caption(id); }} />
+              ))}</div>}
+            </Drop>
+            <div className="stack">
+              <Btn icon="toc" title="letter.tof" text onClick={actions.tableOfFigures} disabled={!isBody} />
+              <Drop icon="crossref" title="letter.crossRef" text>
+                {close => {
+                  const targets = actions.refTargets();
+                  if (!targets.length) return <p className="muted menu-note">{t('letter.crossRefNone')}</p>;
+                  return <CrossRefMenu targets={targets} onPick={(tg, f) => { actions.crossRef(tg, f); close(); }} />;
+                }}
+              </Drop>
+            </div>
+          </Group>
+          <Group label="letter.group.index">
+            <Btn big icon="index" title="letter.indexMark" onClick={actions.markIndex} disabled={!isBody} />
+            <Btn big icon="book" title="letter.indexInsert" onClick={actions.insertIndex} disabled={!isBody} />
           </Group>
         </>}
 
@@ -890,4 +969,20 @@ function ThemeTile({ th, on, onPick }: { th: (typeof THEMES)[number]; on: boolea
       <span className="theme-name">{t(th.name)}</span>
     </button>
   );
+}
+
+/** References > Cross-reference: pick what to point to, then how the text says it. */
+function CrossRefMenu({ targets, onPick }: { targets: RefTarget[]; onPick: (target: RefTarget, form: RefForm) => void }) {
+  const [form, setForm] = useState<RefForm>('see');
+  return <>
+    <div className="seg-row" role="radiogroup" aria-label={t('letter.crossRef')}>
+      {REF_FORMS.map(f => (
+        <button key={f} type="button" role="radio" aria-checked={form === f} className={form === f ? 'on' : ''} onClick={() => setForm(f)}>
+          {t(`letter.refForm.${f}` as MessageKey)}
+        </button>
+      ))}
+    </div>
+    <hr />
+    {targets.map(tg => <MenuItem key={`${tg.kind}${tg.pos}`} label={tg.text} hint={t(tg.kind === 'heading' ? 'letter.source.title' : tg.kind === 'caption' ? 'letter.group.captions' : 'letter.footnoteInsert')} onClick={() => onPick(tg, form)} />)}
+  </>;
 }

@@ -180,6 +180,13 @@ const ICONS: Record<string, ReactNode> = {
   cv: <>{P('M3 1.5h10v13H3z')}{P('M8 6.4a1.5 1.5 0 1 0 0-.01M5.5 9.6c.7-1.3 4.3-1.3 5 0M5.5 12h5')}</>,
   heart: <>{P('M8 13.5S2 10 2 6a3 3 0 0 1 6-1 3 3 0 0 1 6 1c0 4-6 7.5-6 7.5z')}</>,
   user: <>{P('M8 7.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM3 14c.5-3 9.5-3 10 0')}</>,
+  cite: <>{P('M3 4h4v4H4.5L3 11zM9 4h4v4h-2.5L9 11')}</>,
+  book: <>{P('M2.5 3h4.5a1 1 0 0 1 1 1v9.5a1.5 1.5 0 0 0-1.5-1.5h-4zM13.5 3H9a1 1 0 0 0-1 1v9.5a1.5 1.5 0 0 1 1.5-1.5h4z')}</>,
+  caption: <>{P('M2.5 2.5h11v7h-11zM4.5 8l2.5-3 2 2 1.5-1.5 1.5 2.5M3 12.5h6M3 14.5h10')}</>,
+  index: <>{P('M3 2.5h7l3 3v8H3zM5.5 7h5M5.5 9.5h5M5.5 12h3')}</>,
+  crossref: <>{P('M6.5 9.5 9.5 6.5M7 4.5l1-1a2.5 2.5 0 0 1 3.5 3.5l-1 1M9 11.5l-1 1A2.5 2.5 0 0 1 4.5 9l1-1')}</>,
+  lines: <>{P('M6 4h8M6 8h8M6 12h8')}{P('M2.5 3.5v1M2.5 7.5v1M2.5 11.5v1')}</>,
+  rtl: <>{P('M14 4H5M14 8H8M14 12H5M4 6.5 2 8.5l2 2')}</>,
 };
 
 /** The icon of each app in OI1, for app switchers and "Send to" menus. */
@@ -350,7 +357,7 @@ export function ColorGrid({ onPick, none, value }: { onPick: (c: string | null) 
 
 // ---------- dialogs ----------
 
-export function Dialog({ title, children, onClose, onOk }: { title: string; children: ReactNode; onClose: () => void; onOk?: () => void }) {
+export function Dialog({ title, children, onClose, onOk }: { title: string; children: ReactNode; onClose: () => void; onOk?: () => void | boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current;
@@ -358,7 +365,7 @@ export function Dialog({ title, children, onClose, onOk }: { title: string; chil
   }, []);
   return (
     <dialog ref={ref} className="oi-dialog" onClose={onClose} onCancel={onClose}>
-      <form method="dialog" onSubmit={e => { e.preventDefault(); onOk?.(); onClose(); }}>
+      <form method="dialog" onSubmit={e => { e.preventDefault(); if (onOk?.() !== false) onClose(); }}>
         <h2>{title}</h2>
         <div className="dialog-body">{children}</div>
         <div className="dialog-buttons">

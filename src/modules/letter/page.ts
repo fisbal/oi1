@@ -14,11 +14,18 @@ export interface PageSettings {
   border: PageBorder | null;
   /** Break long words at line ends with a hyphen (Layout > Hyphenation). */
   hyphenate?: boolean;
+  /** Numbers in the margin before each paragraph, like contracts and legal drafts (Layout > Line numbers). */
+  lineNumbers?: LineNumbers | null;
+  /** Right-to-left text, for Arabic and Hebrew (Layout > Text direction). */
+  rtl?: boolean;
   /** Faint diagonal text behind every page, like DRAFT (Design > Watermark). */
   watermark?: Watermark | null;
 }
 
 export interface Watermark { text: string; color: string }
+
+export const LINE_NUMBERS = ['all', 'every5', 'every10'] as const;
+export type LineNumbers = (typeof LINE_NUMBERS)[number];
 
 /** Word's ready-made watermarks. */
 export const WATERMARKS = ['CONFIDENTIAL', 'DRAFT', 'DO NOT COPY', 'SAMPLE', 'URGENT', 'ASAP'] as const;
