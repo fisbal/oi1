@@ -76,8 +76,8 @@ Page de confidentialité pour la fiche : https://fisbal.github.io/oi1/privacy.ht
 
 Le compte développeur Microsoft Store est gratuit pour les particuliers depuis septembre 2025.
 Une app publiée en **MSIX** est signée par Microsoft et s'installe sans aucun avertissement.
-Inconvénients : chaque mise à jour passe une certification (1 à 3 jours) et les mises à jour
-viennent du Store, pas de notre updater. À faire plus tard, quand Office In 1 sera public.
+Comme le paquet PWA ouvre le site, le contenu se met à jour tout seul. Seul un changement du
+paquet lui-même (nom, icône, version) repasse par la certification (1 à 3 jours).
 
 Sources : [Microsoft, options de signature](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options),
 [Artifact Signing, prix](https://azure.microsoft.com/pricing/details/trusted-signing/),
