@@ -87,7 +87,11 @@ export function replaceTable(editor: Editor, at: { node: PMNode; pos: number }, 
 
 // ---------- text tools ----------
 
-export type CleanUp = 'quotes' | 'spaces' | 'empty' | 'all';
+export const CLEAN_UPS = [
+  'all', 'quotes', 'spaces', 'empty', 'emptyAll', 'tabs', 'trailing', 'frenchSpaces', 'dashes', 'ellipsis', 'apostrophes',
+  'doubleWords', 'sentenceStart', 'spaceAfterPunct', 'hyphens', 'invisible', 'emoji', 'highlights', 'links', 'colors', 'fonts',
+] as const;
+export type CleanUp = (typeof CLEAN_UPS)[number];
 
 /** Fixes typing in the whole letter: smart quotes, double spaces, spaces before punctuation, empty lines. */
 export function cleanUp(editor: Editor, what: CleanUp, lang: string): number {
@@ -98,14 +102,45 @@ export function cleanUp(editor: Editor, what: CleanUp, lang: string): number {
   const [open2, close2] = fr ? ['«\u202f', '\u202f»'] : lang.startsWith('de') ? ['„', '“'] : lang.startsWith('es') || lang.startsWith('pt') ? ['«', '»'] : ['“', '”'];
   const fixText = (s: string) => {
     let out = s;
-    if (what === 'spaces' || what === 'all') out = out.replace(/ {2,}/g, ' ').replace(/ +([,.;:!?)])/g, (_m, p) => (fr && /[;:!?]/.test(p) ? ` ${p}` : p));
-    if (what === 'quotes' || what === 'all') {
+    const on = (w: CleanUp) => what === w || what === 'all';
+    if (on('spaces')) out = out.replace(/ {2,}/g, ' ').replace(/ +([,.;:!?)])/g, (_m, p) => (fr && /[;:!?]/.test(p) ? ` ${p}` : p));
+    if (on('quotes')) {
       out = out.replace(/(^|[\s([{])"/g, `$1${open2}`).replace(/"/g, close2)
         .replace(/(\p{L})'(\p{L})/gu, '$1’$2').replace(/(^|[\s([{])'/g, '$1‘').replace(/'/g, '’')
         .replace(/--/g, '–').replace(/\.\.\./g, '…');
     }
+    if (what === 'tabs') out = out.replace(/\t+/g, ' ');
+    if (what === 'trailing') out = out.replace(/^[ \t\u00a0]+|[ \t\u00a0]+$/g, '');
+    if (what === 'frenchSpaces') out = out.replace(/[ \u00a0]?([;:!?»])/g, '\u202f$1').replace(/«[ \u00a0]?/g, '«\u202f');
+    if (what === 'dashes') out = out.replace(/--/g, '–').replace(/ - /g, ' – ');
+    if (what === 'ellipsis') out = out.replace(/\.{3}/g, '…');
+    if (what === 'apostrophes') out = out.replace(/(\p{L})'(\p{L})/gu, '$1’$2');
+    if (what === 'doubleWords') out = out.replace(/\b(\p{L}+)\s+\1\b/giu, '$1');
+    if (what === 'sentenceStart') out = out.replace(/([.!?]\s+)(\p{Ll})/gu, (_m, a, b) => a + b.toUpperCase());
+    if (what === 'spaceAfterPunct') out = out.replace(/([,;:!?])(?=\p{L})/gu, '$1 ').replace(/\.(?=\p{Lu}\p{Ll})/gu, '. ');
+    if (what === 'hyphens') out = out.replace(/(\p{Ll})- (\p{Ll})/gu, '$1$2');
+    if (what === 'invisible') out = out.replace(/[\u200b-\u200d\ufeff\u00ad]/g, '');
+    if (what === 'emoji') out = out.replace(/\p{Extended_Pictographic}\ufe0f?/gu, '').replace(/ {2,}/g, ' ');
     return out;
   };
+  // Formatting clean-ups: remove a kind of mark everywhere.
+  const marks = state.schema.marks;
+  const unmark = (type: string, keep?: (attrs: Record<string, unknown>) => Record<string, unknown> | null) => {
+    state.doc.descendants((node, pos) => {
+      if (!node.isText) return;
+      for (const m of node.marks) {
+        if (m.type.name !== type) continue;
+        tr.removeMark(pos, pos + node.nodeSize, m);
+        const next = keep?.(m.attrs);
+        if (next && Object.values(next).some(v => v != null)) tr.addMark(pos, pos + node.nodeSize, m.type.create(next));
+        changes++;
+      }
+    });
+  };
+  if (what === 'highlights' && marks.highlight) unmark('highlight');
+  if (what === 'links' && marks.link) unmark('link');
+  if (what === 'colors') unmark('textStyle', a => ({ ...a, color: null }));
+  if (what === 'fonts') unmark('textStyle', a => ({ ...a, fontFamily: null, fontSize: null }));
   state.doc.descendants((node, pos) => {
     if (!node.isText || !node.text) return;
     const next = fixText(node.text);
@@ -115,13 +150,13 @@ export function cleanUp(editor: Editor, what: CleanUp, lang: string): number {
       changes++;
     }
   });
-  if (what === 'empty' || what === 'all') {
-    // Two empty paragraphs in a row become one.
+  if (what === 'empty' || what === 'all' || what === 'emptyAll') {
+    // Two empty paragraphs in a row become one; "every empty line" removes them all.
     const empties: number[] = [];
     let lastEmpty = false;
     state.doc.forEach((node, offset) => {
       const empty = node.type.name === 'paragraph' && node.childCount === 0;
-      if (empty && lastEmpty) empties.push(offset);
+      if (empty && (lastEmpty || what === 'emptyAll')) empties.push(offset);
       lastEmpty = empty;
     });
     for (const pos of empties.reverse()) {
@@ -220,14 +255,31 @@ export function tocJson(editor: Editor, pageOf: (pos: number) => number | null, 
 
 // ---------- quick blocks ----------
 
-export type CalloutKind = 'note' | 'tip' | 'warning' | 'success' | 'gold';
-const CALLOUTS: Record<CalloutKind, { light: string; dark: string; line: string; icon: string }> = {
+/** Colored boxes, like the callouts of a manual: notes, warnings, ideas, definitions, deadlines… */
+export const CALLOUTS = {
   note: { light: '#EAF2FC', dark: '#16263A', line: '#4472C4', icon: 'ℹ' },
   tip: { light: '#EAF7F1', dark: '#14302A', line: '#2E9E6A', icon: '✦' },
   warning: { light: '#FFF4E5', dark: '#3A2A12', line: '#E08A1E', icon: '⚠' },
   success: { light: '#EDF7E7', dark: '#1F3318', line: '#5A9E2E', icon: '✓' },
   gold: { light: '#FBF3DD', dark: '#2A2312', line: '#D4A843', icon: '★' },
-};
+  danger: { light: '#FDECEC', dark: '#3A1616', line: '#C62828', icon: '⛔' },
+  important: { light: '#F3ECFB', dark: '#2A1C3A', line: '#7B3FC4', icon: '❗' },
+  question: { light: '#E8F6F8', dark: '#132E33', line: '#1F8A9E', icon: '?' },
+  idea: { light: '#FFF9DB', dark: '#33300F', line: '#C9A400', icon: '💡' },
+  example: { light: '#EEF1F4', dark: '#1D232A', line: '#5B6B7C', icon: '✎' },
+  definition: { light: '#ECEEFB', dark: '#1B1F3A', line: '#3F51B5', icon: '📖' },
+  quote: { light: '#F4F4F4', dark: '#242424', line: '#8C8C8C', icon: '❝' },
+  todo: { light: '#E9F1FF', dark: '#15223A', line: '#2962FF', icon: '☐' },
+  summary: { light: '#EFF4EF', dark: '#1C261C', line: '#4F7A4F', icon: 'Σ' },
+  objective: { light: '#FFEFE8', dark: '#3A2016', line: '#E0561E', icon: '◎' },
+  deadline: { light: '#FCEAF0', dark: '#3A1624', line: '#B0174A', icon: '⏰' },
+  contact: { light: '#E6F7FB', dark: '#12303A', line: '#0097A7', icon: '☎' },
+  security: { light: '#F7E9E9', dark: '#331616', line: '#8E1B1B', icon: '🔒' },
+  legal: { light: '#F5EFE8', dark: '#2E241A', line: '#7A5230', icon: '⚖' },
+  nota: { light: '#F1F3E6', dark: '#262A16', line: '#6B7A1E', icon: '✱' },
+} as const;
+export type CalloutKind = keyof typeof CALLOUTS;
+export const CALLOUT_KINDS = Object.keys(CALLOUTS) as CalloutKind[];
 
 /** A colored box with a strong left line, made of Word paragraph shading and borders. */
 export function calloutJson(kind: CalloutKind, dark: boolean): JSONContent {

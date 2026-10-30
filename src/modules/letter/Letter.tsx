@@ -8,7 +8,10 @@ import { Icon } from '../../ui/kit';
 import { Copilot, useCopilotShortcut } from '../../ui/Copilot';
 import { letterCopilot } from './copilot';
 import { htmlBody, textToHtml, wrapHtml } from './html';
+import { PASTE_PROMPTS, pasteHtml, type PasteKind } from './textTools';
+import { markdownToHtml } from '../../ui/markdown';
 import { defaultStyles, emptyDoc, stylesCss, type DocStyles, type LetterDoc } from './model';
+import { listStylesCss } from './extensions';
 import { PX_PER_IN, defaultPage, isDark, pageInches, type PageSettings } from './page';
 import { CommandPalette, FindBar, MarginsDialog, OutlinePane, WordCountDialog, type Command } from './panels';
 import { Ribbon, type RibbonActions, type ViewState, type Zoom } from './Ribbon';
@@ -23,6 +26,7 @@ import { FillDialog, ProfileDialog } from './templates/dialogs';
 import { LETTERS } from './templates/letters';
 import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, selectNextField } from './templates/markup';
 import { profileValues } from './templates/profile';
+import { letterPartMarkup, type LetterPart } from './templates/parts';
 import { CommentsPane, showComment } from './comments';
 import { notesDom, type LayoutResult } from './pagination';
 import {
@@ -397,7 +401,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     if (format === 'docx') void save(true);
     else if (format === 'pdf') print();
     else if (format === 'html') {
-      void shell.saveFile(`${baseName()}.html`, wrapHtml(title, body.getHTML(), stylesCss(styles, page, ''), page.color), 'text/html', { saveAs: true });
+      void shell.saveFile(`${baseName()}.html`, wrapHtml(title, body.getHTML(), stylesCss(styles, page, '') + listStylesCss('body'), page.color), 'text/html', { saveAs: true });
     } else void shell.saveFile(`${baseName()}.txt`, body.getText({ blockSeparator: '\n\n' }), 'text/plain', { saveAs: true });
   };
 
@@ -760,6 +764,11 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       shell.notify(n ? t('letter.docs.autoFilled', { n }) : t('letter.docs.inserted'));
     },
     docLang: (l: 'fr' | 'en') => { setDocLang(l); shell.storage.set('docLang', l); },
+    letterPart: (part: LetterPart) => {
+      const ed = activeEditor;
+      if (!ed) return;
+      ed.chain().focus().insertContent(markupToDoc(letterPartMarkup(part, docLang), longDate(docLang === 'fr' ? 'fr-CA' : 'en-CA'))).run();
+    },
     fillFields: () => setPanel('fill'),
     nextField: () => { if (!selectNextField(body)) shell.notify(t('letter.docs.noFields')); },
     profile: () => setPanel('profile'),
@@ -768,6 +777,27 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
 
   const actions: RibbonActions = {
     fileMenu: () => setPanel('file'),
+    pasteAs: async (kind: PasteKind) => {
+      const ed = activeEditor;
+      if (!ed) return;
+      if (kind === 'keep') { void actions.paste(); return; }
+      let text = '';
+      try { text = await navigator.clipboard.readText(); } catch { alert(t('letter.pasteBlocked')); return; }
+      if (!text.trim()) { shell.notify(t('letter.pasteEmpty')); return; }
+      const html = pasteHtml(kind, text);
+      if (html !== null) { ed.chain().focus().insertContent(html).run(); return; }
+      if (!shell.ai.ready()) { shell.notify(t('letter.pasteNeedsAi')); setCopilot(true); return; }
+      shell.notify(t('letter.pasteWorking'));
+      try {
+        const answer = await shell.ai.ask({
+          system: 'You transform text pasted into Office Letter, a word processor. Reply with only the resulting text, in Markdown when it has lists, headings or a table.',
+          messages: [{ role: 'user', content: `${PASTE_PROMPTS[kind]}\n\n<text>\n${text}\n</text>` }],
+        });
+        ed.chain().focus().insertContent(markdownToHtml(answer)).run();
+      } catch (err) {
+        shell.notify(`${t('letter.pasteFailed')} ${String(err)}`);
+      }
+    },
     pasteText: async () => {
       const ed = activeEditor;
       if (!ed) return;
@@ -816,15 +846,13 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     find: replace => setPanel(replace ? 'replace' : 'find'),
     header: () => focusHf('header'),
     footer: () => focusHf('footer'),
-    pageNumber: (where, withTotal) => {
-      if (where === 'here') { activeEditor?.chain().focus().insertPageNumber().run(); return; }
+    pageNumber: (where, format, align) => {
+      const parts = format.split(/(\{page\}|\{pages\})/).filter(Boolean).map(p =>
+        p === '{page}' ? { type: 'pageNumber', attrs: { kind: 'page' } } : p === '{pages}' ? { type: 'pageNumber', attrs: { kind: 'pages' } } : { type: 'text', text: p });
+      if (where === 'here') { activeEditor?.chain().focus().insertContent(parts).run(); return; }
       const ed = hfTarget(where === 'top' ? 'header' : 'footer');
       if (!ed) return;
-      const parts = withTotal
-        ? t('letter.pageXofY').split(/(\{page\}|\{pages\})/).filter(Boolean).map(p =>
-          p === '{page}' ? { type: 'pageNumber', attrs: { kind: 'page' } } : p === '{pages}' ? { type: 'pageNumber', attrs: { kind: 'pages' } } : { type: 'text', text: p })
-        : [{ type: 'pageNumber', attrs: { kind: 'page' } }];
-      const para = { type: 'paragraph', attrs: { textAlign: 'center' }, content: parts };
+      const para = { type: 'paragraph', attrs: { textAlign: align }, content: parts };
       if (ed.isEmpty) ed.commands.setContent({ type: 'doc', content: [para] });
       else ed.chain().focus('end').insertContent(parts).run();
       setActive(where === 'top' ? 'header' : 'footer');
@@ -908,7 +936,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
 
   return (
     <div className={`letter ${scope}${painting ? ' painting' : ''}${focusMode ? ' focus-mode' : ''}`} ref={rootRef}>
-      <style>{stylesCss(styles, page, `.${scope}`)}{commentCss}</style>
+      <style>{stylesCss(styles, page, `.${scope}`)}{listStylesCss()}{commentCss}</style>
       <Ribbon editor={activeEditor} body={body} styles={styles} page={page} setPage={setPage} lang={lang} setLang={setLang}
         view={view} setView={setView} actions={actions} suite={suite} />
       {focusMode && <button type="button" className="focus-exit" onClick={exitFocus}>{t('letter.focusExit')}</button>}
@@ -1038,7 +1066,7 @@ function buildCommands(a: RibbonActions, body: Editor, ed: Editor, setView: (v: 
     c('qr', t('letter.qr'), g.insert, a.qr, 'qr'),
     c('header', t('letter.header'), g.insert, a.header, 'header'),
     c('footer', t('letter.footer'), g.insert, a.footer, 'footer'),
-    c('pagenum', t('letter.pageNumber.bottomTotal'), g.insert, () => a.pageNumber('bottom', true), 'pagenum'),
+    c('pagenum', t('letter.pageNumber.bottomTotal'), g.insert, () => a.pageNumber('bottom', t('letter.pageXofY'), 'center'), 'pagenum'),
     c('date', t('letter.date'), g.insert, () => run().insertContent(new Date().toLocaleDateString(undefined, { dateStyle: 'long' })).run(), 'date'),
     ...THEMES.map(th => c(`theme-${th.id}`, `${t('letter.group.themes')}: ${t(th.name)}`, g.design, () => a.theme(th), 'theme')),
     c('margins', t('letter.margins.custom'), g.layout, a.customMargins, 'margins'),

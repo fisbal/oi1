@@ -21,7 +21,7 @@ One office suite, one app:
 - **Android:** [OfficeIn1.apk](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1.apk)
 - **Windows:** [OfficeIn1-Setup.exe](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1-Setup.exe)
 - **Mac:** [OfficeIn1.dmg](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1.dmg)
-- The installed apps update themselves. Every merge to `main` builds the web, Android, Windows and Mac versions, checks every app on phone, tablet, PC and Mac screens, and
+- The installed apps update themselves. Every merge to `main` builds the web, Android, Windows and Mac versions, checks every app on phone, tablet, PC and Mac screens, checks that every tab has working buttons and every list at least 20 choices (`npm run check:content`, also opening each list on a phone), and
   publishes them, with the source code, as a GitHub Release (see [docs/builds.md](docs/builds.md)).
 - **On your computer:** install Node.js 22, then in this folder run `npm install` and `npm run dev`,
   and open the address it prints. `npm test` runs the tests, `npm run build` makes the site in `dist/`.
@@ -44,12 +44,18 @@ One office suite, one app:
   - **Fonts:** a real font menu (search, recent fonts, each font shown in its own face) with 40 free fonts that look
     the same on every device (Inter, Roboto, Lato, Montserrat, Poppins, Lora, Merriweather, EB Garamond, Playfair Display,
     Caveat, Dancing Script, JetBrains Mono and more), plus free look-alikes for Calibri, Cambria, Arial, Times New Roman and other Office fonts.
-  - **Home** also has paste as plain text and bullet and numbering libraries (✓ ➤ ★ ▪, 1) a. A. i. I.).
+  - **Home** also has 20 ways to paste (plain text, fix a PDF's broken lines, as a list or a table from Excel/CSV,
+    or corrected, translated, summarized or made formal by Claude), 20 case changes, 24 bullet shapes,
+    21 numbering formats (§ 1., Art. 1 –, (a), ii)…), 20 line and paragraph spacings and 20 border presets.
   - **Table:** table styles (gold, blue, green, rose, gray, clean). **Picture:** align, size, alt text, change, delete.
   - **Layout:** hyphenation.
-  - **Insert** also has callouts, letter parts (address and closing blocks), table of contents, QR codes, and tables from Class.
-  - **Design:** 8 one-click document themes (Office, Scene, Classic, Modern, Elegant, Ocean, Forest, Mono), paragraph spacing, page background.
-  - **Smart:** command search (Alt+Q, about 60 commands), navigation pane, clean up (quotes, spaces, empty lines),
+  - **Insert** also has 20 callouts, 20 letter parts in French or English (sender, recipient, references, greetings,
+    closings, enclosures, "Without prejudice"…), 20 page number styles, table of contents, QR codes, and tables from Class.
+  - **Layout:** 20 margin presets, 21 paper sizes (A3 to A6, B4, B5, Tabloid, envelopes, cards), 32 proofing languages.
+  - **Design:** 20 one-click document themes (Office, Corporate, Academic, Official, Military, Newspaper, Handwritten…),
+    20 paragraph spacing presets, page background.
+  - **Smart:** command search (Alt+Q, about 60 commands), navigation pane, 21 clean-ups (quotes, spaces, empty lines,
+    French spacing, repeated words, highlights, links, colors, fonts…),
     sort lines, text to table and back, dictation, read aloud, focus mode.
   - **Doc adm/Mil:** 35 ready-to-fill letters in French and English, professional (14 administrative, 6 government,
     10 military: memorandum, leave, posting, incident, release, SITREP, five-paragraph order…) and everyday (5),

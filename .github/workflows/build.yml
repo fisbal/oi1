@@ -42,6 +42,8 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           npm run check:screens
+      - name: Check every tab has content and every list 20 choices
+        run: npm run check:content
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4
