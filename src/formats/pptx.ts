@@ -7,7 +7,7 @@
 import JSZip from 'jszip';
 import {
   GEOMS, THEMES, cssBackground, defaultSize, htmlText, layoutBox, layoutRoles, newId, themeById,
-  type Background, type Deck, type Deco, type DeckTheme, type Geom, type Item, type LayoutId, type Role, type ShapeItem, type Slide, type Stroke, type Transition,
+  type Anim, type AnimEffect, type Background, type Deck, type Deco, type DeckTheme, type Geom, type Item, type LayoutId, type Role, type ShapeItem, type Slide, type Stroke, type Transition,
 } from './slides';
 
 export const PPTX_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
@@ -192,7 +192,11 @@ function parasXml(html: string, o: { role?: Role; lang: string; color?: string; 
 
 // ---------- shapes ----------
 
-interface WriteCtx { lang: string; theme: DeckTheme; media: Map<string, string>; rels: string[]; zip: JSZip; nextId: number; mediaCount: { n: number } }
+interface WriteCtx {
+  lang: string; theme: DeckTheme; media: Map<string, string>; rels: string[]; zip: JSZip; nextId: number; mediaCount: { n: number };
+  /** The shape id each item got, for the animations. */
+  spids?: Map<string, number>;
+}
 
 const valignXml = (v?: ShapeItem['valign']) => (v === 'middle' ? 'ctr' : v === 'bottom' ? 'b' : 't');
 
@@ -290,9 +294,11 @@ function tableXml(it: Extract<Item, { kind: 'table' }>, c: WriteCtx) {
 async function itemsXml(items: Item[], layout: LayoutId, c: WriteCtx) {
   const out: string[] = [];
   for (const it of items) {
+    const before = c.nextId;
     if (it.kind === 'shape') out.push(shapeXml(it, layout, c));
     else if (it.kind === 'image') out.push(await imageXml(it, c));
     else out.push(tableXml(it, c));
+    if (c.nextId > before) c.spids?.set(it.id, before);
   }
   return out.join('');
 }
@@ -390,6 +396,124 @@ function transitionXml(s: Slide) {
 }
 
 /** Writes a deck as a .pptx file. `lang` is the language tag put on the text, like "fr-FR". */
+// ---------- animations ----------
+// PowerPoint's timing tree for the slide's click sequence, with the closest standard effects (appear, fade,
+// fly, zoom, wipe in and out, a pulse for emphasis), so the show works there too. The exact Office Stage
+// effects (bounce, typewriter, loops…) also travel in an extension PowerPoint ignores, and come back on opening.
+
+const OI1_ANIMS_URI = '{6E1F3B2A-0A11-4C6B-9D0E-0F1A5E7A0A11}';
+const PRESET: Partial<Record<AnimEffect, { id: number; sub?: (d?: Anim['dir']) => number }>> = {
+  appear: { id: 1 }, fly: { id: 2, sub: d => (d === 'right' ? 2 : d === 'up' ? 4 : d === 'down' ? 1 : 8) },
+  wipe: { id: 22, sub: d => (d === 'left' ? 2 : d === 'up' ? 4 : d === 'down' ? 1 : 8) }, zoom: { id: 53 }, pop: { id: 53 }, spin: { id: 53 },
+  flyOut: { id: 2, sub: d => (d === 'right' ? 2 : d === 'up' ? 1 : d === 'down' ? 4 : 8) }, zoomOut: { id: 53 }, shrink: { id: 53 },
+};
+const animKindOf = (e: AnimEffect) => (['pulse', 'shake', 'wiggle', 'glow', 'grow', 'flash'].includes(e) ? 'em'
+  : ['fadeOut', 'flyOut', 'zoomOut', 'shrink'].includes(e) ? 'out' : ['bob', 'beat', 'sway', 'twinkle', 'rotate', 'jelly'].includes(e) ? 'loop' : 'in');
+
+function timingXml(s: Slide, spids: Map<string, number>): string {
+  const list = (s.anims ?? []).filter(a => spids.has(a.item));
+  if (!list.length) return '';
+  let n = 3;
+  const tn = () => n++;
+  const clicks: { a: Anim; at: number }[][] = [];
+  let start = 0, end = 0;
+  for (const a of list) {
+    const kind = animKindOf(a.effect);
+    if (kind === 'loop') continue;
+    const dur = Math.max(0.01, a.dur ?? (a.effect === 'appear' ? 0.01 : 0.6));
+    if (a.start === 'click') { clicks.push([]); start = a.delay ?? 0; end = 0; }
+    else {
+      if (!clicks.length) clicks.push([]);
+      start = a.start === 'after' ? end + (a.delay ?? 0) : start + (a.delay ?? 0);
+    }
+    clicks[clicks.length - 1].push({ a, at: start });
+    end = Math.max(end, start + dur);
+  }
+  const effect = (a: Anim, at: number) => {
+    const spid = spids.get(a.item)!;
+    const kind = animKindOf(a.effect);
+    const ms = Math.round(Math.max(0.01, a.dur ?? 0.6) * 1000);
+    const tgt = `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>`;
+    const vis = (v: string) => `<p:set><p:cBhvr><p:cTn id="${tn()}" dur="1" fill="hold"><p:stCondLst><p:cond delay="${kind === 'out' ? ms - 1 : 0}"/></p:stCondLst></p:cTn>${tgt}<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="${v}"/></p:to></p:set>`;
+    const node = a.start === 'click' ? 'clickEffect' : a.start === 'with' ? 'withEffect' : 'afterEffect';
+    let cls = 'entr', preset = 10, sub = 0, body = '';
+    if (kind === 'em') {
+      cls = 'emph'; preset = 6;
+      body = `<p:animScale><p:cBhvr><p:cTn id="${tn()}" dur="${Math.round(ms / 2)}" autoRev="1" fill="hold"/>${tgt}</p:cBhvr><p:by x="110000" y="110000"/></p:animScale>`;
+    } else {
+      const p = PRESET[a.effect];
+      cls = kind === 'out' ? 'exit' : 'entr';
+      if (p) { preset = p.id; sub = p.sub?.(a.dir) ?? (p.id === 53 ? 16 : 0); }
+      const dir = kind === 'out' ? 'out' : 'in';
+      if (preset === 1) body = vis('visible');
+      else if (preset === 2) {
+        const off = a.dir === 'right' ? ['1+#ppt_w/2', '#ppt_y'] : a.dir === 'up' ? ['#ppt_x', '1+#ppt_h/2'] : a.dir === 'down' ? ['#ppt_x', '0-#ppt_h/2'] : ['0-#ppt_w/2', '#ppt_y'];
+        const pt = (attr: string, from: string, to: string) => `<p:anim calcmode="lin" valueType="num"><p:cBhvr additive="base"><p:cTn id="${tn()}" dur="${ms}" fill="hold"/>${tgt}<p:attrNameLst><p:attrName>${attr}</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm="0"><p:val><p:strVal val="${from}"/></p:val></p:tav><p:tav tm="100000"><p:val><p:strVal val="${to}"/></p:val></p:tav></p:tavLst></p:anim>`;
+        const [x, y] = kind === 'out' ? [['#ppt_x', off[0]], ['#ppt_y', off[1]]] : [[off[0], '#ppt_x'], [off[1], '#ppt_y']];
+        body = (kind === 'out' ? '' : vis('visible')) + pt('ppt_x', x[0], x[1]) + pt('ppt_y', y[0], y[1]) + (kind === 'out' ? vis('hidden') : '');
+      } else {
+        const filter = preset === 22 ? `wipe(${a.dir === 'left' ? 'left' : a.dir === 'up' ? 'up' : a.dir === 'down' ? 'down' : 'right'})` : 'fade';
+        body = (kind === 'out' ? '' : vis('visible')) + `<p:animEffect transition="${dir}" filter="${filter}"><p:cBhvr><p:cTn id="${tn()}" dur="${ms}"/>${tgt}</p:cBhvr></p:animEffect>` + (kind === 'out' ? vis('hidden') : '');
+      }
+    }
+    return `<p:par><p:cTn id="${tn()}" fill="hold"><p:stCondLst><p:cond delay="${Math.round(at * 1000)}"/></p:stCondLst><p:childTnLst>`
+      + `<p:par><p:cTn id="${tn()}" presetID="${preset}" presetClass="${cls}" presetSubtype="${sub}" fill="hold"${spidHasText(s, a.item) ? ' grpId="0"' : ''} nodeType="${node}"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>${body}</p:childTnLst></p:cTn></p:par>`
+      + '</p:childTnLst></p:cTn></p:par>';
+  };
+  const groups = clicks.map((g, gi) => {
+    const auto = gi === 0 && g[0]?.a.start !== 'click';
+    const cond = auto ? '<p:cond delay="indefinite"/><p:cond evt="onBegin" delay="0"><p:tn val="2"/></p:cond>' : '<p:cond delay="indefinite"/>';
+    return `<p:par><p:cTn id="${tn()}" fill="hold"><p:stCondLst>${cond}</p:stCondLst><p:childTnLst>${g.map(x => effect(x.a, x.at)).join('')}</p:childTnLst></p:cTn></p:par>`;
+  }).join('');
+  const bld = [...new Set(list.filter(a => spidHasText(s, a.item) && animKindOf(a.effect) !== 'loop').map(a => spids.get(a.item)!))]
+    .map(id => `<p:bldP spid="${id}" grpId="0"/>`).join('');
+  const main = groups ? `<p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>${groups}</p:childTnLst></p:cTn>`
+    + '<p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq></p:childTnLst></p:cTn></p:par>' : '';
+  const ours = list.map(a => ({ ...a, item: spids.get(a.item) }));
+  const timing = main ? `<p:timing><p:tnLst>${main}</p:tnLst>${bld ? `<p:bldLst>${bld}</p:bldLst>` : ''}</p:timing>` : '';
+  return `${timing}<p:extLst><p:ext uri="${OI1_ANIMS_URI}"><oi1:anims xmlns:oi1="https://fisbal.github.io/oi1/ns">${esc(JSON.stringify(ours))}</oi1:anims></p:ext></p:extLst>`;
+}
+
+/** PowerPoint builds a text shape paragraph by paragraph; it wants a build entry for shapes with text. */
+function spidHasText(s: Slide, id: string) {
+  const it = s.items.find(x => x.id === id);
+  return !!it && it.kind === 'shape' && !!it.html && it.geom !== 'line' && it.geom !== 'arrow';
+}
+
+const EFFECT_IDS: AnimEffect[] = ['appear', 'fade', 'fly', 'zoom', 'pop', 'bounce', 'drop', 'wipe', 'blur', 'spin', 'float', 'typewriter', 'pulse', 'shake', 'wiggle', 'glow', 'grow', 'flash', 'fadeOut', 'flyOut', 'zoomOut', 'shrink', 'bob', 'beat', 'sway', 'twinkle', 'rotate', 'jelly'];
+
+/** The slide's animations: Office Stage's own when the file has them, otherwise read from PowerPoint's timing. */
+function readAnims(root: El, spids: Map<string, string>): Anim[] {
+  const ext = all(root, 'ext').find(e => e.getAttribute('uri') === OI1_ANIMS_URI);
+  if (ext) {
+    try {
+      const list = JSON.parse(ext.textContent ?? '[]') as (Anim & { item: number })[];
+      return list.filter(a => spids.has(String(a.item)) && EFFECT_IDS.includes(a.effect)).map(a => ({ ...a, id: newId('a'), item: spids.get(String(a.item))! }));
+    } catch { /* fall back to the timing tree */ }
+  }
+  const out: Anim[] = [];
+  for (const cTn of all(root, 'cTn')) {
+    const cls = cTn.getAttribute('presetClass');
+    if (!cls || !['entr', 'exit', 'emph'].includes(cls)) continue;
+    const spid = all(cTn, 'spTgt')[0]?.getAttribute('spid');
+    const item = spid ? spids.get(spid) : undefined;
+    if (!item) continue;
+    const id = Number(cTn.getAttribute('presetID'));
+    const sub = Number(cTn.getAttribute('presetSubtype'));
+    const node = cTn.getAttribute('nodeType');
+    const dir: Anim['dir'] = sub === 2 ? 'right' : sub === 4 ? 'up' : sub === 1 ? 'down' : 'left';
+    const effect: AnimEffect = cls === 'emph' ? 'pulse'
+      : cls === 'exit' ? (id === 2 ? 'flyOut' : id === 53 ? 'zoomOut' : 'fadeOut')
+      : id === 1 ? 'appear' : id === 2 ? 'fly' : id === 22 ? 'wipe' : id === 53 || id === 23 ? 'zoom' : 'fade';
+    const dur = Number(all(cTn, 'cTn').map(x => x.getAttribute('dur')).find(d => d && d !== '1' && d !== 'indefinite') ?? 0) / 1000;
+    out.push({
+      id: newId('a'), item, effect, start: node === 'withEffect' ? 'with' : node === 'afterEffect' ? 'after' : 'click',
+      ...(effect === 'fly' || effect === 'wipe' || effect === 'flyOut' ? { dir } : {}), ...(dur > 0.02 ? { dur } : {}),
+    });
+  }
+  return out;
+}
+
 export async function writePptx(deck: Deck, lang = 'en-US', title = ''): Promise<Blob> {
   const zip = new JSZip();
   const used = LAYOUT_ORDER;
@@ -462,7 +586,7 @@ export async function writePptx(deck: Deck, lang = 'en-US', title = ''): Promise
   for (let i = 0; i < n; i++) {
     const s = deck.slides[i];
     const rels = [`<Relationship Id="rId1" Type="${REL}/slideLayout" Target="../slideLayouts/slideLayout${used.indexOf(s.layout) + 1}.xml"/>`];
-    const c: WriteCtx = { lang, theme: deck.theme, media, rels, zip, nextId: 2, mediaCount };
+    const c: WriteCtx = { lang, theme: deck.theme, media, rels, zip, nextId: 2, mediaCount, spids: new Map() };
     // Pictures are shared between slides, but each slide needs its own relationship to them.
     c.media = new Map();
     const shapes = await itemsXml(s.items, s.layout, c);
@@ -472,7 +596,7 @@ export async function writePptx(deck: Deck, lang = 'en-US', title = ''): Promise
       zip.file(`ppt/notesSlides/_rels/notesSlide${i + 1}.xml.rels`, `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/notesMaster" Target="../notesMasters/notesMaster1.xml"/><Relationship Id="rId2" Type="${REL}/slide" Target="../slides/slide${i + 1}.xml"/></Relationships>`);
     }
     zip.file(`ppt/slides/_rels/slide${i + 1}.xml.rels`, `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join('')}</Relationships>`);
-    zip.file(`ppt/slides/slide${i + 1}.xml`, `${XML}<p:sld ${NSS}${s.hidden ? ' show="0"' : ''}><p:cSld>${s.bg ? bgXml(s.bg) : ''}<p:spTree>${groupProps}${shapes}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>${transitionXml(s)}</p:sld>`);
+    zip.file(`ppt/slides/slide${i + 1}.xml`, `${XML}<p:sld ${NSS}${s.hidden ? ' show="0"' : ''}><p:cSld>${s.bg ? bgXml(s.bg) : ''}<p:spTree>${groupProps}${shapes}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>${transitionXml(s)}${timingXml(s, c.spids!)}</p:sld>`);
   }
   return zip.generateAsync({ type: 'blob', mimeType: PPTX_TYPE, compression: 'DEFLATE' });
 }
@@ -614,6 +738,16 @@ interface ReadCtx {
   zip: JSZip; colors: Colors; slidePart: Part; layoutTree: El | null; masterTree: El | null;
   sizes: { title: number; body: number[]; other: number }; fonts: { head: string; body: string }; layout: LayoutId; bodyCount: number;
   group: ((b: Box) => Box) | null;
+  /** Item ids by shape id, to find what the slide's animations move. */
+  spids?: Map<string, string>;
+}
+
+/** A new item id, remembered under the shape's id in the file. */
+function track(el: El, ctx: ReadCtx): string {
+  const id = newId();
+  const n = all(el, 'cNvPr')[0]?.getAttribute('id');
+  if (n) ctx.spids?.set(n, id);
+  return id;
 }
 
 const fontName = (tf: string | null, f: ReadCtx['fonts']) => (!tf ? null : tf.startsWith('+mj') ? f.head : tf.startsWith('+mn') ? f.body : tf);
@@ -738,7 +872,7 @@ async function readItems(tree: El, ctx: ReadCtx, out: Item[]) {
       const isTextBox = !role && fill == null && line == null;
       if (!role && isTextBox && !htmlText(html).trim()) continue;
       out.push({
-        id: newId(), kind: 'shape', geom, ...(role ? { role } : {}), ...place(b),
+        id: track(el, ctx), kind: 'shape', geom, ...(role ? { role } : {}), ...place(b),
         fill: role ? (fill ?? null) : fill === undefined ? null : fill, line: role ? (line ?? null) : line === undefined ? null : line,
         html, valign, autofit: role ? true : !!path(bodyPr, 'normAutofit'), name: kid(kid(el, 'nvSpPr'), 'cNvPr')?.getAttribute('name') ?? undefined,
       });
@@ -751,7 +885,7 @@ async function readItems(tree: El, ctx: ReadCtx, out: Item[]) {
       const lnEl = kid(spPr, 'ln');
       const color = colorOf(kid(lnEl, 'solidFill'), ctx.colors) ?? colorOf(kid(kid(el, 'style'), 'lnRef'), ctx.colors) ?? '#7F7F7F';
       const arrow = [kid(lnEl, 'tailEnd'), kid(lnEl, 'headEnd')].some(x => x && x.getAttribute('type') && x.getAttribute('type') !== 'none');
-      out.push({ id: newId(), kind: 'shape', geom: arrow ? 'arrow' : 'line', ...place(b), html: '', line: { color, width: num(lnEl?.getAttribute('w'), 12700) / 12700 } });
+      out.push({ id: track(el, ctx), kind: 'shape', geom: arrow ? 'arrow' : 'line', ...place(b), html: '', line: { color, width: num(lnEl?.getAttribute('w'), 12700) / 12700 } });
       continue;
     }
     if (name === 'pic') {
@@ -762,7 +896,7 @@ async function readItems(tree: El, ctx: ReadCtx, out: Item[]) {
       if (!b || !target) continue;
       const src = await dataUrl(ctx.zip, target);
       if (!src) continue;
-      out.push({ id: newId(), kind: 'image', ...place(b), src, alt: kid(kid(el, 'nvPicPr'), 'cNvPr')?.getAttribute('descr') ?? undefined });
+      out.push({ id: track(el, ctx), kind: 'image', ...place(b), src, alt: kid(kid(el, 'nvPicPr'), 'cNvPr')?.getAttribute('descr') ?? undefined });
       continue;
     }
     if (name === 'graphicFrame') {
@@ -775,7 +909,7 @@ async function readItems(tree: El, ctx: ReadCtx, out: Item[]) {
       const tblPr = kid(tbl, 'tblPr');
       const firstFill = colorOf(path(tbl, 'tr', 'tc', 'tcPr', 'solidFill'), ctx.colors);
       out.push({
-        id: newId(), kind: 'table', ...place(b), rows, header: tblPr?.getAttribute('firstRow') === '1', banded: tblPr?.getAttribute('bandRow') === '1',
+        id: track(el, ctx), kind: 'table', ...place(b), rows, header: tblPr?.getAttribute('firstRow') === '1', banded: tblPr?.getAttribute('bandRow') === '1',
         ...(firstFill ? { color: firstFill } : {}), ...(widths.length === (rows[0]?.length ?? 0) ? { cols: widths.map(w => w / total) } : {}),
       });
     }
@@ -893,7 +1027,7 @@ export async function readPptx(data: ArrayBuffer): Promise<Deck> {
     const layout = LAYOUT_FROM[lType] ?? 'content';
     const layoutTree = path(layoutPart?.root, 'cSld', 'spTree');
     const items: Item[] = [];
-    const ctx: ReadCtx = { zip, colors, slidePart: part, layoutTree, masterTree, sizes, fonts, layout, bodyCount: 0, group: null };
+    const ctx: ReadCtx = { zip, colors, slidePart: part, layoutTree, masterTree, sizes, fonts, layout, bodyCount: 0, group: null, spids: new Map() };
     const tree = path(part.root, 'cSld', 'spTree');
     if (tree) await readItems(tree, ctx, items);
     const bg = bgOf(kid(part.root, 'cSld'), colors) ?? bgOf(kid(layoutPart?.root, 'cSld'), colors);
@@ -912,10 +1046,12 @@ export async function readPptx(data: ArrayBuffer): Promise<Deck> {
       transition = k === 'fade' || k === 'push' || k === 'wipe' || k === 'cover' || k === 'zoom' ? k : k ? 'fade' : undefined;
     }
     const spd = tr?.getAttribute('spd') as Slide['speed'] | null;
+    const anims = readAnims(part.root, ctx.spids!);
     slides.push({
       id: newId('s'), layout, items, notes, ...(bg && (!masterBg || cssBackground(bg) !== cssBackground(masterBg)) && theme.id === 'file' ? { bg } : {}),
       ...(bg && own && cssBackground(bg) !== cssBackground(theme.bg) ? { bg } : {}),
       ...(transition ? { transition } : {}), ...(spd ? { speed: spd } : {}), ...(part.root.getAttribute('show') === '0' ? { hidden: true } : {}),
+      ...(anims.length ? { anims } : {}),
     });
   }
   if (!slides.length) slides.push({ id: newId('s'), layout: 'title', items: [], notes: '' });

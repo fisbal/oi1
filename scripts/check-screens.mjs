@@ -86,6 +86,16 @@ try {
           await measure(`Stage design (theme group ${g})`);
         }
         await page.screenshot({ path: `screens/${size.name}-Stage-design.png` });
+        // The Animations tab: effects for each kind, stickers, and the order list must fit as well.
+        await page.locator('.module-host:not([hidden]) .ribbon-tabs [role=tab]').nth(4).click();
+        await page.waitForTimeout(300);
+        for (const g of [0, 3]) {
+          await page.locator('.module-host:not([hidden]) .st-gallery-groups button').nth(g).click();
+          await page.waitForTimeout(200);
+          if (!(await page.locator('.module-host:not([hidden]) .st-fx').count())) problems.push(`${size.name} Stage animations: no effects shown`);
+          await measure(`Stage animations (kind ${g})`);
+        }
+        await page.screenshot({ path: `screens/${size.name}-Stage-animations.png` });
       }
       await ctx.close();
     }

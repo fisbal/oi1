@@ -6,6 +6,7 @@ import { memo, useLayoutEffect, useRef, useState, type CSSProperties, type React
 import { cssBackground, defaultAlign, defaultSize, isEmptyHtml, type Deck, type DeckTheme, type Item, type LayoutId, type ShapeItem, type Slide, type TableItem } from '../../formats/slides';
 import { cssFont } from '../letter/model';
 import { geomPath, isLine, textInset } from './geom';
+import { splitHtml, type ItemPlay } from './anim';
 
 /** Light or dark text for a fill color. */
 export function onColor(fill: string): 'light' | 'dark' {
@@ -111,7 +112,19 @@ export interface ItemExtras {
   tableEditor?: ReactNode;
 }
 
-export function ItemView({ it, theme, layout, extras }: { it: Item; theme: DeckTheme; layout: LayoutId; extras?: ItemExtras }) {
+/** An item with its animation during the show: the animation moves an inner layer, so the item's rotation stays. */
+export function ItemView({ it, theme, layout, extras, play }: { it: Item; theme: DeckTheme; layout: LayoutId; extras?: ItemExtras; play?: ItemPlay }) {
+  const inner = <ItemBody it={it} theme={theme} layout={layout} extras={extras} play={play} />;
+  if (!play || (!play.hidden && !play.animation && !play.loop)) return inner;
+  const whole = play.animation && !play.by ? play.animation : undefined;
+  return (
+    <div className="st-anim" data-anim={it.id} style={{ visibility: play.hidden ? 'hidden' : undefined, animation: whole, transformOrigin: `${it.x + it.w / 2}px ${it.y + it.h / 2}px` }}>
+      {play.loop ? <div className="st-anim st-loop" style={{ animation: play.loop, transformOrigin: `${it.x + it.w / 2}px ${it.y + it.h / 2}px` }}>{inner}</div> : inner}
+    </div>
+  );
+}
+
+function ItemBody({ it, theme, layout, extras, play }: { it: Item; theme: DeckTheme; layout: LayoutId; extras?: ItemExtras; play?: ItemPlay }) {
   const style: CSSProperties = {
     left: it.x, top: it.y, width: it.w, height: it.h,
     transform: it.rot ? `rotate(${it.rot}deg)` : undefined,
@@ -159,7 +172,7 @@ export function ItemView({ it, theme, layout, extras }: { it: Item; theme: DeckT
             textAlign: it.role ? defaultAlign(it.role, layout) : 'center',
             lineHeight: it.spacing ?? (it.role === 'title' ? 0.95 : 1.12),
           }}>
-          <FitText id={it.id} html={it.html} autofit={!!it.autofit && !editing} base={base} onFit={extras?.onFit}>{extras?.editor}</FitText>
+          <FitText id={it.id} html={play?.by && play.animation ? splitHtml(it.html, play.by, play.animation, play.stagger ?? 0.1) : it.html} autofit={!!it.autofit && !editing} base={base} onFit={extras?.onFit}>{extras?.editor}</FitText>
         </div>
       )}
     </div>
@@ -191,13 +204,15 @@ export function Backdrop({ deck, slide }: { deck: Deck; slide: Slide }) {
 }
 
 /** A whole slide at its own size; scale it from outside with a CSS transform. */
-export const SlideView = memo(function SlideView({ deck, slide, extras, className, style }: {
+export const SlideView = memo(function SlideView({ deck, slide, extras, className, style, play }: {
   deck: Deck; slide: Slide; extras?: (it: Item) => ItemExtras | undefined; className?: string; style?: CSSProperties;
+  /** The show's state of each item: hidden, animating or looping (see anim.ts). */
+  play?: Map<string, ItemPlay>;
 }) {
   return (
     <div className={`st-slide ${className ?? ''}`} data-layout={slide.layout} style={{ width: deck.w, height: deck.h, ...themeVars(deck.theme), ...style }}>
       <Backdrop deck={deck} slide={slide} />
-      {slide.items.map(it => <ItemView key={it.id} it={it} theme={deck.theme} layout={slide.layout} extras={extras?.(it)} />)}
+      {slide.items.map(it => <ItemView key={it.id} it={it} theme={deck.theme} layout={slide.layout} extras={extras?.(it)} play={play?.get(it.id)} />)}
     </div>
   );
 });
