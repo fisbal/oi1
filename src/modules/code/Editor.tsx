@@ -8,6 +8,7 @@ import { tags } from '@lezer/highlight';
 import { basicSetup } from 'codemirror';
 import { useEffect, useRef } from 'react';
 import { loadLanguage } from './languages';
+import { snippetSource } from './snippets';
 
 const theme = EditorView.theme({
   '&': { height: '100%', color: 'var(--ink)', backgroundColor: 'transparent', fontSize: 'var(--code-size, 14px)' },
@@ -81,6 +82,7 @@ export function CodeEditor({ path, content, onChange, onCursor, wrap, api }: {
         lang.of([]),
         wrapping.current.of(wrap ? EditorView.lineWrapping : []),
         EditorState.tabSize.of(2),
+        EditorState.languageData.of(() => [{ autocomplete: snippetSource(p) }]),
         EditorView.updateListener.of(u => {
           if (u.docChanged) handlers.current.onChange(current.current, u.state.doc.toString());
           if (u.docChanged || u.selectionSet) {
@@ -121,6 +123,10 @@ export function CodeEditor({ path, content, onChange, onCursor, wrap, api }: {
     const saved = states.current.get(path);
     v.setState(saved && saved.doc.toString() === content ? saved : makeState(path, content));
     v.dispatch({ effects: wrapping.current.reconfigure(wrap ? EditorView.lineWrapping : []) });
+    // The status bar shows the cursor of the file now open, not the one before.
+    const head = v.state.selection.main.head;
+    const line = v.state.doc.lineAt(head);
+    handlers.current.onCursor?.(line.number, head - line.from + 1, v.state.selection.ranges.reduce((n, r) => n + r.to - r.from, 0));
     v.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
