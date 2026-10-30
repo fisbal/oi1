@@ -143,6 +143,8 @@
 @media (max-width: 640px) {
   .canvas { padding: 8px; }
   .sheet.web-layout { padding: 20px 16px; }
+  /* A right indent made for a sheet of paper (a signature line is 260pt) would leave one letter per line on a phone. */
+  .sheet.web-layout p[style*="margin-right"] { margin-right: 0 !important; max-width: 65%; }
 }
 
 /* ---------- print: the pages exactly as on screen ---------- */
@@ -403,3 +405,14 @@
 }
 .web-layout > .watermark { position: absolute; }
 @media print { .letter .comments-pane { display: none !important; } }
+
+/* Doc adm/Mil: the fill-in dialog and the field counter */
+.fill-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; max-height: min(60vh, 520px); overflow: auto; padding: 2px; margin: 8px 0 12px; }
+.fill-list label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; min-width: 0; }
+.fill-list label.wide { grid-column: 1 / -1; }
+.fill-list label em { font-style: normal; opacity: .6; }
+.fill-list input, .fill-list textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 6px;
+  border: 1px solid var(--line, rgba(255, 255, 255, .16)); background: var(--field, rgba(255, 255, 255, .04)); color: inherit; resize: vertical; }
+.oi-dialog label.check { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.docs-count { font-size: 11px; opacity: .7; padding: 2px 6px; white-space: nowrap; }
+@media (max-width: 640px) { .fill-list { grid-template-columns: 1fr; } }

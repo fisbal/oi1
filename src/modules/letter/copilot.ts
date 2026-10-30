@@ -10,6 +10,7 @@ import type { CopilotContext, CopilotHost } from '../../ui/Copilot';
 import { wordCount } from '../../ui/Copilot';
 import { markdownToHtml } from '../../ui/markdown';
 import { isTracking, setTracking } from './review';
+import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, selectNextField } from './templates/markup';
 
 const LEAF = '￼';
 
@@ -99,8 +100,53 @@ async function correct(body: Editor, ai: AiApi, where: Where, signal: AbortSigna
   return changes === 1 ? t('ai.letter.oneFix') : t('ai.letter.fixes', { n: changes });
 }
 
+const MARKUP_RULES = `Write it in this line markup, one paragraph per line:
+"# " heading 1 (titles like MEMORANDUM), "## " heading 2, "! " a bold line (subject line, To/From), "> " a right-aligned line (date),
+"- " a bullet, a line with only "---" puts a signature line above the next line, an empty line is an empty paragraph.
+Write {date} for today's date. Put every detail you do not know in [square brackets], like [First and last name] or [file number],
+so the user can fill it in. No Markdown other than this, no ** or code fences, no comments before or after.`;
+
+/** Asks Claude for a whole letter or document in the template markup, so its unknown details become fields to fill. */
+async function writeDoc(body: Editor, ai: AiApi, request: string, docLang: 'fr' | 'en', signal: AbortSignal): Promise<string> {
+  const answer = await ai.ask({
+    system: `You write administrative, government, military and personal letters, memos, reports and CVs inside Office Letter. You follow the conventions of the genre (block letter, military memorandum with file number and numbered paragraphs, SITREP, five-paragraph order, CV sections) and the official style of the country the user names, or Canada by default. Write in the language of the request (${docLang === 'fr' ? 'French' : 'English'} if unclear). ${MARKUP_RULES}`,
+    messages: [{ role: 'user', content: request }],
+    signal,
+  });
+  const content = markupToDoc(answer.replace(/^```\w*\n?|```\s*$/g, '').trim(), longDate(docLang === 'fr' ? 'fr-CA' : 'en-CA'));
+  if (isEmptyDoc(body)) body.commands.setContent({ type: 'doc', content });
+  else body.chain().focus().insertContent(content).run();
+  const n = fieldsIn(body.state.doc).length;
+  if (n) selectNextField(body);
+  return n ? t('ai.letter.docWritten', { n }) : t('ai.letter.docWrittenDone');
+}
+
+const FILL_SCHEMA = {
+  type: 'object',
+  properties: { values: { type: 'array', items: { type: 'object', properties: { field: { type: 'string' }, value: { type: 'string' } }, required: ['field', 'value'], additionalProperties: false } } },
+  required: ['values'],
+  additionalProperties: false,
+};
+
+/** Fills the letter's [fields] from what the user tells Claude, leaving the ones it cannot answer. */
+async function fillWithAi(body: Editor, ai: AiApi, details: string, signal: AbortSignal): Promise<string> {
+  const fields = fieldList(body.state.doc).map(f => f.label);
+  if (!fields.length) return t('ai.letter.noFields');
+  const answer = await ai.ask({
+    system: 'You fill in the [bracketed] fields of a letter or CV in Office Letter from the details the user gives. For each field you can answer from the details (or write well from them, for fields that ask for a sentence or a paragraph), return its exact label and the text that replaces it, in the language of the letter. Leave out fields you cannot answer: never invent names, numbers, dates or addresses.',
+    messages: [{ role: 'user', content: `The letter:\n<letter>\n${body.getText({ blockSeparator: '\n' })}\n</letter>\n\nFields: ${JSON.stringify(fields)}\n\nDetails from the user: ${details}` }],
+    schema: FILL_SCHEMA,
+    signal,
+  });
+  let values: { field: string; value: string }[];
+  try { values = (JSON.parse(answer) as { values: { field: string; value: string }[] }).values; } catch { return t('ai.err.other', { msg: 'JSON' }); }
+  const n = fillFields(body, Object.fromEntries(values.filter(v => fields.includes(v.field)).map(v => [v.field, v.value])));
+  const left = fieldsIn(body.state.doc).length;
+  return t('ai.letter.filledN', { n, left });
+}
+
 /** Everything the copilot needs to work in a letter. */
-export function letterCopilot(body: Editor, title: string): CopilotHost {
+export function letterCopilot(body: Editor, title: string, docLang: 'fr' | 'en' = 'en'): CopilotHost {
   const context = (): CopilotContext | null => {
     const { from, to, empty } = body.state.selection;
     if (!empty) {
@@ -142,6 +188,8 @@ export function letterCopilot(body: Editor, title: string): CopilotHost {
       { id: 'translate', icon: 'language', label: t('ai.letter.translate'), needsContext: true, choices: langs },
       { id: 'continue', icon: 'next', label: t('ai.letter.continue'), needsContext: true, prompt: 'Continue writing after the context with one or two paragraphs in the same voice and language. Reply with only the new paragraphs.' },
       { id: 'write', icon: 'sparkle', label: t('ai.letter.write'), fill: t('ai.letter.writeFill') },
+      { id: 'docWrite', icon: 'envelope', label: t('ai.letter.docWrite'), fill: t('ai.letter.docWriteFill'), ask: (ai, q, _c, signal) => writeDoc(body, ai, q, docLang, signal) },
+      { id: 'fillAi', icon: 'fill', label: t('ai.letter.fillAi'), fill: t('ai.letter.fillAiFill'), ask: (ai, q, _c, signal) => fillWithAi(body, ai, q, signal) },
     ],
     applies: [
       { id: 'replace', icon: 'replace', label: t('ai.apply.replace'), run: (_p, answer, at) => put(answer, at, false) },

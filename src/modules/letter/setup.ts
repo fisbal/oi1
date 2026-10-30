@@ -16,6 +16,7 @@ import { CellBackground, ListStyle, PageBreak, PageNumber, ParagraphFormat, Text
 import { Pagination } from './pagination';
 import { Comment, Deletion, Footnote, Insertion, Modification, TrackChanges } from './review';
 import { Search } from './search';
+import { FieldTyping } from './templates/markup';
 
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 
@@ -69,6 +70,7 @@ export function letterExtensions(part: 'body' | 'header' | 'footer'): Extensions
         Placeholder.configure({ placeholder: () => t('letter.placeholder') }),
         CharacterCount,
         Search,
+        FieldTyping,
         Pagination,
         Comment,
         Footnote,

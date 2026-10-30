@@ -136,7 +136,11 @@ function Setup({ onDone, canCancel }: { onDone: () => void; canCancel: boolean }
 }
 
 /** The copilot panel, placed by each app at the side of its work area. */
-export function Copilot({ host, ai, onClose }: { host: CopilotHost; ai: AiApi; onClose: () => void }) {
+export function Copilot({ host, ai, onClose, start }: {
+  host: CopilotHost; ai: AiApi; onClose: () => void;
+  /** Starts one of the host's actions, like a ribbon button that opens the copilot on "Write a letter that …". */
+  start?: { id: string; n: number };
+}) {
   useLanguage();
   const [, setTick] = useState(0);
   useEffect(() => aiSettings.onChange(() => setTick(n => n + 1)), []);
@@ -202,6 +206,12 @@ export function Copilot({ host, ai, onClose }: { host: CopilotHost; ai: AiApi; o
     if (a.fill) { armed.current = a.ask ? a : null; setInput(a.fill); window.setTimeout(() => { box.current?.focus(); box.current?.setSelectionRange(a.fill!.length, a.fill!.length); }, 0); return; }
     void send(choice?.prompt ?? a.prompt ?? '', choice ? `${a.label} · ${choice.label}` : a.label, a);
   };
+
+  // Each new `start` (a new n) runs its action once.
+  useEffect(() => {
+    const a = start && hostRef.current.actions.find(x => x.id === start.id);
+    if (a) runAction(a);
+  }, [start?.n]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = () => {
     const q = input.trim();
