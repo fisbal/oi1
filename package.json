@@ -13,6 +13,7 @@
     "tauri": "tauri",
     "check:screens": "node scripts/check-screens.mjs",
     "check:content": "node scripts/check-content.mjs",
+    "check:ribbon": "node scripts/check-ribbon.mjs",
     "check:text": "node scripts/check-text.mjs"
   },
   "dependencies": {

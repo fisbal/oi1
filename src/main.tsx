@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import App from './shell/App';
 import './shell/shell.css';
+import { startRibbonMin } from './ui/ribbonMin';
 
 // iPhones and iPads zoom into any text box with small text when it is tapped, and stay zoomed in, so the app
 // no longer fits the screen. A maximum scale stops that there (iOS still lets people pinch to zoom); other
@@ -12,7 +13,9 @@ if (iOS) document.querySelector('meta[name=viewport]')?.setAttribute('content', 
 if (location.hash.startsWith('#run=')) void import('./modules/code/runner').then(m => m.startRunner(location.hash.slice(5)));
 else createRoot(document.getElementById('root')!).render(<App />);
 
-// On short screens the ribbon shows only its tabs (see kit.css): a tap on a tab opens its buttons, a tap on the work closes them.
+startRibbonMin();
+
+// On short screens (and when the ribbon is folded) the ribbon shows only its tabs (see kit.css): a tap on a tab opens its buttons, a tap on the work closes them.
 // Done here once for every app; Safari does not focus buttons when they are tapped, so :focus-within alone is not enough.
 document.addEventListener('pointerdown', e => {
   const el = e.target as Element;

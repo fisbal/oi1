@@ -21,7 +21,7 @@ One office suite, one app:
 - **Android:** [OfficeIn1.apk](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1.apk)
 - **Windows:** [OfficeIn1-Setup.exe](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1-Setup.exe)
 - **Mac:** [OfficeIn1.dmg](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1.dmg)
-- The installed apps update themselves. Every merge to `main` builds the web, Android, Windows and Mac versions, checks every app on phone, tablet, PC and Mac screens, checks that every tab has working buttons and every list at least 20 choices (`npm run check:content`, also opening each list on a phone), checks that no text overlaps or is cut in any of the 5 languages (`npm run check:text`), and
+- The installed apps update themselves. Every merge to `main` builds the web, Android, Windows and Mac versions, checks every app on phone, tablet, PC and Mac screens, checks that every tab has working buttons and every list at least 20 choices (`npm run check:content`, also opening each list on a phone), checks the ribbon folds away for more room (`npm run check:ribbon`), checks that no text overlaps or is cut in any of the 5 languages (`npm run check:text`), and
   publishes them, with the source code, as a GitHub Release (see [docs/builds.md](docs/builds.md)).
 - **On your computer:** install Node.js 22, then in this folder run `npm install` and `npm run dev`,
   and open the address it prints. `npm test` runs the tests, `npm run build` makes the site in `dist/`.
@@ -51,7 +51,13 @@ One office suite, one app:
   - **Layout:** hyphenation.
   - **Insert** also has 20 callouts, 20 letter parts in French or English (sender, recipient, references, greetings,
     closings, enclosures, "Without prejudice"…), 20 page number styles, table of contents, QR codes, and tables from Class.
-  - **Layout:** 20 margin presets, 21 paper sizes (A3 to A6, B4, B5, Tabloid, envelopes, cards), 32 proofing languages.
+  - **Layout:** 20 margin presets, 21 paper sizes (A3 to A6, B4, B5, Tabloid, envelopes, cards), 32 proofing languages,
+    line numbers (every paragraph, every 5 or 10, kept in Word files) and right-to-left text.
+  - **References:** citations in 22 styles (APA 7, MLA 9, Chicago, Harvard, IEEE, Vancouver, AMA, Nature, ISO 690,
+    NF Z44-005, OSCOLA, Bluebook…). Each citation keeps its source inside the letter, so changing the style rewrites
+    every citation and the bibliography follows. Paste a title, DOI, ISBN or link and Claude fills in the source.
+    Notes styles add footnotes. Also 20 kinds of numbered captions (Figure, Table, Photo, Annex…) with a table of
+    figures, cross-references ("see Figure 2, page 4"), and an index built from marked words.
   - **Design:** 20 one-click document themes (Office, Corporate, Academic, Official, Military, Newspaper, Handwritten…),
     20 paragraph spacing presets, page background.
   - **Smart:** command search (Alt+Q, about 60 commands), navigation pane, 21 clean-ups (quotes, spaces, empty lines,

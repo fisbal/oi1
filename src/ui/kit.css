@@ -33,6 +33,8 @@
   border: 1px solid var(--line); background: rgba(var(--fg-rgb), .04); color: var(--faint); font-size: 12.5px; cursor: text;
 }
 .cmd-search:hover { border-color: var(--hair); color: var(--muted); }
+.cmd-search span { flex: 1; min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmd-search kbd, .cmd-search svg { flex-shrink: 0; }
 .cmd-search kbd { margin-left: auto; font: 10.5px var(--sans); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--faint); }
 @media (max-width: 900px) { .cmd-search { width: 30px; padding: 0 7px; } .cmd-search span, .cmd-search kbd { display: none; } }
 
@@ -247,3 +249,20 @@
 @media (max-height: 520px) and (hover: hover) {
   .ribbon:hover .ribbon-panel { display: flex; }
 }
+/* Folded ribbon (Ctrl+F1, a double-click on a tab, or the arrow after the tabs): only the tabs stay, and a tab opens
+   its buttons over the work until the work is tapped, so the page gets the room. */
+:root.ribbon-min .ribbon-tabs { padding-bottom: 4px; }
+:root.ribbon-min .ribbon-panel {
+  position: absolute; left: 0; right: 0; top: 100%; display: none; min-height: 0;
+  background: var(--bar-gradient); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--hair); box-shadow: 0 16px 34px rgba(var(--shade-rgb), calc(.45 * var(--shade-k)));
+}
+:root.ribbon-min .ribbon.open .ribbon-panel { display: flex; }
+:root.ribbon-min .ribbon-tabs [role=tab].on::after { opacity: .45; }
+.ribbon-toggle {
+  flex: none; width: 30px; height: 30px; margin-left: 2px; border: 0; border-radius: 9px; background: none; color: var(--muted);
+  display: grid; place-items: center; transition: background .15s, color .15s;
+}
+.ribbon-toggle svg { transform: rotate(180deg); transition: transform .2s var(--ease); }
+.ribbon-toggle.min svg { transform: none; }
+.ribbon-toggle:hover { background: rgba(var(--fg-rgb), .06); color: var(--ink); }

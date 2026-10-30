@@ -23,6 +23,11 @@ import {
 import { SPACING, THEMES } from './themes';
 import { CV_TEMPLATES } from './templates/cv';
 import { FillDialog, ProfileDialog } from './templates/dialogs';
+import {
+  bibliographyJson, captionJson, citedSources, indexEntries, indexJson, refTargets, refText, restyleCitations, tableOfFiguresJson,
+  type CaptionLabel, type CitationStyle, type RefForm, type RefTarget, type Source,
+} from './references';
+import { SourceDialog } from './sourceDialog';
 import { LETTERS } from './templates/letters';
 import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, selectNextField } from './templates/markup';
 import { profileValues } from './templates/profile';
@@ -96,7 +101,8 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   }));
   const setView = useCallback((v: Partial<ViewState>) => setViewState(cur => ({ ...cur, ...v })), []);
   const [layout, setLayout] = useState<LayoutResult>({ pages: 1, tail: 96, notes: [] });
-  const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands' | 'fill' | 'profile'>(null);
+  const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands' | 'fill' | 'profile' | 'source' | 'sourceAi'>(null);
+  const [citeStyle, setCiteStyleState] = useState<CitationStyle>(() => (shell.storage.get('citeStyle') as CitationStyle | null) ?? 'apa');
   const [copilot, setCopilot] = useState(false);
   const [copilotStart, setCopilotStart] = useState<{ id: string; n: number }>();
   const [docLang, setDocLang] = useState<'fr' | 'en'>(() => (shell.storage.get('docLang') as 'fr' | 'en' | null) || (getLanguage() === 'fr' ? 'fr' : 'en'));
@@ -735,6 +741,54 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       if (!text.trim()) body.chain().focus().setNodeSelection(at.pos).deleteSelection().run();
       else body.chain().focus().command(({ tr }) => { tr.setNodeAttribute(at.pos, 'text', text.trim()); return true; }).run();
     },
+    citeStyle,
+    setCiteStyle: (st: CitationStyle) => {
+      setCiteStyleState(st);
+      shell.storage.set('citeStyle', st);
+      if (body) { const n = restyleCitations(body, st); if (n) shell.notify(t('letter.citeRestyled', { n })); }
+    },
+    newCitation: (ai: boolean) => {
+      if (activeRef.current !== 'body') { shell.notify(t('letter.footnoteBodyOnly')); return; }
+      setPanel(ai ? 'sourceAi' : 'source');
+    },
+    cite: (src: Source) => body?.chain().focus().insertCitation(src, citeStyle).run(),
+    citedSources: () => (body ? citedSources(body.state.doc) : []),
+    bibliography: (title: string) => {
+      if (!body) return;
+      const sources = citedSources(body.state.doc);
+      if (!sources.length) { shell.notify(t('letter.citeNone')); return; }
+      body.chain().focus().insertContent(bibliographyJson(sources, citeStyle, title)).run();
+    },
+    caption: (label: CaptionLabel) => {
+      if (!body) return;
+      const text = prompt(t('letter.captionPrompt'), '');
+      if (text === null) return;
+      body.chain().focus().insertContent(captionJson(body.state.doc, label, text.trim(), (lang || getLanguage()).startsWith('fr'))).run();
+    },
+    tableOfFigures: () => {
+      if (!body) return;
+      const content = tableOfFiguresJson(body.state.doc, pageOf, t('letter.tof'));
+      if (!content) { shell.notify(t('letter.tofEmpty')); return; }
+      body.chain().focus().insertContent(content).run();
+    },
+    refTargets: () => (body ? refTargets(body.state.doc) : []),
+    crossRef: (target: RefTarget, form: RefForm) => {
+      if (!body) return;
+      body.chain().focus().insertContent(refText(target, form, pageOf(target.pos + 1), body.state.selection.from)).run();
+    },
+    markIndex: () => {
+      if (!body) return;
+      const { from, to } = body.state.selection;
+      const term = body.state.doc.textBetween(from, to).trim();
+      if (!term || !body.chain().focus().markIndexTerm(term).run()) { shell.notify(t('letter.indexSelect')); return; }
+      shell.notify(t('letter.indexMarked', { term }));
+    },
+    insertIndex: () => {
+      if (!body) return;
+      const entries = indexEntries(body.state.doc, pageOf, lang || getLanguage());
+      if (!entries.length) { shell.notify(t('letter.indexEmpty')); return; }
+      body.chain().focus().insertContent(indexJson(entries, t('letter.group.index'))).run();
+    },
     nextFootnote: () => {
       if (!body) return;
       const notes = listFootnotes(body.state.doc);
@@ -945,7 +999,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       <div className="canvas" ref={canvasRef}>
         {(panel === 'find' || panel === 'replace') && <FindBar editor={body} replace={panel === 'replace'} onClose={() => { setPanel(null); body.commands.focus(); }} />}
         <div className="sizer" style={{ width: isPrint ? pw * scale : undefined, height: isPrint ? sheetHeight * scale : undefined }}>
-          <div ref={sheetRef} className={`sheet ${isPrint ? 'print-layout' : 'web-layout'}${view.marks ? ' show-marks' : ''}${page.hyphenate ? ' hyphenate' : ''}${markup ? '' : ' no-markup'}`} style={sheetVars}>
+          <div ref={sheetRef} className={`sheet ${isPrint ? 'print-layout' : 'web-layout'}${view.marks ? ' show-marks' : ''}${page.hyphenate ? ' hyphenate' : ''}${page.lineNumbers ? ` ln ln-${page.lineNumbers}` : ''}${markup ? '' : ' no-markup'}`} style={sheetVars} dir={page.rtl ? 'rtl' : undefined}>
             {isPrint && Array.from({ length: layout.pages }, (_, i) => (
               <div key={i} className="page-frame" style={{ top: `calc(${i} * (var(--ph) + var(--pg-gap)))`, background: page.color ?? undefined }}>
                 {page.border && <div className="page-border" style={{ inset: `${page.border.space}pt`, border: `${page.border.w}pt solid ${page.border.color}` }} />}
@@ -1011,6 +1065,8 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       {panel === 'fill' && <FillDialog editor={body} onClose={() => { setPanel(null); body.commands.focus(); }}
         onDone={n => shell.notify(n ? t('letter.docs.filled', { n }) : t('letter.docs.noFields'))} />}
       {panel === 'profile' && <ProfileDialog onClose={() => setPanel(null)} />}
+      {(panel === 'source' || panel === 'sourceAi') && <SourceDialog shell={shell} aiFirst={panel === 'sourceAi'}
+        onClose={() => { setPanel(null); body.commands.focus(); }} onDone={src => { setTimeout(() => actions.cite(src)); }} />}
       {panel === 'commands' && <CommandPalette commands={commands} onClose={() => { setPanel(null); activeEditor?.commands.focus(); }} />}
     </div>
   );

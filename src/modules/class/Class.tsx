@@ -18,7 +18,7 @@ import {
 } from '../../formats/sheet';
 import { sheetToTable, tableFromHtml, tableFromText, tableToCells, tableToHtml, tableToText, type Range } from '../../formats/table';
 import { FileMenu } from '../../ui/FileMenu';
-import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, type ComboGroup, appIcon } from '../../ui/kit';
+import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, RibbonToggle, type ComboGroup, appIcon } from '../../ui/kit';
 import { FONT_GROUPS, FONT_SIZES, cssFont } from '../letter/model';
 import { CHART_TYPES, ChartSvg, DARK, LIGHT, PALETTES, chartData, svgToPng } from './chart';
 import { condLooks, type CondLook } from './cond';
@@ -1424,6 +1424,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
           {tabs.map(x => <button key={x.id} type="button" role="tab" aria-selected={shownTab === x.id} className={shownTab === x.id ? 'on' : ''} onClick={() => setTab(x.id)}>{t(x.label)}</button>)}
           <button type="button" role="tab" aria-selected={shownTab === 'oi1'} className={`ribbon-special${shownTab === 'oi1' ? ' on' : ''}`} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
+        <RibbonToggle />
           {chart && <button type="button" role="tab" aria-selected={shownTab === 'chart'} className={shownTab === 'chart' ? 'on' : ''} onClick={() => setTab('chart')}>{t('class.tab.chart')}</button>}
           <span className="ribbon-quick">
             <CopilotButton open={copilot} onClick={() => setCopilot(o => !o)} />
