@@ -4,7 +4,7 @@
 
 import { useEditorState, type Editor } from '@tiptap/react';
 import { useState } from 'react';
-import { t, type MessageKey } from '../../shell/i18n';
+import { getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { BULLET_CHARS, BULLET_STYLES, NUMBER_STYLES, type Borders, type NumberStyle } from './extensions';
 import { FONT_GROUPS, FONT_SIZES, STYLE_IDS, cssFont, previewStyle, type DocStyles, type StyleId } from './model';
 import { MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, WATERMARKS, isDark, pageInches, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
@@ -13,6 +13,8 @@ import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, NumberBox, type Com
 import { CopilotButton } from '../../ui/Copilot';
 import { TABLE_STYLES, applyTableStyle, type CalloutKind, type CleanUp, type TableStyleId } from './smart';
 import { SPACING, THEMES, type SpacingId, type Theme } from './themes';
+import { LETTERS, type LetterCat } from './templates/letters';
+import { CV_TEMPLATES } from './templates/cv';
 
 export type Zoom = number | 'width' | 'page';
 
@@ -87,6 +89,13 @@ export interface RibbonActions {
   editFootnote: () => void;
   nextFootnote: () => void;
   copilot: () => void;
+  // Doc adm/Mil
+  docTemplate: (id: string) => void;
+  docLang: (lang: 'fr' | 'en') => void;
+  fillFields: () => void;
+  nextField: () => void;
+  profile: () => void;
+  docAi: (what: 'docWrite' | 'fillAi') => void;
 }
 
 /** What the ribbon shows about the rest of the suite. */
@@ -107,9 +116,11 @@ export interface SuiteState {
   footnoteHere: boolean;
   footnotes: number;
   copilot: boolean;
+  docLang: 'fr' | 'en';
+  fields: number;
 }
 
-const TABS = ['home', 'insert', 'design', 'layout', 'references', 'review', 'view', 'smart'] as const;
+const TABS = ['home', 'insert', 'design', 'layout', 'references', 'review', 'view', 'smart', 'docs'] as const;
 type TabId = (typeof TABS)[number] | 'oi1' | 'table' | 'picture';
 
 const STYLE_KEYS: Record<StyleId, MessageKey> = {
@@ -236,7 +247,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
 
   const tabLabel: Record<Exclude<TabId, 'oi1'>, MessageKey> = {
     home: 'letter.tab.home', insert: 'letter.tab.insert', design: 'letter.tab.design', layout: 'letter.tab.layout', review: 'letter.tab.review',
-    references: 'letter.tab.references', view: 'letter.tab.view', smart: 'letter.tab.smart', table: 'letter.tab.table', picture: 'letter.tab.picture',
+    references: 'letter.tab.references', view: 'letter.tab.view', smart: 'letter.tab.smart', docs: 'letter.tab.docs', table: 'letter.tab.table', picture: 'letter.tab.picture',
   };
   const contentWidthPx = (pageInches(page).width - page.margins.left - page.margins.right) * PX_PER_IN;
   const setImageWidth = (fraction: number) => run().updateAttributes('image', { width: Math.round(contentWidthPx * fraction), height: null }).run();
@@ -743,6 +754,42 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           </Group>
         </>}
 
+        {shownTab === 'docs' && <>
+          <Group label="letter.group.proLetters">
+            <TemplateDrop cat="admin" icon="envelope" suite={suite} actions={actions} />
+            <TemplateDrop cat="gov" icon="gov" suite={suite} actions={actions} />
+            <TemplateDrop cat="mil" icon="shield" suite={suite} actions={actions} />
+          </Group>
+          <Group label="letter.group.normalLetters">
+            <TemplateDrop cat="perso" icon="heart" suite={suite} actions={actions} />
+          </Group>
+          <Group label="letter.group.cv">
+            <Drop big icon="cv" title="letter.docs.cv">
+              {close => CV_TEMPLATES.map(c => (
+                <MenuItem key={c.id} label={c.title[getLanguage()]} onClick={() => { actions.docTemplate(c.id); close(); }} />
+              ))}
+            </Drop>
+          </Group>
+          <Group label="letter.group.fill">
+            <Btn big icon="fill" title="letter.docs.fill" onClick={actions.fillFields} disabled={!suite.fields} />
+            <div className="stack">
+              <Btn icon="next" title="letter.docs.nextField" text onClick={actions.nextField} disabled={!suite.fields} />
+              <Btn icon="user" title="letter.docs.profile" text onClick={actions.profile} />
+              <span className="docs-count">{t('letter.docs.left', { n: suite.fields })}</span>
+            </div>
+          </Group>
+          <Group label="letter.group.docAi">
+            <Btn big icon="sparkle" title="letter.docs.aiWrite" onClick={() => actions.docAi('docWrite')} />
+            <Btn big icon="pen" title="letter.docs.aiFill" onClick={() => actions.docAi('fillAi')} disabled={!suite.fields} />
+          </Group>
+          <Group label="letter.group.docLang">
+            <div className="stack">
+              <Btn icon="language" title="Français" label="Français" text active={suite.docLang === 'fr'} onClick={() => actions.docLang('fr')} />
+              <Btn icon="language" title="English" label="English" text active={suite.docLang === 'en'} onClick={() => actions.docLang('en')} />
+            </div>
+          </Group>
+        </>}
+
         {shownTab === 'oi1' && <>
           <Group label="letter.group.withClass">
             <Btn big icon="sheet" title={suite.linkedTable ? 'letter.openLinkedSheet' : 'letter.editInClass'} onClick={actions.editInClass} disabled={!s.inTable} />
@@ -772,6 +819,17 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
         </>}
       </div>
     </div>
+  );
+}
+
+/** One category of ready-to-fill letters. */
+function TemplateDrop({ cat, icon, actions }: { cat: LetterCat; icon: string; suite: SuiteState; actions: RibbonActions }) {
+  return (
+    <Drop big icon={icon} title={`letter.docs.${cat}` as MessageKey}>
+      {close => LETTERS.filter(l => l.cat === cat).map(l => (
+        <MenuItem key={l.id} label={l.title[getLanguage()]} onClick={() => { actions.docTemplate(l.id); close(); }} />
+      ))}
+    </Drop>
   );
 }
 

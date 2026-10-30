@@ -18,6 +18,11 @@ import {
   tableAt, tableData, tableJson, tableToText, textToTable, tocJson,
 } from './smart';
 import { SPACING, THEMES } from './themes';
+import { CV_TEMPLATES } from './templates/cv';
+import { FillDialog, ProfileDialog } from './templates/dialogs';
+import { LETTERS } from './templates/letters';
+import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, selectNextField } from './templates/markup';
+import { profileValues } from './templates/profile';
 import { CommentsPane, showComment } from './comments';
 import { notesDom, type LayoutResult } from './pagination';
 import {
@@ -87,8 +92,10 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   }));
   const setView = useCallback((v: Partial<ViewState>) => setViewState(cur => ({ ...cur, ...v })), []);
   const [layout, setLayout] = useState<LayoutResult>({ pages: 1, tail: 96, notes: [] });
-  const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands'>(null);
+  const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands' | 'fill' | 'profile'>(null);
   const [copilot, setCopilot] = useState(false);
+  const [copilotStart, setCopilotStart] = useState<{ id: string; n: number }>();
+  const [docLang, setDocLang] = useState<'fr' | 'en'>(() => (shell.storage.get('docLang') as 'fr' | 'en' | null) || (getLanguage() === 'fr' ? 'fr' : 'en'));
   const [outline, setOutline] = useState(() => window.innerWidth >= 1200 && shell.storage.get('outline') === '1');
   const [focusMode, setFocusMode] = useState(false);
   const [dictating, setDictating] = useState(false);
@@ -202,6 +209,7 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
     },
   }) ?? t('letter.untitled');
   const words = useEditorState({ editor: body, selector: ({ editor }) => editor?.storage.characterCount.words() ?? 0 }) ?? 0;
+  const fields = useEditorState({ editor: body, selector: ({ editor }) => (editor ? fieldsIn(editor.state.doc).length : 0) }) ?? 0;
   const inTable = useEditorState({ editor: body, selector: ({ editor }) => !!editor && editor.isActive('table') }) ?? false;
   const linkedTable = useEditorState({ editor: body, selector: ({ editor }) => (editor ? !!tableAt(editor)?.node.attrs.link : false) }) ?? false;
   useEffect(() => { shell.setTitle(title); }, [title, shell]);
@@ -733,6 +741,31 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     },
   };
 
+  // ---------- Doc adm/Mil: ready-to-fill letters and CVs ----------
+  const docs = {
+    docTemplate: (id: string) => {
+      const tpl = LETTERS.find(l => l.id === id) ?? CV_TEMPLATES.find(c => c.id === id);
+      if (!tpl || !body) return;
+      const content = markupToDoc(tpl[docLang], longDate(docLang === 'fr' ? 'fr-CA' : 'en-CA'));
+      const replace = isEmptyDoc(body) || confirm(t('letter.docs.replaceAsk'));
+      if (replace) body.commands.setContent({ type: 'doc', content });
+      else body.chain().focus().insertContent(content).run();
+      if ('theme' in tpl && replace) {
+        const th = THEMES.find(x => x.id === tpl.theme);
+        if (th) smart.theme(th);
+      }
+      // What "My info" knows fills itself in; the cursor goes to the first field left.
+      const n = fillFields(body, profileValues(fieldList(body.state.doc).map(f => f.label)));
+      if (!selectNextField(body)) body.commands.focus('start');
+      shell.notify(n ? t('letter.docs.autoFilled', { n }) : t('letter.docs.inserted'));
+    },
+    docLang: (l: 'fr' | 'en') => { setDocLang(l); shell.storage.set('docLang', l); },
+    fillFields: () => setPanel('fill'),
+    nextField: () => { if (!selectNextField(body)) shell.notify(t('letter.docs.noFields')); },
+    profile: () => setPanel('profile'),
+    docAi: (what: 'docWrite' | 'fillAi') => { setCopilot(true); setCopilotStart(x => ({ id: what, n: (x?.n ?? 0) + 1 })); },
+  };
+
   const actions: RibbonActions = {
     fileMenu: () => setPanel('file'),
     pasteText: async () => {
@@ -802,6 +835,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     customMargins: () => setPanel('margins'),
     ...smart,
     ...review,
+    ...docs,
     copilot: () => setCopilot(o => !o),
   };
 
@@ -860,6 +894,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     apps: shell.apps(), sheets: shell.tabs('class'), dictating, speaking, outline, linkedTable, themeId,
     tracking, markup, commentsOpen, commentHere: !!reviewHere?.comments.length, changeHere: !!reviewHere?.change,
     changes: reviewHere?.changes ?? 0, footnoteHere: !!reviewHere?.footnote, footnotes: reviewHere?.footnotes.length ?? 0, copilot,
+    docLang, fields,
   };
   const liveComments = new Set(reviewHere ? [...commentRanges(body.state.doc).keys()] : []);
   const openComments = comments.filter(c => liveComments.has(c.id) && !c.resolved).length;
@@ -910,7 +945,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
         <CommentsPane editor={body} comments={comments} onChange={setComments} author={() => userName()} editing={editingComment}
           setEditing={setEditingComment} showResolved={false} onClose={() => setCommentsOpen(false)} />
       )}
-      {copilot && !focusMode && <Copilot host={letterCopilot(body, title)} ai={shell.ai} onClose={() => { setCopilot(false); body.commands.focus(); }} />}
+      {copilot && !focusMode && <Copilot host={letterCopilot(body, title, docLang)} ai={shell.ai} start={copilotStart} onClose={() => { setCopilot(false); body.commands.focus(); }} />}
       </div>
       <footer className="status">
         <span>{isPrint ? t('letter.pageOf', { n: cursorPage, total: layout.pages }) : t('letter.webLayout')}</span>
@@ -945,6 +980,9 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       )}
       {panel === 'count' && <WordCountDialog editor={body} pages={layout.pages} onClose={() => setPanel(null)} />}
       {panel === 'margins' && <MarginsDialog page={page} onApply={setPage} onClose={() => setPanel(null)} />}
+      {panel === 'fill' && <FillDialog editor={body} onClose={() => { setPanel(null); body.commands.focus(); }}
+        onDone={n => shell.notify(n ? t('letter.docs.filled', { n }) : t('letter.docs.noFields'))} />}
+      {panel === 'profile' && <ProfileDialog onClose={() => setPanel(null)} />}
       {panel === 'commands' && <CommandPalette commands={commands} onClose={() => { setPanel(null); activeEditor?.commands.focus(); }} />}
     </div>
   );
@@ -955,7 +993,7 @@ function buildCommands(a: RibbonActions, body: Editor, ed: Editor, setView: (v: 
   const run = () => ed.chain().focus();
   const g = {
     home: t('letter.tab.home'), insert: t('letter.tab.insert'), design: t('letter.tab.design'), layout: t('letter.tab.layout'),
-    review: t('letter.tab.review'), view: t('letter.tab.view'), smart: t('letter.tab.smart'), oi1: 'Office In 1', file: t('letter.tab.file'), table: t('letter.tab.table'),
+    review: t('letter.tab.review'), view: t('letter.tab.view'), smart: t('letter.tab.smart'), docs: t('letter.tab.docs'), oi1: 'Office In 1', file: t('letter.tab.file'), table: t('letter.tab.table'),
   };
   const c = (id: string, label: string, group: string, runIt: () => unknown, icon?: string, keys?: string, disabled?: boolean): Command =>
     ({ id, label, group, run: () => { runIt(); }, icon, keys, disabled });
@@ -992,6 +1030,11 @@ function buildCommands(a: RibbonActions, body: Editor, ed: Editor, setView: (v: 
     c('warning', `${t('letter.callout')}: ${t('letter.callout.warning')}`, g.insert, () => a.callout('warning'), 'callout'),
     c('letterBlock', t('letter.letterBlock.full'), g.insert, () => a.letterBlock('full'), 'envelope'),
     c('closing', t('letter.letterBlock.closing'), g.insert, () => a.letterBlock('closing'), 'signature'),
+    ...[...LETTERS, ...CV_TEMPLATES].map(l => c(`doc-${l.id}`, l.title[getLanguage()], g.docs, () => a.docTemplate(l.id), l.cat === 'cv' ? 'cv' : 'envelope')),
+    c('docFill', t('letter.docs.fill'), g.docs, a.fillFields, 'fill'),
+    c('docNext', t('letter.docs.nextField'), g.docs, a.nextField, 'next'),
+    c('docProfile', t('letter.docs.profile'), g.docs, a.profile, 'user'),
+    c('docAiWrite', t('letter.docs.aiWrite'), g.docs, () => a.docAi('docWrite'), 'sparkle'),
     c('qr', t('letter.qr'), g.insert, a.qr, 'qr'),
     c('header', t('letter.header'), g.insert, a.header, 'header'),
     c('footer', t('letter.footer'), g.insert, a.footer, 'footer'),

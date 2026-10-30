@@ -51,6 +51,12 @@ One office suite, one app:
   - **Design:** 8 one-click document themes (Office, Scene, Classic, Modern, Elegant, Ocean, Forest, Mono), paragraph spacing, page background.
   - **Smart:** command search (Alt+Q, about 60 commands), navigation pane, clean up (quotes, spaces, empty lines),
     sort lines, text to table and back, dictation, read aloud, focus mode.
+  - **Doc adm/Mil:** 35 ready-to-fill letters in French and English, professional (14 administrative, 6 government,
+    10 military: memorandum, leave, posting, incident, release, SITREP, five-paragraph order…) and everyday (5),
+    plus 20 CV templates (classic to creative, public service, NCM, officer, military to civilian, reservist, veteran).
+    Details to fill are yellow [fields]: Fill fields answers them all at once, Next field jumps from one to the next,
+    and My info (kept on the device) fills your name, address, rank and unit in by itself. With AI, Claude writes any
+    letter in the same form, or fills the fields from a few words.
   - **Review:** comments in a side pane (reply, resolve, delete, previous/next; Ctrl+Alt+M), Track changes
     (Ctrl+Shift+E; every edit becomes a suggestion in its author's color, Accept or Reject one or all, show or hide markup),
     spelling on/off, proofing language, word count with reading and speaking time.

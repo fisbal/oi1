@@ -76,6 +76,18 @@ try {
       };
       await measure(app);
       await page.screenshot({ path: `screens/${size.name}-${app.replace('+', 'plus')}.png` });
+      // Letter's Doc adm/Mil tab, with a military memo from its templates: the ribbon and the letter must fit.
+      if (app === 'Letter') {
+        const host = page.locator('.module-host:not([hidden])');
+        await host.locator('.ribbon-tabs [role=tab]').nth(8).click();
+        await page.waitForTimeout(300);
+        await host.locator('.ribbon-panel .drop').nth(2).locator('button').first().click();
+        await page.waitForTimeout(300);
+        await page.locator('.drop-panel .menu-item').first().click();
+        await page.waitForTimeout(800);
+        await measure('Letter Doc adm/Mil');
+        await page.screenshot({ path: `screens/${size.name}-Letter-docs.png` });
+      }
       // Stage's Design tab holds the theme gallery (classic, everyday life, military, my themes): it must fit too.
       if (app === 'Stage') {
         await page.locator('.module-host:not([hidden]) .ribbon-tabs [role=tab]').nth(2).click();
