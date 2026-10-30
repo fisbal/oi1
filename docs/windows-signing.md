@@ -56,7 +56,23 @@ Les mêmes secrets servent pour toutes les apps de Martin (NavalOS, MarbleOS, Do
 Note : même signé, un tout nouvel éditeur peut voir SmartScreen pendant quelques jours, le temps
 que Microsoft apprenne la réputation de « Martin Balla ». Elle se garde ensuite d'une version à l'autre.
 
-## Autre voie gratuite : Microsoft Store
+## Microsoft Store (fait le 30 octobre 2026)
+
+Compte développeur créé, app réservée : **Store ID 9NW4XQH95MRB**,
+lien https://apps.microsoft.com/detail/9NW4XQH95MRB.
+
+| Champ du manifeste | Valeur |
+| --- | --- |
+| Package/Identity/Name | `MartinBalla.OfficeIn1` |
+| Package/Identity/Publisher | `CN=E2F65D6F-3940-43D8-B2C3-DA5FB8251E9A` |
+| Package/Properties/PublisherDisplayName | `Martin Balla` |
+
+Paquet : https://www.pwabuilder.com → `https://fisbal.github.io/oi1/` → *Package For Stores* →
+*Windows* → les 3 valeurs ci-dessus → téléverser le `.msixbundle` dans Partner Center.
+Le paquet ouvre le site : chaque mise à jour du site arrive dans l'app du Store sans nouvelle certification.
+Page de confidentialité pour la fiche : https://fisbal.github.io/oi1/privacy.html
+
+## Pourquoi le Store
 
 Le compte développeur Microsoft Store est gratuit pour les particuliers depuis septembre 2025.
 Une app publiée en **MSIX** est signée par Microsoft et s'installe sans aucun avertissement.
