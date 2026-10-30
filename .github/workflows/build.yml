@@ -44,6 +44,8 @@ jobs:
           npm run check:screens
       - name: Check every tab has content and every list 20 choices
         run: npm run check:content
+      - name: Use every app like a person (typing, handles, move, copy, undo, speed)
+        run: npm run check:interactions
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4
