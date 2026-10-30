@@ -857,7 +857,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
               <Btn big icon="file" title="code.mc.analyseFile" onClick={() => void analyse(active)} disabled={!active || !!mcBusy} />
             </Group>
             <Group label="code.group.helpers">
-              <Drop big icon="apps" title="code.mc.helpers" wide>
+              <Drop big icon="speak" title="code.mc.helpers" wide>
                 {() => <>
                   <span className="kicker">{t('code.mc.helpersHint')}</span>
                   <MenuItem label="Claude" hint={shell.ai.ready() ? t('code.mc.ready') : t('code.mc.notSet')} active={shell.ai.ready()} onClick={() => setCopilot(true)} />
