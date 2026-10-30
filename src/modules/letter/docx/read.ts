@@ -9,7 +9,7 @@
 
 import JSZip from 'jszip';
 import type { JSONContent } from '@tiptap/react';
-import type { Borders, BorderSide } from '../extensions';
+import { BULLET_CHARS, BULLET_STYLES, NUMBER_FORMATS, NUMBER_STYLES, type Borders, type BorderSide } from '../extensions';
 import { defaultStyles, type DocStyles, type LetterDoc, type StyleDef, type StyleId } from '../model';
 import { nearestSize, type PageBorder, type PageSettings, type Watermark } from '../page';
 import type { LetterComment } from '../review';
@@ -155,6 +155,7 @@ class Context {
       w: round((num(attr(el, 'sz')) ?? 4) / 8),
       color: this.color(el) ?? hex(attr(el, 'color')) ?? '#000000',
       space: num(attr(el, 'space')) ?? 0,
+      ...(val === 'double' || val === 'dashed' || val === 'dotted' ? { style: val } : {}),
     };
   }
 
@@ -750,17 +751,15 @@ function levelStyle(fmt: string | null, text: string | null): string | null {
     if (/^[➤►▶➢\uF0D8\uF0E8]$/.test(t)) return 'arrow';
     if (/^[✓✔\uF0FC]$/.test(t)) return 'check';
     if (/^[★☆]$/.test(t)) return 'star';
-    return null;
+    const shape = BULLET_STYLES.find(st => BULLET_CHARS[st] === t);
+    return shape && shape !== 'disc' ? shape : null;
   }
-  const paren = /\)$/.test(t) && !/^\(/.test(t);
-  switch (fmt) {
-    case 'decimal': return paren ? 'decimal-paren' : null;
-    case 'lowerLetter': return 'lower-alpha';
-    case 'upperLetter': return 'upper-alpha';
-    case 'lowerRoman': return 'lower-roman';
-    case 'upperRoman': return 'upper-roman';
-    default: return null;
-  }
+  const counter = ({ decimal: 'decimal', decimalZero: 'decimal-leading-zero', lowerLetter: 'lower-alpha', upperLetter: 'upper-alpha', lowerRoman: 'lower-roman', upperRoman: 'upper-roman' } as Record<string, string>)[fmt ?? ''];
+  const found = NUMBER_STYLES.find(st => NUMBER_FORMATS[st].counter === counter && `${NUMBER_FORMATS[st].before}%1${NUMBER_FORMATS[st].after}`.replace(/\s/g, '') === t.replace(/\s/g, ''));
+  // Plain "1." is Word's default look, kept as no style.
+  if (found) return found === 'decimal' ? null : found;
+  // Another text around a known counter keeps at least the counter ("a." for any lowercase letters).
+  return counter && counter !== 'decimal' ? NUMBER_STYLES.find(st => NUMBER_FORMATS[st].counter === counter) ?? null : null;
 }
 
 function readNumbering(doc: Document | null): Map<string, Map<number, ListLevel>> {

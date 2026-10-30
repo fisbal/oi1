@@ -233,6 +233,7 @@
 .focus-exit:hover, .focus-exit:focus-visible { opacity: 1; color: var(--gold-light); }
 
 /* Design > Themes gallery: each tile is a tiny page in that theme. */
+.theme-grid { display: grid; grid-template-columns: repeat(5, 62px); gap: 8px; padding: 4px; }
 .theme-gallery { display: flex; gap: 8px; max-width: 560px; overflow-x: auto; padding: 2px 2px 4px; scrollbar-width: thin; }
 .theme-tile {
   position: relative; flex: none; width: 62px; height: 72px; padding: 7px 7px 0; border-radius: 9px; border: 1px solid rgba(var(--fg-rgb), .12);
@@ -263,11 +264,6 @@
 .app-key:disabled i { box-shadow: none; }
 
 .callout-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; }
-.callout-dot.note { background: #4472C4; }
-.callout-dot.tip { background: #2E9E6A; }
-.callout-dot.warning { background: #E08A1E; }
-.callout-dot.success { background: #5A9E2E; }
-.callout-dot.gold { background: var(--gold-gradient); }
 
 .status-read { color: var(--faint); }
 .status-live { display: inline-flex; align-items: center; gap: 6px; color: #ff8a80; }
@@ -283,26 +279,11 @@
   .outline-pane, .palette, .palette-backdrop, .status-live i { animation: none; }
 }
 
-/* Bullet and number styles (Home > Bullets / Numbering libraries). */
-.doc-text ul[data-list-style="disc"] { list-style-type: disc; }
-.doc-text ul[data-list-style="circle"] { list-style-type: circle; }
-.doc-text ul[data-list-style="square"] { list-style-type: square; }
-.doc-text ul[data-list-style="dash"] { list-style-type: '–  '; }
-.doc-text ul[data-list-style="arrow"] { list-style-type: '➤  '; }
-.doc-text ul[data-list-style="check"] { list-style-type: '✓  '; }
-.doc-text ul[data-list-style="star"] { list-style-type: '★  '; }
-.doc-text ol[data-list-style="decimal"] { list-style-type: decimal; }
-.doc-text ol[data-list-style="decimal-paren"] { list-style-type: none; counter-reset: oi1-paren; }
-.doc-text ol[data-list-style="decimal-paren"] > li { counter-increment: oi1-paren; }
-.doc-text ol[data-list-style="decimal-paren"] > li::marker { content: counter(oi1-paren) ')  '; }
-.doc-text ol[data-list-style="lower-alpha"] { list-style-type: lower-alpha; }
-.doc-text ol[data-list-style="upper-alpha"] { list-style-type: upper-alpha; }
-.doc-text ol[data-list-style="lower-roman"] { list-style-type: lower-roman; }
-.doc-text ol[data-list-style="upper-roman"] { list-style-type: upper-roman; }
-.list-gallery { display: grid; grid-template-columns: repeat(4, 52px); gap: 6px; padding: 4px; }
+/* Bullet and number styles: drawn by listStylesCss() in extensions.ts. */
+.list-gallery { display: grid; grid-template-columns: repeat(6, 60px); gap: 6px; padding: 4px; }
 .list-gallery button {
   height: 52px; border-radius: 10px; border: 1px solid var(--line); background: rgba(var(--fg-rgb), .03); color: var(--ink);
-  font-size: 13px; line-height: 1.25; display: grid; place-items: center; white-space: pre; font-family: var(--sans);
+  font-size: 12px; line-height: 1.25; display: grid; place-items: center; white-space: pre; font-family: var(--sans); overflow: hidden;
 }
 .list-gallery button:hover { border-color: var(--hair); background: rgba(212,168,67,.08); }
 .list-gallery button.on { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(212,168,67,.25); }
@@ -415,4 +396,4 @@
   border: 1px solid var(--line, rgba(255, 255, 255, .16)); background: var(--field, rgba(255, 255, 255, .04)); color: inherit; resize: vertical; }
 .oi-dialog label.check { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .docs-count { font-size: 11px; opacity: .7; padding: 2px 6px; white-space: nowrap; }
-@media (max-width: 640px) { .fill-list { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .fill-list { grid-template-columns: 1fr; } .list-gallery { grid-template-columns: repeat(5, 60px); } .theme-grid { grid-template-columns: repeat(4, 62px); } }

@@ -254,7 +254,26 @@ export function Drop({ icon, label, title, children, active, swatch, big, text, 
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
   const ref = useOutsideClose(open, close);
+  const panel = useRef<HTMLDivElement>(null);
   const name = tr(title);
+  // The panel opens under its button, then moves back inside the screen: on a phone the ribbon scrolls sideways,
+  // and a list opened from a button near the edge would otherwise open out of sight.
+  useLayoutEffect(() => {
+    const el = panel.current;
+    if (!open || !el) return;
+    el.style.marginLeft = '';
+    const vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    // Its own width first: past the screen's edge the browser would squeeze it, then widen it once moved back.
+    el.style.maxWidth = `${vw - 16}px`;
+    el.style.width = 'max-content';
+    // Measured without the opening animation's small zoom, so the panel ends exactly inside the screen.
+    const r = el.getBoundingClientRect(), w = el.offsetWidth, left = r.left + r.width / 2 - w / 2;
+    let dx = 0;
+    if (left + w > vw - 8) dx = vw - 8 - left - w;
+    if (left + dx < 8) dx = 8 - left;
+    el.style.marginLeft = `${dx}px`;
+    el.style.maxHeight = `${Math.max(160, Math.min(vh * 0.7, vh - r.top - 12))}px`;
+  }, [open]);
   return (
     <div className="drop" ref={ref}>
       <button type="button" className={`rb${big ? ' big' : ''}${active ? ' on' : ''}${text ? ' txt' : ''}`} title={name} aria-label={name}
@@ -263,7 +282,7 @@ export function Drop({ icon, label, title, children, active, swatch, big, text, 
         {label ?? (text || big ? <span className="rb-label">{name}</span> : null)}
         <span className="rb-caret"><Icon name="caret" size={10} /></span>
       </button>
-      {open && <div className={`drop-panel${wide ? ' wide' : ''}`} role="menu" onMouseDown={e => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault(); }}>{children(close)}</div>}
+      {open && <div ref={panel} className={`drop-panel${wide ? ' wide' : ''}`} role="menu" onMouseDown={e => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault(); }}>{children(close)}</div>}
     </div>
   );
 }
@@ -351,7 +370,7 @@ export function NumberBox({ value, onChange, step = 0.1, min, max, unit, label }
   return (
     <label className="numbox" title={label}>
       <span>{label}</span>
-      <input type="number" inputMode="decimal" value={text} step={step} min={min} max={max}
+      <input type="number" inputMode="decimal" aria-label={`${label} (${unit})`} value={text} step={step} min={min} max={max}
         onChange={e => setText(e.target.value)} onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } }} />
       <span className="unit">{unit}</span>

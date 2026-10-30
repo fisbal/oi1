@@ -11,7 +11,7 @@ import {
   type ICommentOptions, type IParagraphOptions, type IRunOptions, type ParagraphChild,
 } from 'docx';
 import JSZip from 'jszip';
-import { BULLET_CHARS, BULLET_STYLES, type Borders } from '../extensions';
+import { BULLET_CHARS, BULLET_STYLES, NUMBER_FORMATS, type BorderSide, type Borders } from '../extensions';
 import { WORD_STYLE_IDS, type LetterDoc, type StyleDef } from '../model';
 import { PAGE_SIZES, PX_PER_IN, TWIPS_PER_IN, isDark, pageInches, type Watermark } from '../page';
 import { initials, type LetterComment } from '../review';
@@ -62,8 +62,9 @@ function lineSpacing(v: unknown): { line: number; lineRule: (typeof LineRuleType
 
 function borderOptions(b: Borders | null | undefined): IParagraphOptions['border'] {
   if (!b) return undefined;
-  const side = (s?: { w: number; color: string; space: number }) =>
-    s ? { style: BorderStyle.SINGLE, size: Math.max(2, Math.round(s.w * 8)), color: toHex(s.color) ?? '000000', space: Math.round(s.space) } : undefined;
+  const kinds = { double: BorderStyle.DOUBLE, dashed: BorderStyle.DASHED, dotted: BorderStyle.DOTTED };
+  const side = (s?: BorderSide) =>
+    s ? { style: s.style ? kinds[s.style] : BorderStyle.SINGLE, size: Math.max(2, Math.round(s.w * 8)), color: toHex(s.color) ?? '000000', space: Math.round(s.space) } : undefined;
   return { top: side(b.top), bottom: side(b.bottom), left: side(b.left), right: side(b.right) };
 }
 
@@ -109,17 +110,16 @@ function imageSize(src: string): Promise<{ width: number; height: number }> {
   });
 }
 
-const NUMBER_FORMATS: Record<string, { format: (typeof LevelFormat)[keyof typeof LevelFormat]; text: (n: number) => string }> = {
-  decimal: { format: LevelFormat.DECIMAL, text: n => `%${n}.` },
-  'decimal-paren': { format: LevelFormat.DECIMAL, text: n => `%${n})` },
-  'lower-alpha': { format: LevelFormat.LOWER_LETTER, text: n => `%${n}.` },
-  'upper-alpha': { format: LevelFormat.UPPER_LETTER, text: n => `%${n}.` },
-  'lower-roman': { format: LevelFormat.LOWER_ROMAN, text: n => `%${n}.` },
-  'upper-roman': { format: LevelFormat.UPPER_ROMAN, text: n => `%${n}.` },
-};
+const COUNTER_FORMATS = {
+  decimal: LevelFormat.DECIMAL, 'decimal-leading-zero': LevelFormat.DECIMAL_ZERO, 'lower-alpha': LevelFormat.LOWER_LETTER,
+  'upper-alpha': LevelFormat.UPPER_LETTER, 'lower-roman': LevelFormat.LOWER_ROMAN, 'upper-roman': LevelFormat.UPPER_ROMAN,
+} as const;
+const NUMBER_DEFS: Record<string, { format: (typeof LevelFormat)[keyof typeof LevelFormat]; text: (n: number) => string }> = Object.fromEntries(
+  Object.entries(NUMBER_FORMATS).map(([id, f]) => [id, { format: COUNTER_FORMATS[f.counter], text: (n: number) => `${f.before}%${n}${f.after}` }]),
+);
 
 const listReference = (kind: 'bullet' | 'number', style: string | null) =>
-  kind === 'bullet' ? `oi1-bullet-${style}` : style && NUMBER_FORMATS[style] ? `oi1-num-${style}` : 'oi1-numbers';
+  kind === 'bullet' ? `oi1-bullet-${style}` : style && NUMBER_DEFS[style] ? `oi1-num-${style}` : 'oi1-numbers';
 
 /** Word numbering definitions: the default numbers, plus one per bullet shape and number format. */
 function numberingConfig() {
@@ -128,7 +128,7 @@ function numberingConfig() {
   const levels = [0, 1, 2, 3, 4, 5];
   return [
     { reference: 'oi1-numbers', levels: levels.map(level => ({ level, format: deeper[level % 3], text: `%${level + 1}.`, alignment: AlignmentType.START, style: indent(level) })) },
-    ...Object.entries(NUMBER_FORMATS).map(([id, f]) => ({
+    ...Object.entries(NUMBER_DEFS).map(([id, f]) => ({
       reference: `oi1-num-${id}`,
       levels: levels.map(level => ({
         level, format: level === 0 ? f.format : deeper[level % 3], text: level === 0 ? f.text(1) : `%${level + 1}.`, alignment: AlignmentType.START, style: indent(level),

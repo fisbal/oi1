@@ -4,7 +4,7 @@
 import { Extension, Node, mergeAttributes } from '@tiptap/core';
 
 /** A paragraph border side: width and gap in points, color as '#rrggbb'. */
-export interface BorderSide { w: number; color: string; space: number }
+export interface BorderSide { w: number; color: string; space: number; style?: 'double' | 'dashed' | 'dotted' }
 export type Borders = Partial<Record<'top' | 'right' | 'bottom' | 'left', BorderSide>>;
 
 export interface ParagraphAttrs {
@@ -63,14 +63,14 @@ function parseBorders(el: HTMLElement): Borders | null {
     const w = toPt(s.getPropertyValue(`border-${side}-width`)) ?? 0.75;
     const color = cssToHex(s.getPropertyValue(`border-${side}-color`) || '#000000') ?? '#000000';
     const space = toPt(s.getPropertyValue(`padding-${side}`)) ?? 0;
-    out[side] = { w, color, space };
+    out[side] = { w, color, space, ...(style === 'double' || style === 'dashed' || style === 'dotted' ? { style } : {}) };
   }
   return Object.keys(out).length ? out : null;
 }
 
 function bordersCss(b: Borders): string {
   return Object.entries(b)
-    .map(([side, v]) => `border-${side}: ${v.w}pt solid ${v.color}; padding-${side}: ${v.space}pt`)
+    .map(([side, v]) => `border-${side}: ${v.style === 'double' ? Math.max(v.w, 2.25) : v.w}pt ${v.style ?? 'solid'} ${v.color}; padding-${side}: ${v.space}pt`)
     .join('; ');
 }
 
@@ -201,12 +201,55 @@ export const CellBackground = Extension.create({
 });
 
 /** Bullet shapes and number formats, like Word's Bullet Library and Numbering Library. */
-export const BULLET_STYLES = ['disc', 'circle', 'square', 'dash', 'arrow', 'check', 'star'] as const;
-export const NUMBER_STYLES = ['decimal', 'decimal-paren', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'] as const;
-export type BulletStyle = typeof BULLET_STYLES[number];
-export type NumberStyle = typeof NUMBER_STYLES[number];
 /** The character Word shows for each bullet shape. */
-export const BULLET_CHARS: Record<BulletStyle, string> = { disc: '•', circle: '◦', square: '▪', dash: '–', arrow: '➤', check: '✓', star: '★' };
+export const BULLET_CHARS = {
+  disc: '•', circle: '◦', square: '▪', dash: '–', arrow: '➤', check: '✓', star: '★', diamond: '◆', diamondOpen: '◇', squareOpen: '□',
+  triangle: '▸', chevron: '›', guillemet: '»', arrowThin: '→', heart: '♥', cross: '✗', plus: '+', hand: '☞', flower: '❀', sparkle: '✦',
+  bullseye: '◉', checkbox: '☐', checked: '☑', emdash: '—',
+} as const;
+export type BulletStyle = keyof typeof BULLET_CHARS;
+export const BULLET_STYLES = Object.keys(BULLET_CHARS) as BulletStyle[];
+
+type Counter = 'decimal' | 'decimal-leading-zero' | 'lower-alpha' | 'upper-alpha' | 'lower-roman' | 'upper-roman';
+const num = (counter: Counter, before: string, after: string) => ({ counter, before, after });
+/** Each number format: the counter, and the text before and after it ("(a)", "§ 1.", "Art. 1 –"). */
+export const NUMBER_FORMATS = {
+  decimal: num('decimal', '', '.'), 'decimal-paren': num('decimal', '', ')'), 'decimal-both': num('decimal', '(', ')'),
+  'decimal-bracket': num('decimal', '[', ']'), 'decimal-dash': num('decimal', '', ' –'), 'decimal-colon': num('decimal', '', ':'),
+  'decimal-zero': num('decimal-leading-zero', '', '.'),
+  'lower-alpha': num('lower-alpha', '', '.'), 'lower-alpha-paren': num('lower-alpha', '', ')'), 'lower-alpha-both': num('lower-alpha', '(', ')'),
+  'upper-alpha': num('upper-alpha', '', '.'), 'upper-alpha-paren': num('upper-alpha', '', ')'), 'upper-alpha-both': num('upper-alpha', '(', ')'),
+  'lower-roman': num('lower-roman', '', '.'), 'lower-roman-paren': num('lower-roman', '', ')'), 'lower-roman-both': num('lower-roman', '(', ')'),
+  'upper-roman': num('upper-roman', '', '.'), 'upper-roman-paren': num('upper-roman', '', ')'),
+  section: num('decimal', '§ ', '.'), article: num('decimal', 'Art. ', ' –'), question: num('decimal', 'Q', '.'),
+} as const;
+export type NumberStyle = keyof typeof NUMBER_FORMATS;
+export const NUMBER_STYLES = Object.keys(NUMBER_FORMATS) as NumberStyle[];
+
+const ROMAN: [number, string][] = [[10, 'x'], [9, 'ix'], [5, 'v'], [4, 'iv'], [1, 'i']];
+/** The label of item `n` in a number format, like "(b)" or "§ 2.". */
+export function numberLabel(style: NumberStyle, n: number): string {
+  const f = NUMBER_FORMATS[style];
+  let v = String(n);
+  if (f.counter === 'decimal-leading-zero') v = v.padStart(2, '0');
+  else if (f.counter.endsWith('alpha')) v = String.fromCharCode(96 + ((n - 1) % 26) + 1);
+  else if (f.counter.endsWith('roman')) { v = ''; let k = n; for (const [x, r] of ROMAN) while (k >= x) { v += r; k -= x; } }
+  if (f.counter.startsWith('upper')) v = v.toUpperCase();
+  return `${f.before}${v}${f.after}`;
+}
+
+/** The CSS that draws every bullet shape and number format on the page. */
+export function listStylesCss(scope = '.doc-text'): string {
+  const native = new Set(['disc', 'circle', 'square']);
+  const bullets = BULLET_STYLES.map(st => `${scope} ul[data-list-style="${st}"] { list-style-type: ${native.has(st) ? st : `'${BULLET_CHARS[st]}  '`}; }`);
+  const numbers = NUMBER_STYLES.map(st => {
+    const f = NUMBER_FORMATS[st];
+    return f.before === '' && f.after === '.'
+      ? `${scope} ol[data-list-style="${st}"] { list-style-type: ${f.counter}; }`
+      : `${scope} ol[data-list-style="${st}"] > li::marker { content: ${JSON.stringify(f.before)} counter(list-item, ${f.counter}) ${JSON.stringify(`${f.after}  `)}; }`;
+  });
+  return [...bullets, ...numbers].join('\n');
+}
 
 export const ListStyle = Extension.create({
   name: 'listStyle',

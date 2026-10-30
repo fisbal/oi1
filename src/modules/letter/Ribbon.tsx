@@ -5,22 +5,20 @@
 import { useEditorState, type Editor } from '@tiptap/react';
 import { useState } from 'react';
 import { getLanguage, t, type MessageKey } from '../../shell/i18n';
-import { BULLET_CHARS, BULLET_STYLES, NUMBER_STYLES, type Borders, type NumberStyle } from './extensions';
+import { BULLET_CHARS, BULLET_STYLES, NUMBER_STYLES, numberLabel, type BorderSide, type Borders } from './extensions';
 import { FONT_GROUPS, FONT_SIZES, STYLE_IDS, cssFont, previewStyle, type DocStyles, type StyleId } from './model';
 import { MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, WATERMARKS, isDark, pageInches, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
 import type { AppInfo, TabInfo } from '../../shell/contract';
 import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, NumberBox, type ComboGroup } from '../../ui/kit';
 import { CopilotButton } from '../../ui/Copilot';
-import { TABLE_STYLES, applyTableStyle, type CalloutKind, type CleanUp, type TableStyleId } from './smart';
+import { CALLOUTS, CALLOUT_KINDS, CLEAN_UPS, TABLE_STYLES, applyTableStyle, type CalloutKind, type CleanUp, type TableStyleId } from './smart';
+import { LETTER_PARTS, type LetterPart } from './templates/parts';
 import { SPACING, THEMES, type SpacingId, type Theme } from './themes';
+import { CASE_MODES, PASTE_KINDS, changeCase, type PasteKind } from './textTools';
 import { LETTERS, type LetterCat } from './templates/letters';
 import { CV_TEMPLATES } from './templates/cv';
 
 export type Zoom = number | 'width' | 'page';
-
-const NUMBER_SAMPLES: Record<NumberStyle, string[]> = {
-  decimal: ['1.', '2.'], 'decimal-paren': ['1)', '2)'], 'lower-alpha': ['a.', 'b.'], 'upper-alpha': ['A.', 'B.'], 'lower-roman': ['i.', 'ii.'], 'upper-roman': ['I.', 'II.'],
-};
 
 const RECENT_FONTS = 'oi1.recentFonts';
 function recentFonts(): string[] {
@@ -41,13 +39,14 @@ export interface RibbonActions {
   fileMenu: () => void;
   paste: () => void;
   pasteText: () => void;
+  pasteAs: (kind: PasteKind) => void;
   image: () => void;
   replaceImage: () => void;
   link: () => void;
   find: (replace: boolean) => void;
   header: () => void;
   footer: () => void;
-  pageNumber: (where: 'top' | 'bottom' | 'here', withTotal: boolean) => void;
+  pageNumber: (where: 'top' | 'bottom' | 'here', format: string, align: 'left' | 'center' | 'right') => void;
   wordCount: () => void;
   customMargins: () => void;
   painter: () => void;
@@ -62,6 +61,7 @@ export interface RibbonActions {
   toc: () => void;
   callout: (kind: CalloutKind) => void;
   letterBlock: (kind: 'full' | 'closing') => void;
+  letterPart: (kind: LetterPart) => void;
   qr: () => void;
   cleanUp: (what: CleanUp) => void;
   sort: (dir: 1 | -1) => void;
@@ -130,7 +130,10 @@ const STYLE_KEYS: Record<StyleId, MessageKey> = {
 const GALLERY: StyleId[] = ['normal', 'title', 'subtitle', 'h1', 'h2', 'h3', 'h4', 'quote'];
 
 const SYMBOLS = '©®™€£¥¢§¶†‡•·–—…‰′″°±×÷≈≠≤≥∞√∑πΩµ←→↑↓↔✓✗★☆♥♦♣♠«»‹›„“”‘’¿¡'.split('');
-const LANGS = ['en-US', 'en-GB', 'fr-FR', 'fr-CA', 'es-ES', 'es-MX', 'pt-PT', 'pt-BR', 'de-DE', 'it-IT', 'nl-NL'];
+const LANGS = [
+  'en-US', 'en-GB', 'en-CA', 'en-AU', 'fr-FR', 'fr-CA', 'fr-BE', 'fr-CH', 'es-ES', 'es-MX', 'pt-PT', 'pt-BR', 'de-DE', 'de-AT', 'de-CH',
+  'it-IT', 'nl-NL', 'pl-PL', 'sv-SE', 'da-DK', 'nb-NO', 'fi-FI', 'ru-RU', 'uk-UA', 'el-GR', 'tr-TR', 'ar', 'he', 'zh-CN', 'ja-JP', 'ko-KR', 'hi-IN',
+];
 
 /** Inches for US paper sizes, centimeters everywhere else, like Word. */
 export function unitFor(page: PageSettings): 'in' | 'cm' {
@@ -152,30 +155,47 @@ function applyStyle(e: Editor, id: StyleId) {
   else c.setParagraphStyle(id).run();
 }
 
-function changeCase(e: Editor, mode: 'sentence' | 'lower' | 'upper' | 'title' | 'toggle') {
-  const { from, to } = e.state.selection;
-  if (from === to) return;
-  const tr = e.state.tr;
-  let first = true;
-  e.state.doc.nodesBetween(from, to, (node, pos) => {
-    if (!node.isText || !node.text) return;
-    const start = Math.max(from, pos);
-    const end = Math.min(to, pos + node.text.length);
-    const text = node.text.slice(start - pos, end - pos);
-    let out = text;
-    if (mode === 'lower') out = text.toLowerCase();
-    else if (mode === 'upper') out = text.toUpperCase();
-    else if (mode === 'toggle') out = [...text].map(ch => (ch === ch.toUpperCase() ? ch.toLowerCase() : ch.toUpperCase())).join('');
-    else if (mode === 'title') out = text.toLowerCase().replace(/(^|[\s(“"'-])(\p{L})/gu, (_, a, b) => a + b.toUpperCase());
-    else {
-      out = text.toLowerCase().replace(/(^|[.!?]\s+)(\p{L})/gu, (_, a, b) => a + b.toUpperCase());
-      if (first) out = out.replace(/\p{L}/u, ch => ch.toUpperCase());
-    }
-    first = false;
-    if (out !== text) tr.replaceWith(start, end, e.state.schema.text(out, node.marks));
-  });
-  e.view.dispatch(tr);
-}
+type PageFormat = 'num' | 'page' | 'total' | 'slash' | 'dash' | 'bracket';
+const pageFormat = (f: PageFormat) => ({
+  num: '{page}', page: t('letter.pnPage'), total: t('letter.pageXofY'), slash: '{page} / {pages}', dash: '— {page} —', bracket: '[{page}]',
+})[f];
+/** Where page numbers go and how they read, like Word's Page Number galleries. */
+const PAGE_NUMBERS: ['top' | 'bottom' | 'here', 'left' | 'center' | 'right', PageFormat][] = [
+  ['bottom', 'center', 'num'], ['bottom', 'right', 'num'], ['bottom', 'left', 'num'], ['bottom', 'center', 'page'], ['bottom', 'right', 'page'],
+  ['bottom', 'center', 'total'], ['bottom', 'right', 'total'], ['bottom', 'left', 'total'], ['bottom', 'center', 'slash'], ['bottom', 'center', 'dash'],
+  ['bottom', 'right', 'bracket'], ['top', 'right', 'num'], ['top', 'center', 'num'], ['top', 'left', 'num'], ['top', 'right', 'page'],
+  ['top', 'right', 'total'], ['top', 'center', 'slash'], ['top', 'right', 'slash'], ['here', 'left', 'num'], ['here', 'left', 'total'],
+];
+
+const GOLD = '#D4A843';
+/** Word's border menu and more: single, double, thick, dashed and dotted lines, and gold accents. */
+const BORDER_PRESETS: [string, (color: string) => Borders | null][] = (() => {
+  const l = (color: string, more: Partial<BorderSide> = {}): BorderSide => ({ w: 0.75, color, space: 1, ...more });
+  const b = (color: string, more: Partial<BorderSide> = {}): BorderSide => ({ w: 0.75, color, space: 4, ...more });
+  const all = (side: BorderSide) => ({ top: side, right: side, bottom: side, left: side });
+  return [
+    ['bottom', c => ({ bottom: l(c) })],
+    ['top', c => ({ top: l(c) })],
+    ['left', c => ({ left: l(c, { w: 3, space: 6 }) })],
+    ['right', c => ({ right: l(c, { w: 3, space: 6 }) })],
+    ['box', c => all(b(c))],
+    ['topBottom', c => ({ top: l(c), bottom: l(c) })],
+    ['leftRight', c => ({ left: l(c, { space: 6 }), right: l(c, { space: 6 }) })],
+    ['doubleBottom', c => ({ bottom: l(c, { style: 'double', w: 2.25 }) })],
+    ['doubleTopBottom', c => ({ top: l(c, { style: 'double', w: 2.25 }), bottom: l(c, { style: 'double', w: 2.25 }) })],
+    ['doubleBox', c => all(b(c, { style: 'double', w: 2.25 }))],
+    ['thickBottom', c => ({ bottom: l(c, { w: 2.25 }) })],
+    ['thickBox', c => all(b(c, { w: 2.25 }))],
+    ['dashedBottom', c => ({ bottom: l(c, { style: 'dashed' }) })],
+    ['dashedBox', c => all(b(c, { style: 'dashed' }))],
+    ['dottedBottom', c => ({ bottom: l(c, { style: 'dotted', w: 1.5 }) })],
+    ['dottedBox', c => all(b(c, { style: 'dotted', w: 1.5 }))],
+    ['goldBar', () => ({ left: l(GOLD, { w: 4.5, space: 8 }) })],
+    ['goldBottom', () => ({ bottom: l(GOLD, { w: 1.5 }) })],
+    ['goldBox', () => all(b(GOLD, { w: 1.5, space: 6 }))],
+    ['none', () => null],
+  ];
+})();
 
 export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, view, setView, actions, suite }: {
   editor: Editor; body: Editor; styles: DocStyles; page: PageSettings; setPage: (p: PageSettings) => void;
@@ -242,8 +262,6 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
   };
   const borderColor = styles.normal.color ?? (isDark(page.color) ? '#FFFFFF' : '#000000');
   const setBorders = (b: Borders | null) => run().setParagraphFormat({ borders: b }).run();
-  const line = { w: 0.75, color: borderColor, space: 1 };
-  const box = { w: 0.75, color: borderColor, space: 4 };
 
   const tabLabel: Record<Exclude<TabId, 'oi1'>, MessageKey> = {
     home: 'letter.tab.home', insert: 'letter.tab.insert', design: 'letter.tab.design', layout: 'letter.tab.layout', review: 'letter.tab.review',
@@ -286,10 +304,9 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
             <div className="split">
               <Btn big icon="paste" title="letter.paste" onClick={actions.paste} />
               <Drop title="letter.pasteOptions">
-                {close => <>
-                  <MenuItem label={t('letter.paste')} onClick={() => { close(); actions.paste(); }} />
-                  <MenuItem label={t('letter.pasteText')} onClick={() => { close(); actions.pasteText(); }} />
-                </>}
+                {close => PASTE_KINDS.map(k => (
+                  <MenuItem key={k} label={t(`letter.pasteAs.${k}` as MessageKey)} onClick={() => { close(); actions.pasteAs(k); }} />
+                ))}
               </Drop>
             </div>
             <div className="stack">
@@ -308,7 +325,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
                 <Btn icon="grow" title="letter.grow" onClick={() => step(1)} />
                 <Btn icon="shrink" title="letter.shrink" onClick={() => step(-1)} />
                 <Drop icon="case" title="letter.changeCase">
-                  {close => (['sentence', 'lower', 'upper', 'title', 'toggle'] as const).map(m => (
+                  {close => CASE_MODES.map(m => (
                     <MenuItem key={m} label={t(`letter.case.${m}` as MessageKey)} onClick={() => { changeCase(editor, m); close(); }} />
                   ))}
                 </Drop>
@@ -337,7 +354,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
                   <Btn icon="bullets" title="letter.bullets" onClick={() => run().toggleBulletList().run()} active={s.bullets} />
                   <Drop title="letter.bulletLibrary">
                     {close => <div className="list-gallery">{BULLET_STYLES.map(st => (
-                      <button key={st} type="button" title={t(`letter.bullet.${st}` as MessageKey)} className={s.bullets && (s.bulletStyle ?? 'disc') === st ? 'on' : ''}
+                      <button key={st} type="button" title={BULLET_CHARS[st]} aria-label={BULLET_CHARS[st]} className={s.bullets && (s.bulletStyle ?? 'disc') === st ? 'on' : ''}
                         onClick={() => { setListStyle('bulletList', st); close(); }}>{`${BULLET_CHARS[st]} ——\n${BULLET_CHARS[st]} ——`}</button>
                     ))}</div>}
                   </Drop>
@@ -347,7 +364,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
                   <Drop title="letter.numberLibrary">
                     {close => <div className="list-gallery">{NUMBER_STYLES.map(st => (
                       <button key={st} type="button" className={s.numbers && (s.numberStyle ?? 'decimal') === st ? 'on' : ''}
-                        onClick={() => { setListStyle('orderedList', st); close(); }}>{NUMBER_SAMPLES[st].map(x => `${x} ——`).join('\n')}</button>
+                        onClick={() => { setListStyle('orderedList', st); close(); }}>{[1, 2].map(n => `${numberLabel(st, n)} —`).join('\n')}</button>
                     ))}</div>}
                   </Drop>
                 </span>
@@ -362,28 +379,29 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
                 <Btn icon="justify" title="letter.justify" onClick={() => run().setTextAlign('justify').run()} active={s.align === 'justify'} />
                 <Drop icon="spacing" title="letter.lineSpacing">
                   {close => <>
-                    {['1.0', '1.15', '1.5', '2.0', '2.5', '3.0'].map(v => (
+                    {['1.0', '1.08', '1.15', '1.25', '1.5', '1.75', '2.0', '2.5', '3.0'].map(v => (
                       <MenuItem key={v} label={v} active={s.lineHeight !== null && parseFloat(s.lineHeight) === parseFloat(v)}
                         onClick={() => { run().setParagraphFormat({ lineHeight: String(parseFloat(v)) }).run(); close(); }} />
                     ))}
                     <hr />
-                    <MenuItem label={t(s.spaceBefore ? 'letter.removeSpaceBefore' : 'letter.addSpaceBefore')}
-                      onClick={() => { run().setParagraphFormat({ spaceBefore: s.spaceBefore ? 0 : 12 }).run(); close(); }} />
-                    <MenuItem label={t(s.spaceAfter === 0 ? 'letter.addSpaceAfter' : 'letter.removeSpaceAfter')}
-                      onClick={() => { run().setParagraphFormat({ spaceAfter: s.spaceAfter === 0 ? 8 : 0 }).run(); close(); }} />
+                    {[0, 6, 12, 18, 24].map(n => (
+                      <MenuItem key={`b${n}`} label={t('letter.spaceBeforePt', { n })} active={(s.spaceBefore ?? 0) === n}
+                        onClick={() => { run().setParagraphFormat({ spaceBefore: n }).run(); close(); }} />
+                    ))}
+                    <hr />
+                    {[0, 4, 8, 12, 18, 24].map(n => (
+                      <MenuItem key={`a${n}`} label={t('letter.spaceAfterPt', { n })} active={s.spaceAfter === n}
+                        onClick={() => { run().setParagraphFormat({ spaceAfter: n }).run(); close(); }} />
+                    ))}
                   </>}
                 </Drop>
                 <Drop icon="shading" title="letter.shading" swatch={s.background}>
                   {close => <ColorGrid none="letter.noColor" value={s.background} onPick={c => { run().setParagraphFormat({ background: c }).run(); close(); }} />}
                 </Drop>
                 <Drop icon="borders" title="letter.borders">
-                  {close => <>
-                    <MenuItem label={t('letter.border.bottom')} onClick={() => { setBorders({ bottom: line }); close(); }} />
-                    <MenuItem label={t('letter.border.top')} onClick={() => { setBorders({ top: line }); close(); }} />
-                    <MenuItem label={t('letter.border.left')} onClick={() => { setBorders({ left: { ...line, w: 3, space: 6 } }); close(); }} />
-                    <MenuItem label={t('letter.border.box')} onClick={() => { setBorders({ top: box, right: box, bottom: box, left: box }); close(); }} />
-                    <MenuItem label={t('letter.border.none')} onClick={() => { setBorders(null); close(); }} />
-                  </>}
+                  {close => BORDER_PRESETS.map(([id, make]) => (
+                    <MenuItem key={id} label={t(`letter.border.${id}` as MessageKey)} onClick={() => { setBorders(make(borderColor)); close(); }} />
+                  ))}
                 </Drop>
               </div>
             </div>
@@ -433,15 +451,14 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           </Group>
           <Group label="letter.group.blocks">
             <Drop big icon="callout" title="letter.callout">
-              {close => (['note', 'tip', 'warning', 'success', 'gold'] as CalloutKind[]).map(k => (
-                <MenuItem key={k} label={<><i className={`callout-dot ${k}`} />{t(`letter.callout.${k}` as MessageKey)}</>} onClick={() => { actions.callout(k); close(); }} />
+              {close => CALLOUT_KINDS.map(k => (
+                <MenuItem key={k} label={<><i className="callout-dot" style={{ background: CALLOUTS[k].line }} />{CALLOUTS[k].icon} {t(`letter.callout.${k}` as MessageKey)}</>} onClick={() => { actions.callout(k); close(); }} />
               ))}
             </Drop>
             <Drop big icon="envelope" title="letter.letterBlock">
-              {close => <>
-                <MenuItem label={t('letter.letterBlock.full')} onClick={() => { actions.letterBlock('full'); close(); }} />
-                <MenuItem label={t('letter.letterBlock.closing')} onClick={() => { actions.letterBlock('closing'); close(); }} />
-              </>}
+              {close => LETTER_PARTS.map(k => (
+                <MenuItem key={k} label={t(`letter.part.${k}` as MessageKey)} onClick={() => { actions.letterPart(k); close(); }} />
+              ))}
             </Drop>
             <Btn big icon="toc" title="letter.toc" onClick={actions.toc} disabled={!isBody} />
             <Btn big icon="qr" title="letter.qr" onClick={actions.qr} />
@@ -450,12 +467,10 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
             <Btn big icon="header" title="letter.header" onClick={actions.header} />
             <Btn big icon="footer" title="letter.footer" onClick={actions.footer} />
             <Drop big icon="pagenum" title="letter.pageNumber">
-              {close => <>
-                <MenuItem label={t('letter.pageNumber.top')} onClick={() => { actions.pageNumber('top', false); close(); }} />
-                <MenuItem label={t('letter.pageNumber.bottom')} onClick={() => { actions.pageNumber('bottom', false); close(); }} />
-                <MenuItem label={t('letter.pageNumber.bottomTotal')} onClick={() => { actions.pageNumber('bottom', true); close(); }} />
-                <MenuItem label={t('letter.pageNumber.here')} onClick={() => { actions.pageNumber('here', false); close(); }} />
-              </>}
+              {close => PAGE_NUMBERS.map(([where, align, fmt]) => (
+                <MenuItem key={`${where}-${align}-${fmt}`} label={`${t(`letter.pn.${where}` as MessageKey)} · ${where === 'here' ? '' : `${t(`letter.pn.${align}` as MessageKey)} · `}${pageFormat(fmt).replace('{page}', '1').replace('{pages}', '3')}`}
+                  onClick={() => { actions.pageNumber(where, pageFormat(fmt), align); close(); }} />
+              ))}
             </Drop>
           </Group>
           <Group label="letter.group.text">
@@ -473,22 +488,19 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
 
         {shownTab === 'design' && <>
           <Group label="letter.group.themes">
-            <div className="theme-gallery" role="listbox" aria-label={t('letter.group.themes')}>
-              {THEMES.map(th => (
-                <button key={th.id} type="button" role="option" aria-selected={suite.themeId === th.id}
-                  className={`theme-tile${suite.themeId === th.id ? ' on' : ''}`} onClick={() => actions.theme(th)} title={t(th.name)}
-                  style={{ background: th.page ?? '#FFFFFF', color: th.styles.normal.color ?? (isDark(th.page) ? '#FFFFFF' : '#000000') }}>
-                  <span className="theme-title" style={previewStyle({ ...th.styles.normal, ...th.styles.title, size: 15 }, th.styles.normal)}>Aa</span>
-                  <span className="theme-lines"><i style={{ background: th.styles.h1.color ?? '#2F5496' }} /><i /><i /></span>
-                  <span className="theme-name">{t(th.name)}</span>
-                </button>
-              ))}
+            <div className="theme-gallery" role="listbox" aria-label={t('letter.group.themes')} data-gallery="Themes">
+              {THEMES.map(th => <ThemeTile key={th.id} th={th} on={suite.themeId === th.id} onPick={actions.theme} />)}
             </div>
+            <Drop icon="palette" title="letter.allThemes" wide>
+              {close => <div className="theme-grid">{THEMES.map(th => (
+                <ThemeTile key={th.id} th={th} on={suite.themeId === th.id} onPick={x => { actions.theme(x); close(); }} />
+              ))}</div>}
+            </Drop>
           </Group>
           <Group label="letter.group.spacing">
             <Drop big icon="spacing" title="letter.paragraphSpacing">
               {close => (Object.keys(SPACING) as SpacingId[]).map(id => (
-                <MenuItem key={id} label={t(`letter.spacing.${id}` as MessageKey)}
+                <MenuItem key={id} label={t(`letter.spacing.${id}` as MessageKey)} hint={`${SPACING[id].lineHeight} · ${SPACING[id].after} pt`}
                   active={styles.normal.after === SPACING[id].after && styles.normal.lineHeight === SPACING[id].lineHeight}
                   onClick={() => { actions.spacing(id); close(); }} />
               ))}
@@ -728,7 +740,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           </Group>
           <Group label="letter.group.cleanUp">
             <Drop big icon="clean" title="letter.cleanUp">
-              {close => (['all', 'quotes', 'spaces', 'empty'] as CleanUp[]).map(w => (
+              {close => CLEAN_UPS.map(w => (
                 <MenuItem key={w} label={t(`letter.cleanUp.${w}` as MessageKey)} onClick={() => { actions.cleanUp(w); close(); }} />
               ))}
             </Drop>
@@ -736,7 +748,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
               <Btn icon="sort" title="letter.sortAZ" text onClick={() => actions.sort(1)} />
               <Btn icon="sort" title="letter.sortZA" text onClick={() => actions.sort(-1)} />
               <Drop icon="case" title="letter.changeCase" text>
-                {close => (['sentence', 'lower', 'upper', 'title', 'toggle'] as const).map(m => (
+                {close => CASE_MODES.map(m => (
                   <MenuItem key={m} label={t(`letter.case.${m}` as MessageKey)} onClick={() => { changeCase(editor, m); close(); }} />
                 ))}
               </Drop>
@@ -863,5 +875,18 @@ function TableGrid({ onPick }: { onPick: (rows: number, cols: number) => void })
         </div>
       ))}
     </div>
+  );
+}
+
+/** One theme in the Design gallery: its page, title and heading colors, like Word's theme tiles. */
+function ThemeTile({ th, on, onPick }: { th: (typeof THEMES)[number]; on: boolean; onPick: (th: (typeof THEMES)[number]) => void }) {
+  return (
+    <button type="button" role="option" aria-selected={on}
+      className={`theme-tile${on ? ' on' : ''}`} onClick={() => onPick(th)} title={t(th.name)}
+      style={{ background: th.page ?? '#FFFFFF', color: th.styles.normal.color ?? (isDark(th.page) ? '#FFFFFF' : '#000000') }}>
+      <span className="theme-title" style={previewStyle({ ...th.styles.normal, ...th.styles.title, size: 15 }, th.styles.normal)}>Aa</span>
+      <span className="theme-lines"><i style={{ background: th.styles.h1.color ?? '#2F5496' }} /><i /><i /></span>
+      <span className="theme-name">{t(th.name)}</span>
+    </button>
   );
 }
