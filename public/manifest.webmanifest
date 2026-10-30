@@ -1,15 +1,31 @@
 {
+  "id": "/oi1/",
   "name": "Office In 1",
   "short_name": "OI1",
-  "description": "One office suite: Letter, Class, Stage, ProDFos and more.",
+  "description": "One office suite: Letter, Class, Stage, Code+, ProDFos and a Claude copilot in every app.",
+  "lang": "fr",
+  "dir": "ltr",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#07070A",
   "theme_color": "#07070A",
+  "categories": ["productivity", "business", "education"],
+  "prefer_related_applications": false,
+  "launch_handler": { "client_mode": "focus-existing" },
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
     { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "screenshots": [
+    { "src": "screenshots/home-wide.webp", "sizes": "1440x900", "type": "image/webp", "form_factor": "wide", "label": "Office In 1 home" },
+    { "src": "screenshots/letter-wide.webp", "sizes": "1440x900", "type": "image/webp", "form_factor": "wide", "label": "Letter, the word processor" },
+    { "src": "screenshots/class-wide.webp", "sizes": "1440x900", "type": "image/webp", "form_factor": "wide", "label": "Class, the spreadsheet" },
+    { "src": "screenshots/code-wide.webp", "sizes": "1440x900", "type": "image/webp", "form_factor": "wide", "label": "Code+ with live preview" },
+    { "src": "screenshots/home-phone.webp", "sizes": "390x844", "type": "image/webp", "form_factor": "narrow", "label": "Office In 1 on a phone" },
+    { "src": "screenshots/letter-phone.webp", "sizes": "780x1688", "type": "image/webp", "form_factor": "narrow", "label": "Letter on a phone" }
   ]
 }
