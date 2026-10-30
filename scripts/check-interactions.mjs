@@ -130,6 +130,8 @@ try {
     const box = await body.boundingBox();
     await page.mouse.click(box.x + box.width - 10, box.y + box.height - 6);
     await page.keyboard.press('End');
+    // The editor reads the moved caret on the next selectionchange; a person is never faster than that, the robot is.
+    await page.waitForTimeout(150);
     await page.keyboard.press('Enter');
     const ms = await timed(page, () => page.keyboard.type('Z'), () => document.querySelector('.body-text')?.textContent?.includes('Z'));
     check(ms <= MAX_MS, `Letter: a key shows at once (${ms} ms)`);
@@ -140,6 +142,8 @@ try {
     await page.waitForTimeout(300);
     check(await page.evaluate(() => navigator.clipboard.readText()) === 'Zebra crossing', 'Letter: copy puts the selected text on the clipboard');
     await page.keyboard.press('End');
+    // The editor reads the moved caret on the next selectionchange; a person is never faster than that, the robot is.
+    await page.waitForTimeout(150);
     await page.keyboard.press('Enter');
     // A pause, so the paste is its own step in the undo history, as when a person pastes.
     await page.waitForTimeout(700);
