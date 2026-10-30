@@ -288,7 +288,7 @@ class DocxWriter {
       case 'paragraph': {
         const styleId = node.attrs?.styleId as string | null;
         const style = styleId === 'title' ? { heading: HeadingLevel.TITLE }
-          : styleId === 'subtitle' ? { style: 'Subtitle' } : styleId === 'quote' ? { style: 'Quote' } : {};
+          : styleId === 'subtitle' ? { style: 'Subtitle' } : styleId === 'quote' ? { style: 'Quote' } : styleId === 'caption' ? { style: 'Caption' } : {};
         return [new Paragraph({ children: await this.inline(node.content), ...this.paragraphOptions(node), ...style, ...listOpts })];
       }
       case 'heading': {
@@ -499,11 +499,16 @@ export async function letterToDocx(letter: LetterDoc, title: string, author = 'O
       paragraphStyles: (['subtitle', 'quote'] as const).map(id => ({
         id: WORD_STYLE_IDS[id], name: WORD_STYLE_IDS[id], basedOn: 'Normal', next: 'Normal', quickFormat: true,
         run: runStyle(styles[id]), paragraph: paragraphStyle(styles[id]),
-      })),
+      })).concat([{
+        // Word's own Caption style, for the numbered captions of References > Insert caption.
+        id: 'Caption', name: 'caption', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+        run: { italics: true, size: 18, color: '44546A' }, paragraph: { spacing: { after: 200 } },
+      } as never]),
     },
     numbering: { config: numberingConfig() },
     sections: [{
       properties: {
+        ...(page.lineNumbers ? { lineNumbers: { countBy: page.lineNumbers === 'every10' ? 10 : page.lineNumbers === 'every5' ? 5 : 1, restart: 'continuous' as never, distance: 360 } } : {}),
         page: {
           size: { width: tw(portrait.width), height: tw(portrait.height), orientation: page.orientation === 'landscape' ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT },
           margin: {

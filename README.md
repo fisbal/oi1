@@ -51,7 +51,13 @@ One office suite, one app:
   - **Layout:** hyphenation.
   - **Insert** also has 20 callouts, 20 letter parts in French or English (sender, recipient, references, greetings,
     closings, enclosures, "Without prejudice"…), 20 page number styles, table of contents, QR codes, and tables from Class.
-  - **Layout:** 20 margin presets, 21 paper sizes (A3 to A6, B4, B5, Tabloid, envelopes, cards), 32 proofing languages.
+  - **Layout:** 20 margin presets, 21 paper sizes (A3 to A6, B4, B5, Tabloid, envelopes, cards), 32 proofing languages,
+    line numbers (every paragraph, every 5 or 10, kept in Word files) and right-to-left text.
+  - **References:** citations in 22 styles (APA 7, MLA 9, Chicago, Harvard, IEEE, Vancouver, AMA, Nature, ISO 690,
+    NF Z44-005, OSCOLA, Bluebook…). Each citation keeps its source inside the letter, so changing the style rewrites
+    every citation and the bibliography follows. Paste a title, DOI, ISBN or link and Claude fills in the source.
+    Notes styles add footnotes. Also 20 kinds of numbered captions (Figure, Table, Photo, Annex…) with a table of
+    figures, cross-references ("see Figure 2, page 4"), and an index built from marked words.
   - **Design:** 20 one-click document themes (Office, Corporate, Academic, Official, Military, Newspaper, Handwritten…),
     20 paragraph spacing presets, page background.
   - **Smart:** command search (Alt+Q, about 60 commands), navigation pane, 21 clean-ups (quotes, spaces, empty lines,

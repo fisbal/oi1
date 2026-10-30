@@ -14,6 +14,7 @@ import { CharacterCount, Placeholder } from '@tiptap/extensions';
 import { t } from '../../shell/i18n';
 import { CellBackground, ListStyle, PageBreak, PageNumber, ParagraphFormat, TextStyleExtras } from './extensions';
 import { Pagination } from './pagination';
+import { Citation, IndexTerm } from './references';
 import { Comment, Deletion, Footnote, Insertion, Modification, TrackChanges } from './review';
 import { Search } from './search';
 import { FieldTyping } from './templates/markup';
@@ -74,6 +75,8 @@ export function letterExtensions(part: 'body' | 'header' | 'footer'): Extensions
         Pagination,
         Comment,
         Footnote,
+        Citation,
+        IndexTerm,
         Insertion,
         Deletion,
         Modification,
