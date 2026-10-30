@@ -40,7 +40,7 @@ const TODO = {
   Stage: ['Choose a layout', 'Layout', 'WordArt', 'Diagram', 'Slide size', 'Word stickers'],
 };
 // Tabs still being filled, with the pull request that fills them.
-const TODO_TABS = ['Code+ > GitHub'];
+const TODO_TABS = [];
 
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
 const url = `http://localhost:${PORT}/`;

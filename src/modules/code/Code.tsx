@@ -1,7 +1,9 @@
 // Office Code+: write websites and apps in the browser, see them run as you type (also at phone size),
 // keep them on GitHub and publish them on GitHub Pages, all without installing anything.
 
+import { snippet } from '@codemirror/autocomplete';
 import { redo, toggleComment, undo } from '@codemirror/commands';
+import { setDiagnostics, type Diagnostic } from '@codemirror/lint';
 import { openSearchPanel, gotoLine } from '@codemirror/search';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { FileRef, Handoff, OpenedFile, RecentFile, ShellApi, TableData } from '../../shell/contract';
@@ -19,6 +21,15 @@ import { QR_LIMIT, emptyProject, packRun, readEntry, readPicked, readZip, runLin
 import { TEMPLATES, type Template } from './templates';
 import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
 import { codeCopilot } from './copilot';
+import { RULES, applyFixes, lintProject, ruleById, ruleName, ruleWhy, rulesOff, setRuleOff, type Problem } from './lint';
+import { HELPERS, askClaude, askHelper, helperKeys, localFindings, mergeFindings, pickFiles, reviewPrompt, toFindings, applyFinding } from './corrector';
+import { KeysDialog, Proposals, Versions, type Decision, type Proposal } from './correctorUi';
+import { replaceInFiles, searchFiles, type SearchOptions } from './search';
+import { SNIPPETS, snipLangOf } from './snippets';
+import { GITIGNORES, LICENSES, gitignore, license, readme } from './starters';
+import { runTests, testFiles, testTemplate, type TestRun } from './tests';
+import { bestVersion, loadVersions, newVersion, sameFiles, saveVersions, type Score, type Version } from './versions';
+import { LANGUAGES, getLanguage } from '../../shell/i18n';
 
 export const EXTENSIONS = [
   '.zip', '.js', '.mjs', '.jsx', '.ts', '.tsx', '.css', '.scss', '.json', '.md', '.py', '.sql', '.xml', '.yaml', '.yml',
@@ -140,7 +151,23 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   const [project, setProjectState] = useState(initial);
   const projectRef = useRef(project);
   const [fileRef, setFileRef] = useState<FileRef | null>(initialRef);
-  const [tab, setTab] = useState<'home' | 'run' | 'github' | 'oi1'>('home');
+  const [tab, setTab] = useState<'home' | 'run' | 'tools' | 'corrector' | 'github' | 'oi1'>('home');
+  const [dock, setDock] = useState<null | 'problems' | 'search' | 'tests' | 'corrector' | 'versions'>(null);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [decided, setDecided] = useState<Record<string, Decision>>({});
+  const [mcBusy, setMcBusy] = useState<string | null>(null);
+  const [mcWarning, setMcWarning] = useState<{ text: string; path: string; before: string; id: string } | null>(null);
+  const [helpers, setHelpers] = useState<string[]>(() => prefs.get('helpers', []));
+  const [keysOpen, setKeysOpen] = useState(false);
+  const [versions, setVersions] = useState<Version[]>([]);
+  const [off, setOff] = useState(rulesOff);
+  const [problems, setProblems] = useState<Problem[]>([]);
+  const [testRun, setTestRun] = useState<TestRun | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [watchTests, setWatchTests] = useState(() => prefs.get('watchTests', false));
+  const [query, setQuery] = useState('');
+  const [replacement, setReplacement] = useState('');
+  const [searchOpts, setSearchOpts] = useState<SearchOptions>({ regex: false, caseSensitive: false, wholeWord: false });
   const [panel, setPanel] = useState<null | 'file' | 'templates' | 'connect' | 'repo' | 'push' | 'qr'>(null);
   const narrow = () => window.matchMedia('(max-width: 820px)').matches;
   const [showTree, setShowTree] = useState(() => !narrow() && prefs.get('tree', true));
@@ -177,6 +204,8 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   useEffect(() => prefs.set('autoRun', autoRun), [autoRun]);
   useEffect(() => prefs.set('device', device), [device]);
   useEffect(() => prefs.set('split', split), [split]);
+  useEffect(() => prefs.set('watchTests', watchTests), [watchTests]);
+  useEffect(() => prefs.set('helpers', helpers), [helpers]);
 
   // ---------- the project ----------
   const saveTimer = useRef(0);
@@ -363,6 +392,196 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   };
   const command = (fn: (v: NonNullable<EditorApi['view']>) => unknown) => () => { const v = view(); if (v) { fn(v); v.focus(); } };
 
+  // ---------- problems, snippets, search, tests ----------
+  useEffect(() => {
+    const id = window.setTimeout(() => setProblems(lintProject(project.files, off)), 250);
+    return () => window.clearTimeout(id);
+  }, [project.files, off]);
+  // The open file's problems are also underlined in the editor, with their fix one click away.
+  useEffect(() => {
+    const v = editor.current.view;
+    if (!v || !active) return;
+    const len = v.state.doc.length;
+    const diags: Diagnostic[] = problems.filter(p => p.path === active && p.to <= len).map(p => {
+      const rule = ruleById(p.rule)!;
+      const fix = p.fix;
+      return {
+        from: p.from, to: p.to, severity: p.severity, source: ruleName(rule), message: ruleWhy(rule),
+        actions: fix ? [{ name: t('code.fix'), apply: (cm, from) => cm.dispatch({ changes: { from: from + fix.from - p.from, to: from + fix.to - p.from, insert: fix.insert } }) }] : [],
+      };
+    });
+    v.dispatch(setDiagnostics(v.state, diags));
+  }, [problems, active]);
+
+  /** Fixes problems on the current text (checked again first, so a fix never lands in the wrong place). */
+  const fixProblems = (path: string | null, rule?: string, at?: { line: number; col: number }) => {
+    let fixed = 0;
+    update(p => {
+      const files = { ...p.files };
+      for (const file of path ? [path] : Object.keys(files)) {
+        for (let pass = 0; pass < 5; pass++) {
+          const fixes = lintProject({ [file]: files[file] }, off)
+            .filter(x => x.fix && (!rule || x.rule === rule) && (!at || (x.line === at.line && x.col === at.col)))
+            .map(x => x.fix!);
+          if (!fixes.length) break;
+          const next = applyFixes(files[file], at ? fixes.slice(0, 1) : fixes);
+          if (next === files[file]) break;
+          files[file] = next; fixed += at ? 1 : fixes.length;
+          if (at) break;
+        }
+      }
+      return { ...p, files };
+    });
+    window.setTimeout(() => shell.notify(fixed ? t('code.fixed', { n: fixed }) : t('code.nothingToFix')), 0);
+  };
+  const toggleRule = (id: string) => { const on = off.has(id); setRuleOff(id, !on); setOff(rulesOff()); };
+
+  const insertSnippet = (body: string) => {
+    const v = view();
+    if (!v) { shell.notify(t('code.pickFile')); return; }
+    const { from, to } = v.state.selection.main;
+    snippet(body)(v, null, from, to);
+    v.focus();
+  };
+
+  const matches = useMemo(() => (dock === 'search' ? searchFiles(project.files, query, searchOpts) : []), [dock, project.files, query, searchOpts]);
+  const replaceAll = (only?: string) => {
+    const r = replaceInFiles(projectRef.current.files, query, replacement, searchOpts, only ? new Set([only]) : undefined);
+    if (r.count) update(p => ({ ...p, files: r.files }));
+    shell.notify(t('code.replaced', { n: r.count }));
+  };
+
+  const test = useCallback(async (quiet = false) => {
+    if (!testFiles(projectRef.current.files).length) {
+      if (!quiet) { setDock('tests'); setTestRun({ results: [], errors: [], ms: 0 }); }
+      return;
+    }
+    setTesting(true);
+    if (!quiet) setDock('tests');
+    try { setTestRun(await runTests(projectRef.current.files)); } finally { setTesting(false); }
+  }, []);
+  // Watch mode: the tests run again a moment after each change.
+  useEffect(() => {
+    if (!watchTests || !testFiles(project.files).length) return;
+    const id = window.setTimeout(() => void test(true), 900);
+    return () => window.clearTimeout(id);
+  }, [project.files, watchTests, test]);
+  const newTest = () => {
+    const tpl = testTemplate(active ?? 'app.js');
+    const path = freePath(projectRef.current.files, tpl.path);
+    update(p => ({ ...p, files: { ...p.files, [path]: tpl.content }, open: [...p.open, path], active: path }));
+  };
+
+  const addStarter = async (path: string, make: () => Promise<string> | string) => {
+    if (projectRef.current.files[path] !== undefined && !confirm(t('code.replaceFile', { name: path }))) return;
+    setBusy({ label: path });
+    try {
+      const content = await make();
+      update(p => ({ ...p, files: { ...p.files, [path]: content }, open: p.open.includes(path) ? p.open : [...p.open, path], active: path }));
+    } finally { setBusy(null); }
+  };
+  const owner = () => account?.name || account?.login || title;
+
+  // ---------- the Master corrector and versions ----------
+  const projectKey = slug(title);
+  useEffect(() => { setVersions(loadVersions(projectKey)); }, [projectKey]);
+  const scoreNow = async (files: Files): Promise<{ score: Score; run: TestRun | null }> => {
+    const found = lintProject(files, off);
+    const run = testFiles(files).length ? await runTests(files) : null;
+    return {
+      run,
+      score: { passed: run?.results.filter(r => r.ok).length ?? 0, failed: (run?.results.filter(r => !r.ok).length ?? 0) + (run?.errors.length ?? 0), errors: found.filter(p => p.severity === 'error').length, warnings: found.filter(p => p.severity === 'warning').length },
+    };
+  };
+  /** Keeps a version of the project as it is now (skipped when nothing changed since the last one). */
+  const snapshot = async (label: string): Promise<{ score: Score; run: TestRun | null }> => {
+    const files = projectRef.current.files;
+    const result = await scoreNow(files);
+    setVersions(list => {
+      const last = list[list.length - 1];
+      if (last && sameFiles(last.files, files)) return list;
+      return saveVersions(projectKey, [...list, newVersion(label, files, result.score)]);
+    });
+    return result;
+  };
+  const baseline = useRef<Score | null>(null);
+
+  const analyse = async (only: string | null) => {
+    if (empty || mcBusy) return;
+    const files = projectRef.current.files;
+    const paths = only ? [only] : Object.keys(files);
+    setDock('corrector'); setMcWarning(null); setDecided({}); setProposals([]);
+    setMcBusy(t('code.mc.step.version'));
+    const { score, run } = await snapshot(t('code.v.beforeAnalysis'));
+    baseline.current = score;
+    if (run) setTestRun(run);
+    setMcBusy(t('code.mc.step.local'));
+    const lists = [localFindings(files, paths, off)];
+    setProposals(mergeFindings(lists));
+    const picked = pickFiles(files, paths);
+    const quick = lintProject(picked, off).map(p => `${p.path}:${p.line} ${p.message}`);
+    const language = LANGUAGES.find(l => l.code === getLanguage())?.name ?? 'English';
+    const prompt = reviewPrompt(picked, run, quick, language);
+    const keys = helperKeys();
+    const asks: Promise<void>[] = [];
+    if (shell.ai.ready()) {
+      asks.push(askClaude(shell.ai, prompt).then(a => { lists.push(toFindings(a, files, 'Claude')); setProposals(mergeFindings(lists)); })
+        .catch(e => shell.notify(`Claude: ${e instanceof Error ? e.message : String(e)}`)));
+    }
+    for (const h of HELPERS.filter(x => helpers.includes(x.id) && (keys[x.id] || x.local))) {
+      asks.push(askHelper(h, keys[h.id] ?? '', prompt).then(a => { lists.push(toFindings(a, files, h.name)); setProposals(mergeFindings(lists)); })
+        .catch(e => shell.notify(t('code.mc.helperFailed', { name: h.name, error: e instanceof Error ? e.message : String(e) }))));
+    }
+    if (asks.length) { setMcBusy(t('code.mc.step.ai', { n: asks.length })); await Promise.all(asks); }
+    else shell.notify(t('code.mc.noAi'));
+    setMcBusy(null);
+  };
+
+  const accept = async (f: Proposal, edit = false) => {
+    const now = projectRef.current.files[f.path];
+    const next = now === undefined ? null : applyFinding(now, f, off);
+    if (next === null) { setDecided(d => ({ ...d, [f.id]: 'outdated' })); return; }
+    writeFile(f.path, next);
+    setDecided(d => ({ ...d, [f.id]: 'accepted' }));
+    if (edit) { goTo(f.path, f.line); return; }
+    // The tests run again: if they get worse, going back is offered at once.
+    if (!testFiles(projectRef.current.files).length) return;
+    await new Promise(r => window.setTimeout(r, 30));
+    const { score, run } = await scoreNow(projectRef.current.files);
+    if (run) setTestRun(run);
+    const base = baseline.current;
+    if (base && (score.passed < base.passed || score.failed > base.failed)) {
+      setMcWarning({ text: t('code.mc.worse', { title: f.title }), path: f.path, before: now!, id: f.id });
+    } else baseline.current = score;
+  };
+  const undoWarning = () => {
+    if (!mcWarning) return;
+    writeFile(mcWarning.path, mcWarning.before);
+    setDecided(d => ({ ...d, [mcWarning.id]: 'rejected' }));
+    setMcWarning(null);
+  };
+  const acceptSafe = () => {
+    let n = 0;
+    for (const f of proposals) if (!decided[f.id] && f.source === 'local' && f.severity !== 'info') { void accept(f); n++; }
+    shell.notify(t('code.fixed', { n }));
+  };
+  const rejectAll = () => setDecided(d => Object.fromEntries([...Object.entries(d), ...proposals.filter(f => !d[f.id]).map(f => [f.id, 'rejected' as Decision])]));
+
+  const restore = async (v: Version) => {
+    if (!confirm(t('code.v.restoreAsk', { label: v.label }))) return;
+    await snapshot(t('code.v.beforeRestore'));
+    update(p => {
+      const open = p.open.filter(x => v.files[x] !== undefined);
+      return { ...p, files: { ...v.files }, open, active: p.active && v.files[p.active] !== undefined ? p.active : open[0] ?? null };
+    });
+    shell.notify(t('code.v.restored', { label: v.label }));
+  };
+  const writeOrRemove = (path: string, text: string | null) => {
+    if (text === null) update(p => { const files = { ...p.files }; delete files[path]; return { ...p, files, open: p.open.filter(x => x !== path), active: p.active === path ? null : p.active }; });
+    else update(p => ({ ...p, files: { ...p.files, [path]: text }, open: p.open.includes(path) ? p.open : [...p.open, path] }));
+  };
+  const best = bestVersion(versions);
+
   // ---------- saving and opening ----------
   const baseName = () => slug(title);
   const saveZip = async (saveAs = false) => {
@@ -521,7 +740,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
       <div className="ribbon">
         <div className="ribbon-tabs" role="tablist">
           <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
-          {([['home', 'letter.tab.home'], ['run', 'code.tab.run'], ['github', 'code.tab.github']] as const).map(([id, label]) => (
+          {([['home', 'letter.tab.home'], ['run', 'code.tab.run'], ['tools', 'code.tab.tools'], ['corrector', 'code.tab.corrector'], ['github', 'code.tab.github']] as const).map(([id, label]) => (
             <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{t(label)}</button>
           ))}
           <button type="button" role="tab" aria-selected={tab === 'oi1'} className={`ribbon-special${tab === 'oi1' ? ' on' : ''}`} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
@@ -597,7 +816,89 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
               <Btn big icon="qr" title="code.onPhone" onClick={() => void showQr('preview')} disabled={!preview} />
             </Group>
           </>}
+          {tab === 'tools' && <>
+            <Group label="code.group.check">
+              <Btn big icon="shield" title={problems.length ? t('code.problemsN', { n: problems.length }) : 'code.problems'} active={dock === 'problems'} onClick={() => setDock(d => (d === 'problems' ? null : 'problems'))} />
+              <div className="stack">
+                <Btn icon="sparkle" title="code.fixFile" text onClick={() => fixProblems(active)} disabled={!active} />
+                <Btn icon="clean" title="code.fixAll" text onClick={() => fixProblems(null)} disabled={empty} />
+                <Drop icon="gear" title="code.rules" text wide>
+                  {() => <>
+                    <span className="kicker">{t('code.rulesHint')}</span>
+                    {RULES.map(r => <MenuItem key={r.id} label={ruleName(r)} hint={t(`code.sev.${r.severity}`)} active={!off.has(r.id)} onClick={() => toggleRule(r.id)} />)}
+                  </>}
+                </Drop>
+              </div>
+            </Group>
+            <Group label="code.group.searchAll">
+              <Btn big icon="search" title="code.searchAll" active={dock === 'search'} onClick={() => { setDock(d => (d === 'search' ? null : 'search')); window.setTimeout(() => document.querySelector<HTMLInputElement>('.code-dock .dock-search input')?.focus(), 50); }} />
+              <Btn big icon="replace" title="code.replaceAll" onClick={() => { setDock('search'); window.setTimeout(() => document.querySelector<HTMLInputElement>('.code-dock .dock-replace')?.focus(), 50); }} />
+            </Group>
+            <Group label="code.group.snippets">
+              <Drop big icon="code" title="code.snippet" disabled={!active} wide>
+                {close => <>
+                  <span className="kicker">{t('code.snippetHint')}</span>
+                  {SNIPPETS[snipLangOf(active)].map(x => <MenuItem key={x.label} label={x.detail} hint={x.label} onClick={() => { close(); insertSnippet(x.body); }} />)}
+                </>}
+              </Drop>
+            </Group>
+            <Group label="code.group.tests">
+              <Btn big icon="play" title="code.runTests" onClick={() => void test()} disabled={empty || testing} />
+              <div className="stack">
+                <Btn icon="sync" title="code.watchTests" text active={watchTests} onClick={() => setWatchTests(w => !w)} />
+                <Btn icon="file" title="code.newTest" text onClick={newTest} disabled={empty} />
+                <Btn icon="check" title="code.testResults" text active={dock === 'tests'} onClick={() => setDock(d => (d === 'tests' ? null : 'tests'))} />
+              </div>
+            </Group>
+          </>}
+          {tab === 'corrector' && <>
+            <Group label="code.group.analyse">
+              <Btn big icon="sparkle" title="code.mc.analyseProject" onClick={() => void analyse(null)} disabled={empty || !!mcBusy} />
+              <Btn big icon="file" title="code.mc.analyseFile" onClick={() => void analyse(active)} disabled={!active || !!mcBusy} />
+            </Group>
+            <Group label="code.group.helpers">
+              <Drop big icon="speak" title="code.mc.helpers" wide>
+                {() => <>
+                  <span className="kicker">{t('code.mc.helpersHint')}</span>
+                  <MenuItem label="Claude" hint={shell.ai.ready() ? t('code.mc.ready') : t('code.mc.notSet')} active={shell.ai.ready()} onClick={() => setCopilot(true)} />
+                  {HELPERS.map(h => {
+                    const usable = !!helperKeys()[h.id] || !!h.local;
+                    return <MenuItem key={h.id} label={h.name} hint={usable ? '' : t('code.mc.needsKey')} active={helpers.includes(h.id)}
+                      onClick={() => { if (!usable) { setKeysOpen(true); return; } setHelpers(l => (l.includes(h.id) ? l.filter(x => x !== h.id) : [...l, h.id])); }} />;
+                  })}
+                </>}
+              </Drop>
+              <Btn big icon="gear" title="code.mc.keys" onClick={() => setKeysOpen(true)} />
+            </Group>
+            <Group label="code.group.decide">
+              <Btn big icon="comment" title={proposals.length ? t('code.mc.proposalsN', { n: proposals.filter(f => !decided[f.id]).length }) : 'code.mc.proposals'} active={dock === 'corrector'} onClick={() => setDock(d => (d === 'corrector' ? null : 'corrector'))} />
+              <div className="stack">
+                <Btn icon="accept" title="code.mc.acceptSafe" text onClick={acceptSafe} disabled={!proposals.some(f => !decided[f.id] && f.source === 'local')} />
+                <Btn icon="reject" title="code.mc.rejectAll" text onClick={rejectAll} disabled={!proposals.some(f => !decided[f.id])} />
+              </div>
+            </Group>
+            <Group label="code.group.versions">
+              <Btn big icon="save" title="code.v.save" onClick={() => { void snapshot(t('code.v.manual')).then(() => shell.notify(t('code.v.saved'))); }} disabled={empty} />
+              <Btn big icon="undo" title="code.v.backToBest" onClick={() => best && void restore(best)} disabled={!best || sameFiles(best.files, project.files)} />
+              <Btn big icon="sync" title="code.v.list" active={dock === 'versions'} onClick={() => setDock(d => (d === 'versions' ? null : 'versions'))} />
+            </Group>
+          </>}
           {tab === 'github' && <>
+            <Group label="code.group.starters">
+              <Drop big icon="file" title="code.gitignore" disabled={empty} wide>
+                {close => <>
+                  <span className="kicker">{t('code.gitignoreHint')}</span>
+                  {GITIGNORES.map(n => <MenuItem key={n} label={n} onClick={() => { close(); void addStarter('.gitignore', () => gitignore(n)); }} />)}
+                </>}
+              </Drop>
+              <Drop big icon="shield" title="code.license" disabled={empty} wide>
+                {close => <>
+                  <span className="kicker">{t('code.licenseHint')}</span>
+                  {LICENSES.map(l => <MenuItem key={l.id} label={l.name} hint={l.id === 'proprietary' ? '' : l.id} onClick={() => { close(); void addStarter('LICENSE', () => license(l.id, owner())); }} />)}
+                </>}
+              </Drop>
+              <Btn big icon="letter" title="code.readme" onClick={() => void addStarter('README.md', () => readme(title, projectRef.current.files, g?.pages))} disabled={empty} />
+            </Group>
             <Group label="code.group.account">
               {account
                 ? <Btn big icon="github" title={t('code.gh.signedIn', { login: account.login })} onClick={() => { if (confirm(t('code.gh.signOutAsk'))) { github.saveAccount(null); setAccount(null); } }} active />
@@ -676,6 +977,90 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
                 ? <CodeEditor path={active} content={content} onChange={writeFile} wrap={wrap} api={editor}
                     onCursor={(line, col, selected) => setCursor({ line, col, selected })} />
                 : <div className="code-media"><p className="muted">{t('code.pickFile')}</p></div>}
+            {dock && (
+              <div className="code-dock">
+                <header role="tablist">
+                  {(['problems', 'search', 'tests', 'corrector', 'versions'] as const).map(d => (
+                    <button key={d} type="button" role="tab" aria-selected={dock === d} className={dock === d ? 'on' : ''} onClick={() => setDock(d)}>
+                      {t(`code.dock.${d}`)}
+                      {d === 'problems' && problems.length > 0 && <b>{problems.length}</b>}
+                      {d === 'corrector' && proposals.some(f => !decided[f.id]) && <b>{proposals.filter(f => !decided[f.id]).length}</b>}
+                      {d === 'tests' && testRun && testRun.results.length > 0 && <b className={testRun.results.every(r => r.ok) ? 'ok' : 'bad'}>{testRun.results.filter(r => r.ok).length}/{testRun.results.length}</b>}
+                    </button>
+                  ))}
+                  <span className="grow" />
+                  <button type="button" aria-label={t('letter.close')} title={t('letter.close')} onClick={() => setDock(null)}>×</button>
+                </header>
+                {dock === 'problems' && (
+                  <ol className="dock-list">
+                    {problems.length === 0 && <li className="muted">{t('code.noProblems')}</li>}
+                    {problems.slice(0, 500).map((p, i) => {
+                      const rule = ruleById(p.rule)!;
+                      return (
+                        <li key={i} className={`sev-${p.severity}`}>
+                          <span className="sev-dot" title={t(`code.sev.${p.severity}`)} />
+                          <button type="button" className="where" onClick={() => goTo(p.path, p.line)}>{p.path}:{p.line}</button>
+                          <span className="what"><b>{p.message}</b> <span className="muted">{ruleWhy(rule)}</span></span>
+                          {p.fix && <button type="button" className="fix" onClick={() => fixProblems(p.path, p.rule, { line: p.line, col: p.col })}>{t('code.fix')}</button>}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+                {dock === 'search' && <>
+                  <div className="dock-search">
+                    <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('code.searchAll')} aria-label={t('code.searchAll')} />
+                    <button type="button" className={searchOpts.caseSensitive ? 'on' : ''} title={t('code.matchCase')} aria-pressed={searchOpts.caseSensitive} onClick={() => setSearchOpts(o => ({ ...o, caseSensitive: !o.caseSensitive }))}>Aa</button>
+                    <button type="button" className={searchOpts.wholeWord ? 'on' : ''} title={t('code.wholeWord')} aria-pressed={searchOpts.wholeWord} onClick={() => setSearchOpts(o => ({ ...o, wholeWord: !o.wholeWord }))}>ab</button>
+                    <button type="button" className={searchOpts.regex ? 'on' : ''} title={t('code.regex')} aria-pressed={searchOpts.regex} onClick={() => setSearchOpts(o => ({ ...o, regex: !o.regex }))}>.*</button>
+                    <input className="dock-replace" value={replacement} onChange={e => setReplacement(e.target.value)} placeholder={t('code.replaceWith')} aria-label={t('code.replaceWith')} />
+                    <button type="button" className="fix" onClick={() => replaceAll()} disabled={!matches.length}>{t('code.replaceAll')}</button>
+                  </div>
+                  <ol className="dock-list">
+                    {query && matches.length === 0 && <li className="muted">{t('code.noMatches')}</li>}
+                    {matches.length > 0 && <li className="muted">{t('code.matchesN', { n: matches.length, files: new Set(matches.map(m => m.path)).size })}</li>}
+                    {matches.slice(0, 500).map((m, i) => (
+                      <li key={i}>
+                        <button type="button" className="where" onClick={() => goTo(m.path, m.line)}>{m.path}:{m.line}</button>
+                        <code className="what">{m.text.slice(Math.max(0, m.col - 41), m.col - 1)}<mark>{m.text.slice(m.col - 1, m.col - 1 + m.to - m.from)}</mark>{m.text.slice(m.col - 1 + m.to - m.from, m.col + 80)}</code>
+                        {(i === 0 || matches[i - 1].path !== m.path) && <button type="button" className="fix" onClick={() => replaceAll(m.path)}>{t('code.replaceInFile')}</button>}
+                      </li>
+                    ))}
+                  </ol>
+                </>}
+                {dock === 'corrector' && (
+                  <Proposals list={proposals} decided={decided} busy={mcBusy} warning={mcWarning?.text ?? null}
+                    onAccept={f => void accept(f)} onEdit={f => void accept(f, true)} onReject={f => setDecided(d => ({ ...d, [f.id]: 'rejected' }))}
+                    onUndoWarning={undoWarning} goTo={goTo} />
+                )}
+                {dock === 'versions' && (
+                  <Versions list={versions} current={project.files} onRestore={v => void restore(v)} onWrite={writeOrRemove}
+                    onSave={() => void snapshot(t('code.v.manual'))} />
+                )}
+                {dock === 'tests' && (
+                  <ol className="dock-list">
+                    {testing && <li className="muted">{t('code.testing')}</li>}
+                    {!testing && testRun && testRun.results.length === 0 && testRun.errors.length === 0 && (
+                      <li className="muted">{t('code.noTests')} <button type="button" className="fix" onClick={newTest}>{t('code.newTest')}</button></li>
+                    )}
+                    {testRun && testRun.results.length > 0 && (
+                      <li className={testRun.results.every(r => r.ok) ? 'test-ok' : 'test-bad'}>
+                        <b>{t('code.testSummary', { ok: testRun.results.filter(r => r.ok).length, n: testRun.results.length, ms: testRun.ms })}</b>
+                      </li>
+                    )}
+                    {testRun?.errors.map((e, i) => <li key={`e${i}`} className="sev-error"><span className="sev-dot" /><span className="what">{e}</span></li>)}
+                    {testRun?.results.map((r, i) => (
+                      <li key={i} className={r.ok ? 'test-ok' : 'test-bad'}>
+                        <span className="test-mark">{r.ok ? '✓' : '✗'}</span>
+                        <span className="what"><span className="muted">{r.suite ? `${r.suite} › ` : ''}</span>{r.name}{r.error && <><br /><span className="test-error">{r.error}</span></>}</span>
+                        {r.file && <button type="button" className="where" onClick={() => goTo(r.file)}>{r.file}</button>}
+                        <span className="muted">{r.ms} ms</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            )}
           </section>
           {showPreview && <div className="code-split" onPointerDown={drag} role="separator" aria-orientation="vertical" />}
           {showPreview && (
@@ -725,6 +1110,9 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
         {active && !isBinary(content) && <span>{t('code.lineCol', { line: cursor.line, col: cursor.col })}{cursor.selected ? ` (${t('code.selected', { n: cursor.selected })})` : ''}</span>}
         {active && <span>{languageName(active)}</span>}
         {g && <button type="button" className="status-btn" onClick={() => setTab('github')}><Icon name="github" size={13} /> {g.repo}</button>}
+        <button type="button" className={`status-btn${problems.some(p => p.severity === 'error') ? ' status-errors' : ''}`} onClick={() => setDock(d => (d === 'problems' ? null : 'problems'))}>
+          <Icon name="shield" size={13} /> {problems.length ? t('code.problemsN', { n: problems.length }) : t('code.noProblemsShort')}
+        </button>
         <button type="button" className={`status-btn${errorCount ? ' status-errors' : ''}`} onClick={() => { setShowPreview(true); setConsoleOpen(o => !o); }}>
           <Icon name="terminal" size={13} /> {errorCount ? t('code.errors', { n: errorCount }) : t('code.console')}
         </button>
@@ -763,6 +1151,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
           onSaveAs={f => (f === 'zip' ? void saveZip(true) : f === 'site' ? void saveSite() : saveThis())}
           listRecent={shell.recent.list} onOpenRecent={r => void openRecent(r)} />
       )}
+      {keysOpen && <KeysDialog onClose={() => { setKeysOpen(false); setHelpers(l => [...l]); }} />}
       {panel === 'templates' && (
         <Modal title={t('code.newProject')} onClose={() => setPanel(null)} wide>
           <TemplateGrid onPick={tpl => { setPanel(null); startFrom(tpl); }} />
