@@ -1605,7 +1605,7 @@ const fr: Messages = {
   'letter.moreColors': 'Autres couleurs…',
   'letter.outdent': 'Diminuer le retrait',
   'letter.indent': 'Augmenter le retrait',
-  'letter.showMarks': 'Afficher les marques de mise en forme',
+  'letter.showMarks': 'Marques de mise en forme',
   'letter.lineSpacing': 'Interligne et espacement des paragraphes',
   'letter.addSpaceBefore': 'Ajouter un espace avant le paragraphe',
   'letter.removeSpaceBefore': 'Supprimer l’espace avant le paragraphe',
