@@ -22,10 +22,14 @@ import { TEMPLATES, type Template } from './templates';
 import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
 import { codeCopilot } from './copilot';
 import { RULES, applyFixes, lintProject, ruleById, ruleName, ruleWhy, rulesOff, setRuleOff, type Problem } from './lint';
+import { HELPERS, askClaude, askHelper, helperKeys, localFindings, mergeFindings, pickFiles, reviewPrompt, toFindings, applyFinding } from './corrector';
+import { KeysDialog, Proposals, Versions, type Decision, type Proposal } from './correctorUi';
 import { replaceInFiles, searchFiles, type SearchOptions } from './search';
 import { SNIPPETS, snipLangOf } from './snippets';
 import { GITIGNORES, LICENSES, gitignore, license, readme } from './starters';
 import { runTests, testFiles, testTemplate, type TestRun } from './tests';
+import { bestVersion, loadVersions, newVersion, sameFiles, saveVersions, type Score, type Version } from './versions';
+import { LANGUAGES, getLanguage } from '../../shell/i18n';
 
 export const EXTENSIONS = [
   '.zip', '.js', '.mjs', '.jsx', '.ts', '.tsx', '.css', '.scss', '.json', '.md', '.py', '.sql', '.xml', '.yaml', '.yml',
@@ -147,8 +151,15 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   const [project, setProjectState] = useState(initial);
   const projectRef = useRef(project);
   const [fileRef, setFileRef] = useState<FileRef | null>(initialRef);
-  const [tab, setTab] = useState<'home' | 'run' | 'tools' | 'github' | 'oi1'>('home');
-  const [dock, setDock] = useState<null | 'problems' | 'search' | 'tests'>(null);
+  const [tab, setTab] = useState<'home' | 'run' | 'tools' | 'corrector' | 'github' | 'oi1'>('home');
+  const [dock, setDock] = useState<null | 'problems' | 'search' | 'tests' | 'corrector' | 'versions'>(null);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [decided, setDecided] = useState<Record<string, Decision>>({});
+  const [mcBusy, setMcBusy] = useState<string | null>(null);
+  const [mcWarning, setMcWarning] = useState<{ text: string; path: string; before: string; id: string } | null>(null);
+  const [helpers, setHelpers] = useState<string[]>(() => prefs.get('helpers', []));
+  const [keysOpen, setKeysOpen] = useState(false);
+  const [versions, setVersions] = useState<Version[]>([]);
   const [off, setOff] = useState(rulesOff);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [testRun, setTestRun] = useState<TestRun | null>(null);
@@ -194,6 +205,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   useEffect(() => prefs.set('device', device), [device]);
   useEffect(() => prefs.set('split', split), [split]);
   useEffect(() => prefs.set('watchTests', watchTests), [watchTests]);
+  useEffect(() => prefs.set('helpers', helpers), [helpers]);
 
   // ---------- the project ----------
   const saveTimer = useRef(0);
@@ -470,6 +482,106 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   };
   const owner = () => account?.name || account?.login || title;
 
+  // ---------- the Master corrector and versions ----------
+  const projectKey = slug(title);
+  useEffect(() => { setVersions(loadVersions(projectKey)); }, [projectKey]);
+  const scoreNow = async (files: Files): Promise<{ score: Score; run: TestRun | null }> => {
+    const found = lintProject(files, off);
+    const run = testFiles(files).length ? await runTests(files) : null;
+    return {
+      run,
+      score: { passed: run?.results.filter(r => r.ok).length ?? 0, failed: (run?.results.filter(r => !r.ok).length ?? 0) + (run?.errors.length ?? 0), errors: found.filter(p => p.severity === 'error').length, warnings: found.filter(p => p.severity === 'warning').length },
+    };
+  };
+  /** Keeps a version of the project as it is now (skipped when nothing changed since the last one). */
+  const snapshot = async (label: string): Promise<{ score: Score; run: TestRun | null }> => {
+    const files = projectRef.current.files;
+    const result = await scoreNow(files);
+    setVersions(list => {
+      const last = list[list.length - 1];
+      if (last && sameFiles(last.files, files)) return list;
+      return saveVersions(projectKey, [...list, newVersion(label, files, result.score)]);
+    });
+    return result;
+  };
+  const baseline = useRef<Score | null>(null);
+
+  const analyse = async (only: string | null) => {
+    if (empty || mcBusy) return;
+    const files = projectRef.current.files;
+    const paths = only ? [only] : Object.keys(files);
+    setDock('corrector'); setMcWarning(null); setDecided({}); setProposals([]);
+    setMcBusy(t('code.mc.step.version'));
+    const { score, run } = await snapshot(t('code.v.beforeAnalysis'));
+    baseline.current = score;
+    if (run) setTestRun(run);
+    setMcBusy(t('code.mc.step.local'));
+    const lists = [localFindings(files, paths, off)];
+    setProposals(mergeFindings(lists));
+    const picked = pickFiles(files, paths);
+    const quick = lintProject(picked, off).map(p => `${p.path}:${p.line} ${p.message}`);
+    const language = LANGUAGES.find(l => l.code === getLanguage())?.name ?? 'English';
+    const prompt = reviewPrompt(picked, run, quick, language);
+    const keys = helperKeys();
+    const asks: Promise<void>[] = [];
+    if (shell.ai.ready()) {
+      asks.push(askClaude(shell.ai, prompt).then(a => { lists.push(toFindings(a, files, 'Claude')); setProposals(mergeFindings(lists)); })
+        .catch(e => shell.notify(`Claude: ${e instanceof Error ? e.message : String(e)}`)));
+    }
+    for (const h of HELPERS.filter(x => helpers.includes(x.id) && (keys[x.id] || x.local))) {
+      asks.push(askHelper(h, keys[h.id] ?? '', prompt).then(a => { lists.push(toFindings(a, files, h.name)); setProposals(mergeFindings(lists)); })
+        .catch(e => shell.notify(t('code.mc.helperFailed', { name: h.name, error: e instanceof Error ? e.message : String(e) }))));
+    }
+    if (asks.length) { setMcBusy(t('code.mc.step.ai', { n: asks.length })); await Promise.all(asks); }
+    else shell.notify(t('code.mc.noAi'));
+    setMcBusy(null);
+  };
+
+  const accept = async (f: Proposal, edit = false) => {
+    const now = projectRef.current.files[f.path];
+    const next = now === undefined ? null : applyFinding(now, f, off);
+    if (next === null) { setDecided(d => ({ ...d, [f.id]: 'outdated' })); return; }
+    writeFile(f.path, next);
+    setDecided(d => ({ ...d, [f.id]: 'accepted' }));
+    if (edit) { goTo(f.path, f.line); return; }
+    // The tests run again: if they get worse, going back is offered at once.
+    if (!testFiles(projectRef.current.files).length) return;
+    await new Promise(r => window.setTimeout(r, 30));
+    const { score, run } = await scoreNow(projectRef.current.files);
+    if (run) setTestRun(run);
+    const base = baseline.current;
+    if (base && (score.passed < base.passed || score.failed > base.failed)) {
+      setMcWarning({ text: t('code.mc.worse', { title: f.title }), path: f.path, before: now!, id: f.id });
+    } else baseline.current = score;
+  };
+  const undoWarning = () => {
+    if (!mcWarning) return;
+    writeFile(mcWarning.path, mcWarning.before);
+    setDecided(d => ({ ...d, [mcWarning.id]: 'rejected' }));
+    setMcWarning(null);
+  };
+  const acceptSafe = () => {
+    let n = 0;
+    for (const f of proposals) if (!decided[f.id] && f.source === 'local' && f.severity !== 'info') { void accept(f); n++; }
+    shell.notify(t('code.fixed', { n }));
+  };
+  const rejectAll = () => setDecided(d => Object.fromEntries([...Object.entries(d), ...proposals.filter(f => !d[f.id]).map(f => [f.id, 'rejected' as Decision])]));
+
+  const restore = async (v: Version) => {
+    if (!confirm(t('code.v.restoreAsk', { label: v.label }))) return;
+    await snapshot(t('code.v.beforeRestore'));
+    update(p => {
+      const open = p.open.filter(x => v.files[x] !== undefined);
+      return { ...p, files: { ...v.files }, open, active: p.active && v.files[p.active] !== undefined ? p.active : open[0] ?? null };
+    });
+    shell.notify(t('code.v.restored', { label: v.label }));
+  };
+  const writeOrRemove = (path: string, text: string | null) => {
+    if (text === null) update(p => { const files = { ...p.files }; delete files[path]; return { ...p, files, open: p.open.filter(x => x !== path), active: p.active === path ? null : p.active }; });
+    else update(p => ({ ...p, files: { ...p.files, [path]: text }, open: p.open.includes(path) ? p.open : [...p.open, path] }));
+  };
+  const best = bestVersion(versions);
+
   // ---------- saving and opening ----------
   const baseName = () => slug(title);
   const saveZip = async (saveAs = false) => {
@@ -628,7 +740,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
       <div className="ribbon">
         <div className="ribbon-tabs" role="tablist">
           <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
-          {([['home', 'letter.tab.home'], ['run', 'code.tab.run'], ['tools', 'code.tab.tools'], ['github', 'code.tab.github']] as const).map(([id, label]) => (
+          {([['home', 'letter.tab.home'], ['run', 'code.tab.run'], ['tools', 'code.tab.tools'], ['corrector', 'code.tab.corrector'], ['github', 'code.tab.github']] as const).map(([id, label]) => (
             <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{t(label)}</button>
           ))}
           <button type="button" role="tab" aria-selected={tab === 'oi1'} className={`ribbon-special${tab === 'oi1' ? ' on' : ''}`} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
@@ -739,6 +851,38 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
               </div>
             </Group>
           </>}
+          {tab === 'corrector' && <>
+            <Group label="code.group.analyse">
+              <Btn big icon="sparkle" title="code.mc.analyseProject" onClick={() => void analyse(null)} disabled={empty || !!mcBusy} />
+              <Btn big icon="file" title="code.mc.analyseFile" onClick={() => void analyse(active)} disabled={!active || !!mcBusy} />
+            </Group>
+            <Group label="code.group.helpers">
+              <Drop big icon="speak" title="code.mc.helpers" wide>
+                {() => <>
+                  <span className="kicker">{t('code.mc.helpersHint')}</span>
+                  <MenuItem label="Claude" hint={shell.ai.ready() ? t('code.mc.ready') : t('code.mc.notSet')} active={shell.ai.ready()} onClick={() => setCopilot(true)} />
+                  {HELPERS.map(h => {
+                    const usable = !!helperKeys()[h.id] || !!h.local;
+                    return <MenuItem key={h.id} label={h.name} hint={usable ? '' : t('code.mc.needsKey')} active={helpers.includes(h.id)}
+                      onClick={() => { if (!usable) { setKeysOpen(true); return; } setHelpers(l => (l.includes(h.id) ? l.filter(x => x !== h.id) : [...l, h.id])); }} />;
+                  })}
+                </>}
+              </Drop>
+              <Btn big icon="gear" title="code.mc.keys" onClick={() => setKeysOpen(true)} />
+            </Group>
+            <Group label="code.group.decide">
+              <Btn big icon="comment" title={proposals.length ? t('code.mc.proposalsN', { n: proposals.filter(f => !decided[f.id]).length }) : 'code.mc.proposals'} active={dock === 'corrector'} onClick={() => setDock(d => (d === 'corrector' ? null : 'corrector'))} />
+              <div className="stack">
+                <Btn icon="accept" title="code.mc.acceptSafe" text onClick={acceptSafe} disabled={!proposals.some(f => !decided[f.id] && f.source === 'local')} />
+                <Btn icon="reject" title="code.mc.rejectAll" text onClick={rejectAll} disabled={!proposals.some(f => !decided[f.id])} />
+              </div>
+            </Group>
+            <Group label="code.group.versions">
+              <Btn big icon="save" title="code.v.save" onClick={() => { void snapshot(t('code.v.manual')).then(() => shell.notify(t('code.v.saved'))); }} disabled={empty} />
+              <Btn big icon="undo" title="code.v.backToBest" onClick={() => best && void restore(best)} disabled={!best || sameFiles(best.files, project.files)} />
+              <Btn big icon="sync" title="code.v.list" active={dock === 'versions'} onClick={() => setDock(d => (d === 'versions' ? null : 'versions'))} />
+            </Group>
+          </>}
           {tab === 'github' && <>
             <Group label="code.group.starters">
               <Drop big icon="file" title="code.gitignore" disabled={empty} wide>
@@ -836,10 +980,11 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
             {dock && (
               <div className="code-dock">
                 <header role="tablist">
-                  {(['problems', 'search', 'tests'] as const).map(d => (
+                  {(['problems', 'search', 'tests', 'corrector', 'versions'] as const).map(d => (
                     <button key={d} type="button" role="tab" aria-selected={dock === d} className={dock === d ? 'on' : ''} onClick={() => setDock(d)}>
                       {t(`code.dock.${d}`)}
                       {d === 'problems' && problems.length > 0 && <b>{problems.length}</b>}
+                      {d === 'corrector' && proposals.some(f => !decided[f.id]) && <b>{proposals.filter(f => !decided[f.id]).length}</b>}
                       {d === 'tests' && testRun && testRun.results.length > 0 && <b className={testRun.results.every(r => r.ok) ? 'ok' : 'bad'}>{testRun.results.filter(r => r.ok).length}/{testRun.results.length}</b>}
                     </button>
                   ))}
@@ -883,6 +1028,15 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
                     ))}
                   </ol>
                 </>}
+                {dock === 'corrector' && (
+                  <Proposals list={proposals} decided={decided} busy={mcBusy} warning={mcWarning?.text ?? null}
+                    onAccept={f => void accept(f)} onEdit={f => void accept(f, true)} onReject={f => setDecided(d => ({ ...d, [f.id]: 'rejected' }))}
+                    onUndoWarning={undoWarning} goTo={goTo} />
+                )}
+                {dock === 'versions' && (
+                  <Versions list={versions} current={project.files} onRestore={v => void restore(v)} onWrite={writeOrRemove}
+                    onSave={() => void snapshot(t('code.v.manual'))} />
+                )}
                 {dock === 'tests' && (
                   <ol className="dock-list">
                     {testing && <li className="muted">{t('code.testing')}</li>}
@@ -997,6 +1151,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
           onSaveAs={f => (f === 'zip' ? void saveZip(true) : f === 'site' ? void saveSite() : saveThis())}
           listRecent={shell.recent.list} onOpenRecent={r => void openRecent(r)} />
       )}
+      {keysOpen && <KeysDialog onClose={() => { setKeysOpen(false); setHelpers(l => [...l]); }} />}
       {panel === 'templates' && (
         <Modal title={t('code.newProject')} onClose={() => setPanel(null)} wide>
           <TemplateGrid onPick={tpl => { setPanel(null); startFrom(tpl); }} />
