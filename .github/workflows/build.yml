@@ -61,6 +61,8 @@ jobs:
 
   windows:
     runs-on: windows-latest
+    env:
+      WIN_SIGNING: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_SIGNING_ACCOUNT != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -73,6 +75,11 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - run: npm version "$env:OI1_VERSION" --no-git-tag-version --allow-same-version
+      - name: Install the Windows code signing tool
+        # Only when Martin has an Azure Artifact Signing account (see docs/windows-signing.md).
+        # A signed installer shows "Martin Balla" instead of "unknown publisher" and SmartScreen stops warning.
+        if: env.WIN_SIGNING == 'true'
+        run: cargo install artifact-signing-cli --locked
       - name: Build the installers
         shell: bash
         env:
@@ -80,13 +87,29 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           TAURI_SIGNING_PUBLIC_KEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
+          # Windows code signing (Azure Artifact Signing). Empty = unsigned, SmartScreen warns.
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
         run: |
+          CONFIG='{}'
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$TAURI_SIGNING_PUBLIC_KEY" ]; then
-            npx tauri build --ci --config "{\"plugins\":{\"updater\":{\"pubkey\":\"$TAURI_SIGNING_PUBLIC_KEY\"}}}"
+            CONFIG=$(jq -c --arg k "$TAURI_SIGNING_PUBLIC_KEY" '.plugins.updater.pubkey = $k' <<< "$CONFIG")
           else
             echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set; this build cannot update installed apps."
-            npx tauri build --ci --config '{"bundle":{"createUpdaterArtifacts":false}}'
+            CONFIG=$(jq -c '.bundle.createUpdaterArtifacts = false' <<< "$CONFIG")
           fi
+          if [ "$WIN_SIGNING" = "true" ]; then
+            # Tauri runs this on the app and on both installers; %1 is the file.
+            SIGN="artifact-signing-cli -e $AZURE_SIGNING_ENDPOINT -a $AZURE_SIGNING_ACCOUNT -c $AZURE_SIGNING_PROFILE %1"
+            CONFIG=$(jq -c --arg s "$SIGN" '.bundle.windows.signCommand = $s' <<< "$CONFIG")
+          else
+            echo "::notice::Windows code signing is off (no AZURE_* secrets): SmartScreen will warn on the installer."
+          fi
+          npx tauri build --ci --config "$CONFIG"
       - name: Name the installers
         shell: bash
         run: |
