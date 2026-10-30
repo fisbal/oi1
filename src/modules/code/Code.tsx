@@ -11,7 +11,7 @@ import { t } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import { parseCsv } from '../../formats/csv';
 import { FileMenu } from '../../ui/FileMenu';
-import { Btn, Drop, Group, Icon, MenuItem, appIcon } from '../../ui/kit';
+import { Btn, Drop, Group, Icon, MenuItem, RibbonToggle, appIcon } from '../../ui/kit';
 import { qrDataUrl } from '../../ui/qr';
 import { buildPreview, buildSite, dirname, extOf, isBinary, normalize, resolvePath, type BuildError, type Files } from './build';
 import { CodeEditor, type EditorApi } from './Editor';
@@ -632,6 +632,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
             <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{t(label)}</button>
           ))}
           <button type="button" role="tab" aria-selected={tab === 'oi1'} className={`ribbon-special${tab === 'oi1' ? ' on' : ''}`} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
+        <RibbonToggle />
           <span className="ribbon-quick">
             <CopilotButton open={copilot} onClick={() => setCopilot(o => !o)} />
             <Btn icon="undo" title="letter.undo" onClick={command(undo)} disabled={!active} />
