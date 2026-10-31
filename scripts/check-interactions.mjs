@@ -6,7 +6,7 @@
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 
-const PORT = 4186;
+const PORT = Number(process.env.PORT) || 4186;
 // Slowest answer allowed, in milliseconds, from a click or key to the screen showing the result. CI machines are
 // slower than a phone, so this is generous: anything above it feels laggy to a person.
 const MAX_MS = 400;

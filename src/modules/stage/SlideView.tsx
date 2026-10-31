@@ -5,6 +5,7 @@
 import { memo, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { cssBackground, defaultAlign, defaultSize, isEmptyHtml, type Deck, type DeckTheme, type Item, type LayoutId, type ShapeItem, type Slide, type TableItem } from '../../formats/slides';
 import { cssFont } from '../letter/model';
+import { fontLineMin } from '../../ui/fonts';
 import { geomPath, isLine, textInset } from './geom';
 import { splitHtml, type ItemPlay } from './anim';
 
@@ -40,6 +41,7 @@ export function textColor(it: ShapeItem, theme: DeckTheme): string {
 export function themeVars(theme: DeckTheme): CSSProperties {
   return {
     '--st-title': theme.title, '--st-text': theme.text, '--st-head': cssFont(theme.head), '--st-body': cssFont(theme.body),
+    '--st-head-lh': fontLineMin(theme.head), '--st-body-lh': fontLineMin(theme.body),
     '--st-accent': theme.accents[0], '--st-accent2': theme.accents[1] ?? theme.accents[0],
   } as CSSProperties;
 }
@@ -184,8 +186,9 @@ function ItemBody({ it, theme, layout, extras, play }: { it: Item; theme: DeckTh
             padding: `${pad.t}px ${pad.r}px ${pad.b}px ${pad.l}px`, color: textColor(it, theme),
             fontFamily: it.role === 'title' ? 'var(--st-head)' : 'var(--st-body)',
             textAlign: it.role ? defaultAlign(it.role, layout) : 'center',
-            // Titles a little tighter than text, but not below 1: script fonts' tall letters would touch the next line.
-            lineHeight: it.spacing ?? (it.role === 'title' ? 1.04 : 1.12),
+            // Room for a hanging letter (y, g) above an accented capital (Ê, Â) on the next line, in every bundled
+            // font: checked letter by letter by check:text.
+            lineHeight: it.spacing ?? (it.role === 'title' ? 'max(1.2, var(--st-head-lh, 0))' : 'max(1.25, var(--st-body-lh, 0))'),
           }}>
           <FitText id={it.id} html={play?.by && play.animation ? splitHtml(it.html, play.by, play.animation, play.stagger ?? 0.1) : it.html} autofit={!!it.autofit} base={base} onFit={extras?.onFit}>{extras?.editor}</FitText>
         </div>
