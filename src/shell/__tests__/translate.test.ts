@@ -36,3 +36,26 @@ describe('translateHtml', () => {
     expect(html).toBe('<p><b>BONJOUR</b> <a href="x">LE MONDE</a> 42</p>');
   });
 });
+
+describe('bestTranslator', () => {
+  it('uses the copilot AI when the browser cannot translate', async () => {
+    const { bestTranslator } = await import('../translate');
+    const tr = await bestTranslator('en', () => async t => t.map(s => `AI ${s}`));
+    expect(await tr(['Bonjour', '42'])).toEqual(['AI Bonjour', 'AI 42']);
+  });
+  it("uses Chrome's translator first and sends only what it missed to the AI", async () => {
+    const g = globalThis as Record<string, unknown>;
+    g.LanguageDetector = { create: async () => ({ detect: async (s: string) => [{ detectedLanguage: s.startsWith('Hola') ? 'es' : 'fr', confidence: 0.9 }] }) };
+    g.Translator = {
+      availability: async ({ sourceLanguage }: { sourceLanguage: string }) => (sourceLanguage === 'fr' ? 'available' : 'unavailable'),
+      create: async () => ({ translate: async (s: string) => `CH ${s}` }),
+    };
+    try {
+      const { bestTranslator } = await import('../translate');
+      const asked: string[][] = [];
+      const tr = await bestTranslator('en', () => async t => { asked.push(t); return t.map(s => `AI ${s}`); });
+      expect(await tr([' Bonjour ', 'Hola amigo', '12'])).toEqual([' CH Bonjour ', 'AI Hola amigo', '12']);
+      expect(asked).toEqual([['Hola amigo']]);
+    } finally { delete g.LanguageDetector; delete g.Translator; }
+  });
+});

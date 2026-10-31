@@ -14,7 +14,7 @@ describe('copilot providers', () => {
 
   it('offers at least 20 AIs, Claude first', () => {
     expect(PROVIDERS.length).toBeGreaterThanOrEqual(20);
-    expect(PROVIDERS[0].id).toBe('free-claude');
+    expect(PROVIDERS[0].id).toBe('free-claude'); // still listed, no longer the default
     expect(PROVIDERS.filter(p => p.kind === 'puter').length).toBeGreaterThanOrEqual(20);
     expect(PROVIDERS.filter(p => p.kind === 'web').length).toBeGreaterThanOrEqual(20);
     for (const id of ['openai', 'gemini', 'azure', 'github', 'mistral', 'deepseek', 'ollama']) expect(PROVIDERS.some(p => p.id === id)).toBe(true);
@@ -98,13 +98,25 @@ describe('copilot providers', () => {
     expect(webWait()).toBeNull();
   });
 
-  it('starts with free Claude and no key, unless a Claude key was given before', async () => {
+  it('starts with no key and no account (Claude.ai), unless a Claude key was given before', async () => {
     localStorage.clear();
     vi.resetModules();
-    expect((await import('../providers')).aiChoice.get().main).toBe('free-claude');
+    expect((await import('../providers')).aiChoice.get().main).toBe('web-claude');
     localStorage.setItem('oi1:ai:key', 'sk-ant-x');
     vi.resetModules();
     expect((await import('../providers')).aiChoice.get().main).toBe('claude');
+  });
+
+  it('moves old settings with Puter as the default to the no-account default, once', async () => {
+    localStorage.clear();
+    localStorage.setItem('oi1.ai.providers', JSON.stringify({ main: 'free-claude', byApp: { stage: 'free-claude', class: 'gemini' } }));
+    vi.resetModules();
+    const { aiChoice } = await import('../providers');
+    expect(aiChoice.get().main).toBe('web-claude');
+    expect(aiChoice.get().byApp).toEqual({ class: 'gemini' });
+    aiChoice.set({ main: 'free-claude' }); // chosen on purpose afterwards: kept
+    vi.resetModules();
+    expect((await import('../providers')).aiChoice.get().main).toBe('free-claude');
   });
 
   it('answers for free through Puter, with no key, streaming into the app', async () => {

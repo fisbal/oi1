@@ -80,3 +80,67 @@ export async function translateHtml(htmls: string[], tr: TranslateTexts): Promis
   nodes.forEach((n, i) => { n.nodeValue = got[i]; });
   return docs.map((d, i) => (nodes.some(n => n.ownerDocument === d) ? d.body.innerHTML : htmls[i]));
 }
+
+// ---------- Chrome's own translator: free, no account, works offline once a language is downloaded ----------
+// (Martin, 2026-10-31: the free AI asked for a Puter account and its phone check failed.) Chrome 138+ has the
+// Translator and LanguageDetector APIs; elsewhere this returns null and the copilot's AI translates instead.
+
+interface BrowserTranslator { translate(text: string): Promise<string> }
+interface TranslatorApi {
+  availability(o: { sourceLanguage: string; targetLanguage: string }): Promise<'unavailable' | 'downloadable' | 'downloading' | 'available'>;
+  create(o: { sourceLanguage: string; targetLanguage: string }): Promise<BrowserTranslator>;
+}
+interface DetectorApi { create(): Promise<{ detect(text: string): Promise<{ detectedLanguage: string; confidence: number }[]> }> }
+const g = globalThis as { Translator?: TranslatorApi; LanguageDetector?: DetectorApi };
+
+/** Whether this browser can translate by itself. */
+export const browserTranslatorHere = () => !!g.Translator && !!g.LanguageDetector;
+
+/** Chrome's translator for `texts` into `to`, or null when the browser has none. Each text's language is detected,
+ *  so a letter mixing French and English is translated piece by piece. A text it cannot do is left as it was. */
+export async function browserTranslator(to: LanguageCode): Promise<TranslateTexts | null> {
+  if (!browserTranslatorHere()) return null;
+  let detector: Awaited<ReturnType<DetectorApi['create']>>;
+  try { detector = await g.LanguageDetector!.create(); } catch { return null; }
+  const made = new Map<string, Promise<BrowserTranslator | null>>();
+  const forSource = (from: string) => {
+    if (!made.has(from)) made.set(from, (async () => {
+      try {
+        if ((await g.Translator!.availability({ sourceLanguage: from, targetLanguage: to })) === 'unavailable') return null;
+        return await g.Translator!.create({ sourceLanguage: from, targetLanguage: to });
+      } catch { return null; }
+    })());
+    return made.get(from)!;
+  };
+  return async texts => {
+    const out = [...texts];
+    for (let i = 0; i < texts.length; i++) {
+      const s = texts[i], core = s.trim();
+      if (!hasWords(core)) continue;
+      try {
+        const from = (await detector.detect(core))[0]?.detectedLanguage?.split('-')[0];
+        if (!from || from === 'und' || from === to) continue;
+        const tr = await forSource(from);
+        if (!tr) continue;
+        const t = await tr.translate(core);
+        if (t) out[i] = /^\s*/.exec(s)![0] + t + /\s*$/.exec(s)![0];
+      } catch { /* left as it was */ }
+    }
+    return out;
+  };
+}
+
+/** Chrome's translator first; whatever it could not do (no translator, a language it lacks) goes to the AI. */
+export async function bestTranslator(to: LanguageCode, ai: () => TranslateTexts): Promise<TranslateTexts> {
+  const browser = await browserTranslator(to);
+  if (!browser) return ai();
+  return async texts => {
+    const out = await browser(texts);
+    const left = texts.map((s, i) => (out[i] === s && hasWords(s) ? i : -1)).filter(i => i >= 0);
+    if (left.length) {
+      const got = await ai()(left.map(i => texts[i]));
+      left.forEach((i, k) => { out[i] = got[k]; });
+    }
+    return out;
+  };
+}
