@@ -18,9 +18,14 @@ export function ribbonMin(): boolean {
   return document.documentElement.classList.contains('ribbon-min');
 }
 
+/** Folded, closes a tab's buttons opened over the work, so what a button just showed there can be seen. */
+export function closeRibbonPeek() {
+  for (const r of document.querySelectorAll('.ribbon.open')) r.classList.remove('open');
+}
+
 export function setRibbonMin(on: boolean) {
   document.documentElement.classList.toggle('ribbon-min', on);
-  for (const r of document.querySelectorAll('.ribbon.open')) r.classList.remove('open');
+  closeRibbonPeek();
   try { localStorage.setItem(KEY, on ? '1' : '0'); } catch { /* private window */ }
   window.dispatchEvent(new Event(EVENT));
 }

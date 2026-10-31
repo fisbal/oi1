@@ -6,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { createPortal } from 'react-dom';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import type { FileRef, Handoff, OpenedFile, RecentFile, ShellApi, TableData } from '../../shell/contract';
-import { getLanguage, t, type MessageKey } from '../../shell/i18n';
+import { LANGUAGES, getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import {
   GEOMS, LAYOUTS, SIZE_16_9, SIZE_4_3, THEMES, TRANSITIONS, changeLayout, cssBackground, defaultSize, htmlText, isEmptyHtml, itemText, linesToHtml,
@@ -28,6 +28,9 @@ import { DIAGRAMS, WORDART, diagramItems, footerItem, slideNumberItem, wordArtIt
 import { myThemes, onMyThemes, removeMyTheme } from './mythemes';
 import { AnimTab } from './AnimTab';
 import { addAnim, playState, stepLength, stepsOf } from './anim';
+import { AUDIENCES, adaptDeck, audienceName, customAudience, type Audience } from './audience';
+import { AiError } from '../../shell/ai';
+import { closeRibbonPeek } from '../../ui/ribbonMin';
 import { recheck } from '../../ui/proof/extension';
 import { ProofBubble } from '../../ui/proof/Bubble';
 import { ProofButtons } from '../../ui/proof/ProofButtons';
@@ -876,6 +879,69 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     addAnimated,
   };
 
+  // ---------- audience: Claude adapts the whole deck to who is watching ----------
+  const [audBusy, setAudBusy] = useState<{ aud: Audience; stop: AbortController } | null>(null);
+  const [adapted, setAdapted] = useState<{ aud: Audience; before: Deck; after: Deck; summary: string; showing: 'after' | 'before' } | null>(null);
+  const [audText, setAudText] = useState('');
+  const adaptTo = async (aud: Audience) => {
+    if (audBusy) return;
+    if (!shell.ai.ready()) { shell.notify(t('stage.audience.needsAi')); setCopilot(true); return; }
+    const stop = new AbortController();
+    setAudBusy({ aud, stop });
+    setEditing(null);
+    closeRibbonPeek();
+    // Adapting again starts from the original deck, not from the last audience's version.
+    const before = adapted ? adapted.before : deckRef.current;
+    try {
+      const ui = LANGUAGES.find(l => l.code === getLanguage())?.name ?? 'English';
+      const got = await adaptDeck(shell.ai, before, aud, [...THEMES, ...myThemes()], ui, retheme, stop.signal);
+      if (adapted) setDeck(adapted.before);
+      commit(got.deck);
+      setAdapted({ aud, before, after: got.deck, summary: got.summary, showing: 'after' });
+    } catch (err) {
+      if (stop.signal.aborted) return;
+      const kind = err instanceof AiError ? err.kind : 'other';
+      shell.notify(kind === 'other' ? t('ai.err.other', { msg: String((err as Error)?.message ?? err) }) : t(`ai.err.${kind}` as MessageKey));
+      if (kind === 'key') setCopilot(true);
+    } finally {
+      setAudBusy(null);
+    }
+  };
+  /** Compare: show the deck before or after, without losing either. */
+  const audShow = (which: 'after' | 'before') => {
+    if (!adapted || adapted.showing === which) return;
+    // Changes made while looking at one version stay in it.
+    const next = { ...adapted, [adapted.showing]: deckRef.current, showing: which };
+    setEditing(null);
+    setDeck(next[which]);
+    setAdapted(next);
+    setActive(a => Math.min(a, next[which].slides.length - 1));
+  };
+  const audKeep = () => { if (adapted?.showing === 'before') audShow('after'); setAdapted(null); shell.notify(t('stage.audience.kept')); };
+  const audBack = () => {
+    if (!adapted) return;
+    commit(adapted.before);
+    setAdapted(null);
+    shell.notify(t('stage.audience.reverted'));
+  };
+  const audienceMenu = (close: () => void) => (
+    <div className="st-aud-menu">
+      <span className="kicker">{t('stage.audience.pick')}</span>
+      <div className="st-aud-grid">
+        {AUDIENCES.map(a => (
+          <button key={a.id} type="button" className={adapted?.aud.id === a.id ? 'on' : ''} onClick={() => { close(); void adaptTo(a); }}>
+            <span className="st-aud-emoji" aria-hidden="true">{a.emoji}</span>{audienceName(a, lang)}
+          </button>
+        ))}
+      </div>
+      <hr />
+      <form className="st-aud-custom" onSubmit={e => { e.preventDefault(); if (audText.trim()) { close(); void adaptTo(customAudience(audText)); } }}>
+        <input value={audText} onChange={e => setAudText(e.target.value)} placeholder={t('stage.audience.customHint')} aria-label={t('stage.audience.custom')} />
+        <button type="submit" className="primary" disabled={!audText.trim()}>{t('stage.audience.adapt')}</button>
+      </form>
+    </div>
+  );
+
   // ---------- animation preview on the slide ----------
   const previewSteps = useMemo(() => stepsOf(slide), [slide]);
   useEffect(() => {
@@ -1200,6 +1266,11 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               </div>
             </div>
           </Group>
+          <Group label="stage.group.audience">
+            <Drop big icon="user" title="stage.audience" label={t('stage.audience.short')} disabled={!!audBusy} wide>
+              {audienceMenu}
+            </Drop>
+          </Group>
           <Group label="stage.group.customize">
             <Drop big icon="size" title="stage.slideSize">
               {close => <>
@@ -1456,6 +1527,25 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           <button type="button" className="st-rail-add" onClick={() => addSlide(undefined, deck.slides.length)}>+ {t('stage.newSlide')}</button>
         </div>
         <div className="stage-main">
+          {audBusy && (
+            <div className="st-aud-bar busy" role="status">
+              <span className="st-aud-emoji" aria-hidden="true">{audBusy.aud.emoji}</span>
+              <span className="st-aud-text">{t('stage.audience.working', { who: audienceName(audBusy.aud, lang) })}</span>
+              <button type="button" onClick={() => audBusy.stop.abort()}>{t('letter.cancel')}</button>
+            </div>
+          )}
+          {adapted && !audBusy && (
+            <div className="st-aud-bar" role="status">
+              <span className="st-aud-emoji" aria-hidden="true">{adapted.aud.emoji}</span>
+              <span className="st-aud-text"><b>{t('stage.audience.for', { who: audienceName(adapted.aud, lang) })}</b>{adapted.summary ? ` ${adapted.summary}` : ''}</span>
+              <span className="st-aud-seg" role="group" aria-label={t('stage.audience.compare')}>
+                <button type="button" className={adapted.showing === 'before' ? 'on' : ''} onClick={() => audShow('before')}>{t('stage.audience.before')}</button>
+                <button type="button" className={adapted.showing === 'after' ? 'on' : ''} onClick={() => audShow('after')}>{t('stage.audience.after')}</button>
+              </span>
+              <button type="button" className="primary" onClick={audKeep}>{t('stage.audience.keep')}</button>
+              <button type="button" onClick={audBack}>{t('stage.audience.back')}</button>
+            </div>
+          )}
           <div className="st-stage" ref={stageRef}
             onDragOver={e => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
             onDrop={e => { const files = Array.from(e.dataTransfer.files); if (files.length) { e.preventDefault(); if (files[0].name.toLowerCase().endsWith('.pptx')) void loadFile(wrapDropped(files[0])); else void addImages(files); } }}>
