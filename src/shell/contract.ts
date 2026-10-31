@@ -6,6 +6,8 @@
 export interface FileRef {
   name: string;
   handle?: FileSystemFileHandle;
+  /** Written to the person's cloud (AutoSave), at this path there. */
+  cloud?: string;
 }
 
 export interface OpenedFile extends FileRef {
@@ -46,6 +48,8 @@ export interface ShellApi {
     load(key: string): Promise<string | null>;
     save(key: string, value: string): Promise<void>;
   };
+  /** True when AutoSave also writes to the cloud: a quiet save then works for a document without its own file. */
+  cloudOn?(): boolean;
   /**
    * AutoSave: give the shell a way to write the document to its own file without asking (use `saveFile` with
    * `{ target, quiet: true }`), resolving to the file or null when there is none yet. The shell calls it after a

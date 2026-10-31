@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Handoff, MountedModule, OpenedFile, RecentFile, ShellApi } from './contract';
 import { idb } from './db';
-import { pickFile, saveFile, wrapFile } from './files';
+import { blobOf, pickFile, saveFile, wrapFile } from './files';
+import { cloudOn, cloudSave, forgetCloudTab } from './cloud';
 import { LANGUAGES, getLanguage, setLanguage, t, type LanguageCode } from './i18n';
 import { findUpdate, type AppUpdate } from './update';
 import { moduleForFile, modules } from './modules';
@@ -71,6 +72,7 @@ export default function App() {
 
   const closeTab = useCallback((tabId: string) => {
     forgetTab(tabId);
+    forgetCloudTab(tabId);
     if (!confirm(t('tab.confirmClose'))) return;
     store.removePrefix(`${tabId}:`);
     receivers.delete(tabId);
@@ -103,6 +105,13 @@ export default function App() {
       return f;
     },
     saveFile: async (name, content, mimeType, options) => {
+      if (options?.quiet && cloudOn()) {
+        // AutoSave with the cloud on: the document's own file when there is one, and the cloud copy.
+        let blob: Blob | null = null;
+        const local = await saveFile(name, async () => (blob = await blobOf(content, mimeType)), mimeType, options);
+        const path = await cloudSave(tabId, local?.ref.name ?? name, blob ?? await blobOf(content, mimeType));
+        return { name: path, handle: local?.ref.handle, cloud: path };
+      }
       const saved = await saveFile(name, content, mimeType, options);
       if (saved) void addRecent(moduleId, saved.ref.name, saved.ref.handle, saved.ref.handle ? undefined : saved.blob);
       return saved?.ref ?? null;
@@ -114,6 +123,7 @@ export default function App() {
       save: (key, value) => trackedSave(tabId, () => idb.set('kv', value, `${tabId}:${key}`)),
     },
     autoSave: fn => registerSaver(tabId, fn),
+    cloudOn,
     recent: {
       list: () => listRecent(moduleId),
       open: id => openRecent(id),
