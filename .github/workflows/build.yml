@@ -54,6 +54,8 @@ jobs:
         run: npm run check:training
       - name: Check shared tables stay in step between apps (Synchro)
         run: npm run check:sync
+      - name: Check every word is readable on its page, highlight and theme (contrast)
+        run: npm run check:contrast
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4

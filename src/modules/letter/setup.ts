@@ -6,7 +6,7 @@ import TextAlign from '@tiptap/extension-text-align';
 import { TableKit } from '@tiptap/extension-table';
 import Image from '@tiptap/extension-image';
 import { TextStyleKit } from '@tiptap/extension-text-style';
-import Highlight from '@tiptap/extension-highlight';
+import { ReadableHighlight } from '../../ui/highlight';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import FileHandler from '@tiptap/extension-file-handler';
@@ -52,7 +52,7 @@ export function letterExtensions(part: 'body' | 'header' | 'footer'): Extensions
     TableKit.configure({ table: { resizable: true } }),
     Image.configure({ inline: true, allowBase64: true, resize: { enabled: true, alwaysPreserveAspectRatio: true, minWidth: 24, minHeight: 24 } }),
     TextStyleKit.configure({ lineHeight: false }),
-    Highlight.configure({ multicolor: true }),
+    ReadableHighlight,
     Subscript,
     Superscript,
     ParagraphFormat,

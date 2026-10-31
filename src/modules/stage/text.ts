@@ -6,7 +6,7 @@ import { Editor, type ChainedCommands, type Extensions } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
 import { TextStyleKit } from '@tiptap/extension-text-style';
-import Highlight from '@tiptap/extension-highlight';
+import { ReadableHighlight } from '../../ui/highlight';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import { Placeholder } from '@tiptap/extensions';
@@ -16,7 +16,7 @@ export function slideExtensions(placeholder?: () => string): Extensions {
     StarterKit.configure({ link: { openOnClick: false }, trailingNode: false, horizontalRule: false, codeBlock: false, blockquote: false }),
     TextAlign.configure({ types: ['heading', 'paragraph'] }),
     TextStyleKit.configure({ lineHeight: false }),
-    Highlight.configure({ multicolor: true }),
+    ReadableHighlight,
     Subscript,
     Superscript,
     ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
