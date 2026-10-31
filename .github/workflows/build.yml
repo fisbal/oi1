@@ -50,6 +50,8 @@ jobs:
         run: npm run check:text
       - name: Use every app like a person (typing, handles, move, copy, undo, speed)
         run: npm run check:interactions
+      - name: Play all 60 training exercises like a learner (Code+)
+        run: npm run check:training
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4

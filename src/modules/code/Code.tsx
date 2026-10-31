@@ -28,6 +28,7 @@ import { replaceInFiles, searchFiles, type SearchOptions } from './search';
 import { SNIPPETS, snipLangOf } from './snippets';
 import { GITIGNORES, LICENSES, gitignore, license, readme } from './starters';
 import { runTests, testFiles, testTemplate, type TestRun } from './tests';
+import { TrainingPanel, TrainingRibbon, useTraining } from './trainingUi';
 import { bestVersion, loadVersions, newVersion, sameFiles, saveVersions, type Score, type Version } from './versions';
 import { LANGUAGES, getLanguage } from '../../shell/i18n';
 
@@ -151,8 +152,8 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   const [project, setProjectState] = useState(initial);
   const projectRef = useRef(project);
   const [fileRef, setFileRef] = useState<FileRef | null>(initialRef);
-  const [tab, setTab] = useState<'home' | 'run' | 'tools' | 'corrector' | 'github' | 'oi1'>('home');
-  const [dock, setDock] = useState<null | 'problems' | 'search' | 'tests' | 'corrector' | 'versions'>(null);
+  const [tab, setTab] = useState<'home' | 'run' | 'tools' | 'corrector' | 'training' | 'github' | 'oi1'>('home');
+  const [dock, setDock] = useState<null | 'problems' | 'search' | 'tests' | 'corrector' | 'versions' | 'training'>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [decided, setDecided] = useState<Record<string, Decision>>({});
   const [mcBusy, setMcBusy] = useState<string | null>(null);
@@ -482,6 +483,15 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   };
   const owner = () => account?.name || account?.login || title;
 
+  // ---------- training ----------
+  const training = useTraining({
+    shell, files: project.files, openPath, goTo: (path, line) => goTo(path, line),
+    write: (path, text, open) => update(p => ({
+      ...p, name: p.name || (Object.keys(p.files).length ? p.name : t('code.tr.project')), files: { ...p.files, [path]: text },
+      ...(open ? { open: p.open.includes(path) ? p.open : [...p.open, path], active: path } : {}),
+    })),
+  });
+
   // ---------- the Master corrector and versions ----------
   const projectKey = slug(title);
   useEffect(() => { setVersions(loadVersions(projectKey)); }, [projectKey]);
@@ -740,7 +750,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
       <div className="ribbon">
         <div className="ribbon-tabs" role="tablist">
           <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
-          {([['home', 'letter.tab.home'], ['run', 'code.tab.run'], ['tools', 'code.tab.tools'], ['corrector', 'code.tab.corrector'], ['github', 'code.tab.github']] as const).map(([id, label]) => (
+          {([['home', 'letter.tab.home'], ['run', 'code.tab.run'], ['tools', 'code.tab.tools'], ['corrector', 'code.tab.corrector'], ['training', 'code.tab.training'], ['github', 'code.tab.github']] as const).map(([id, label]) => (
             <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{t(label)}</button>
           ))}
           <button type="button" role="tab" aria-selected={tab === 'oi1'} className={`ribbon-special${tab === 'oi1' ? ' on' : ''}`} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
@@ -883,6 +893,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
               <Btn big icon="sync" title="code.v.list" active={dock === 'versions'} onClick={() => setDock(d => (d === 'versions' ? null : 'versions'))} />
             </Group>
           </>}
+          {tab === 'training' && <TrainingRibbon tr={training} open={() => setDock('training')} />}
           {tab === 'github' && <>
             <Group label="code.group.starters">
               <Drop big icon="file" title="code.gitignore" disabled={empty} wide>
@@ -980,7 +991,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
             {dock && (
               <div className="code-dock">
                 <header role="tablist">
-                  {(['problems', 'search', 'tests', 'corrector', 'versions'] as const).map(d => (
+                  {(['training', 'problems', 'search', 'tests', 'corrector', 'versions'] as const).filter(d => d !== 'training' || tab === 'training' || training.lesson || dock === 'training').map(d => (
                     <button key={d} type="button" role="tab" aria-selected={dock === d} className={dock === d ? 'on' : ''} onClick={() => setDock(d)}>
                       {t(`code.dock.${d}`)}
                       {d === 'problems' && problems.length > 0 && <b>{problems.length}</b>}
@@ -1032,6 +1043,9 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
                   <Proposals list={proposals} decided={decided} busy={mcBusy} warning={mcWarning?.text ?? null}
                     onAccept={f => void accept(f)} onEdit={f => void accept(f, true)} onReject={f => setDecided(d => ({ ...d, [f.id]: 'rejected' }))}
                     onUndoWarning={undoWarning} goTo={goTo} />
+                )}
+                {dock === 'training' && (
+                  <TrainingPanel tr={training} files={project.files} onCourses={() => setTab('training')} />
                 )}
                 {dock === 'versions' && (
                   <Versions list={versions} current={project.files} onRestore={v => void restore(v)} onWrite={writeOrRemove}
