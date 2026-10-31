@@ -5,6 +5,10 @@ import { getLanguage, t } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import { isLiveId, liveStore, newLiveId } from '../../shell/live';
 import { useLiveTables } from './liveTables';
+import { recheck } from '../../ui/proof/extension';
+import { ProofBubble } from '../../ui/proof/Bubble';
+import { ProofButtons } from '../../ui/proof/ProofButtons';
+import { baseLang } from '../../ui/proof/proof';
 import { FileMenu } from '../../ui/FileMenu';
 import { Icon } from '../../ui/kit';
 import { Copilot, useCopilotShortcut } from '../../ui/Copilot';
@@ -150,24 +154,29 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
 
   const [active, setActive] = useState<'body' | 'header' | 'footer'>('body');
   const changed = () => { touched.current = true; setDirty(true); autosave(); };
-  const attrs = (part: string) => ({ class: `doc-text ${part}-text`, spellcheck: String(view.spell), lang: lang || '' });
+  // Our own checker covers its five languages; for the others, the browser's checker underlines instead.
+  const ownProofing = !!baseLang(lang || getLanguage());
+  const attrs = (part: string) => ({ class: `doc-text ${part}-text`, spellcheck: String(view.spell && !ownProofing), lang: lang || '' });
+  const proofRef = useRef({ spell: view.spell, lang });
+  proofRef.current = { spell: view.spell, lang };
+  const proof = useMemo(() => ({ enabled: () => proofRef.current.spell, lang: () => proofRef.current.lang }), []);
 
   const body = useEditor({
-    extensions: letterExtensions('body'),
+    extensions: letterExtensions('body', proof),
     content: initial.body,
     editorProps: { attributes: attrs('body') },
     onUpdate: changed,
     onFocus: () => setActive('body'),
   });
   const header = useEditor({
-    extensions: letterExtensions('header'),
+    extensions: letterExtensions('header', proof),
     content: initial.header ?? '',
     editorProps: { attributes: attrs('header') },
     onUpdate: () => { changed(); setHfVersion(v => v + 1); },
     onFocus: () => setActive('header'),
   });
   const footer = useEditor({
-    extensions: letterExtensions('footer'),
+    extensions: letterExtensions('footer', proof),
     content: initial.footer ?? '',
     editorProps: { attributes: attrs('footer') },
     onUpdate: () => { changed(); setHfVersion(v => v + 1); },
@@ -184,6 +193,7 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
       ed?.setOptions({ editorProps: { attributes: attrs(part) } });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    for (const ed of [body, header, footer]) recheck(ed);
   }, [view.spell, lang, body, header, footer]);
 
   useEffect(() => { autosave(); }, [page, styles, lang, comments, autosave]);
@@ -1001,7 +1011,8 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     <div className={`letter ${scope}${painting ? ' painting' : ''}${focusMode ? ' focus-mode' : ''}`} ref={rootRef}>
       <style>{stylesCss(styles, page, `.${scope}`)}{listStylesCss()}{commentCss}</style>
       <Ribbon editor={activeEditor} body={body} styles={styles} page={page} setPage={setPage} lang={lang} setLang={setLang}
-        view={view} setView={setView} actions={actions} suite={suite} />
+        view={view} setView={setView} actions={actions} suite={suite}
+        proofTools={<ProofButtons editor={activeEditor} ai={shell.ai} lang={lang} notify={m => shell.notify(m)} />} />
       {focusMode && <button type="button" className="focus-exit" onClick={exitFocus}>{t('letter.focusExit')}</button>}
       <div className="letter-body">
       {outline && !focusMode && <OutlinePane editor={body} onClose={() => smart.outline()} />}
@@ -1036,6 +1047,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
         <CommentsPane editor={body} comments={comments} onChange={setComments} author={() => userName()} editing={editingComment}
           setEditing={setEditingComment} showResolved={false} onClose={() => setCommentsOpen(false)} />
       )}
+      <ProofBubble editor={activeEditor} />
       {copilot && !focusMode && <Copilot host={letterCopilot(body, title, docLang)} ai={shell.ai} start={copilotStart} onClose={() => { setCopilot(false); body.commands.focus(); }} />}
       </div>
       <footer className="status">

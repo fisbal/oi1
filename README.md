@@ -21,7 +21,7 @@ One office suite, one app:
 - **Android:** [OfficeIn1.apk](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1.apk)
 - **Windows:** [OfficeIn1-Setup.exe](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1-Setup.exe)
 - **Mac:** [OfficeIn1.dmg](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1.dmg)
-- The installed apps update themselves. Every merge to `main` builds the web, Android, Windows and Mac versions, checks every app on phone, tablet, PC and Mac screens, checks that every tab has working buttons and every list at least 20 choices (`npm run check:content`, also opening each list on a phone), checks the ribbon folds away for more room (`npm run check:ribbon`), checks that no text overlaps or is cut in any of the 5 languages (`npm run check:text`), plays all 60 Code+ training exercises like a learner (`npm run check:training`), checks that a table shared between Class and Letter stays in step both ways, fast and after a reload (`npm run check:sync`), and
+- The installed apps update themselves. Every merge to `main` builds the web, Android, Windows and Mac versions, checks every app on phone, tablet, PC and Mac screens, checks that every tab has working buttons and every list at least 20 choices (`npm run check:content`, also opening each list on a phone), checks the ribbon folds away for more room (`npm run check:ribbon`), checks that no text overlaps or is cut in any of the 5 languages (`npm run check:text`), plays all 60 Code+ training exercises like a learner (`npm run check:training`), checks that a table shared between Class and Letter stays in step both ways, fast and after a reload (`npm run check:sync`), checks that spelling and grammar mistakes are underlined while typing in Letter and Stage and fixed from the bubble (`npm run check:proof`), and
   publishes them, with the source code, as a GitHub Release (see [docs/builds.md](docs/builds.md)).
 - **On your computer:** install Node.js 22, then in this folder run `npm install` and `npm run dev`,
   and open the address it prints. `npm test` runs the tests, `npm run build` makes the site in `dist/`.
@@ -32,6 +32,11 @@ One office suite, one app:
   animated scenes, gold 3D ribbon keys, Playfair Display and DM Sans.
 - **Dark or light:** the sun/moon button in the top bar switches the whole suite; the first visit follows the device.
 - **Tabs and launcher:** open several documents at once; the 9-dot button opens any app from anywhere.
+- **Spelling, grammar and style while typing** (Letter and Stage): red wavy line for spelling, blue for grammar,
+  green for style. Each paragraph is checked in its own language (English, French, Spanish, Portuguese, German).
+  Click or right-click the word for a bubble: pick a fix, Ignore, or Add to dictionary (kept on the device).
+  Spelling works offline; grammar asks LanguageTool online (Review > Grammar online turns it off); Review >
+  Check style asks Claude.
 - **Apps link together:** every app has an "Office In 1" tab. Send a Class table to a letter and keep it linked
   ("Update letter"), insert the cells selected in Class from Letter, edit a letter's table in Class, open ProDFos.
 - **Office Letter** (TipTap / ProseMirror editor) with a Word-style ribbon:
@@ -162,6 +167,7 @@ src/shell/               the launcher: home screen, tabs, languages, shared serv
   i18n.ts                interface text in every language
 src/ui/                  shared ribbon, buttons, dialogs, file menu and the Copilot panel (the scene look)
   Copilot.tsx            Claude beside every app; each app describes itself with a CopilotHost
+  proof/                 spelling (Hunspell in a worker), grammar (LanguageTool), style (Claude), the fix bubble
 src/formats/             formula engine, sheet model, .xlsx and .csv, tables passed between apps
 src/modules/letter/      Office Letter (React + TipTap; docx/ = Word open/save, pagination.ts = pages)
 src/modules/class/       Office Class (the sheet)
@@ -175,7 +181,7 @@ Built with TypeScript, React and Vite. Main libraries: [TipTap](https://tiptap.d
 [JSZip](https://stuk.github.io/jszip/) (MIT, our own .docx and .xlsx readers), [docx](https://github.com/dolanmiu/docx) (MIT, writes .docx),
 [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) (MIT),
 [CodeMirror 6](https://codemirror.net) (MIT), [Sucrase](https://github.com/alangpierce/sucrase) (MIT), [es-module-lexer](https://github.com/guybedford/es-module-lexer) (MIT),
-[Prettier](https://prettier.io) (MIT), the [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) (MIT, the copilot), [esm.sh](https://esm.sh) (npm packages for previews), and the DM Sans and Playfair Display fonts (SIL Open Font License) through Fontsource.
+[Prettier](https://prettier.io) (MIT), [hunspell-asm](https://github.com/kwonoj/hunspell-asm) (MIT, Hunspell for the browser) with the [wooorm/dictionaries](https://github.com/wooorm/dictionaries) word lists (en MIT/BSD, fr MPL-2.0, es GPL/LGPL/MPL, pt LGPL/MPL, de GPL: each a separate data file loaded at run time), [LanguageTool](https://languagetool.org) (grammar, online, can be turned off), the [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) (MIT, the copilot), [esm.sh](https://esm.sh) (npm packages for previews), and the DM Sans and Playfair Display fonts (SIL Open Font License) through Fontsource.
 
 Every module plugs in through one small contract: see [docs/module-contract.md](docs/module-contract.md).
 The full plan (architecture, stack choice, roadmap, sources) is in the blueprint document.
