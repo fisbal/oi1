@@ -1,6 +1,9 @@
 // Spreadsheet formulas, written for OI1 (no GPL engine): =SUM(A1:B3)*2, =IF(A1>10,"big","small"), …
 // Shared by Office Class and anything else that reads sheets. Cells are addressed by column and row from 0.
 
+import { moreFunctions } from './formulaMore';
+import { convert, ratesNow } from '../shell/rates';
+
 export type Scalar = number | string | boolean | FormulaError;
 export interface FormulaError { error: '#DIV/0!' | '#VALUE!' | '#REF!' | '#NAME?' | '#N/A' | '#NUM!' | '#CYCLE!' }
 type Value = Scalar | Scalar[][];
@@ -33,7 +36,7 @@ type Tok =
   | { t: 'str'; v: string; s: number; e: number }
   | { t: 'ref'; c: number; r: number; absC: boolean; absR: boolean; s: number; e: number; sheet?: string; pre: string }
   | { t: 'name'; v: string; s: number; e: number }
-  | { t: 'op'; v: string; s: number; e: number };
+  | { t: 'op'; v: string; s: number; e: number; semi?: boolean };
 
 const REF = /^(\$?)([A-Za-z]{1,3})(\$?)(\d+)(?![A-Za-z0-9_(])/;
 // A sheet name before a reference: Sheet2!A1 or 'My sheet'!A1.
@@ -70,8 +73,8 @@ function tokenize(src: string): Tok[] {
       out.push({ t: 'ref', c: colIndex(m[2]), r: Number(m[4]) - 1, absC: !!m[1], absR: !!m[3], s: i, e: i + m[0].length, pre: '' });
     } else if ((m = rest.match(/^[A-Za-z_][A-Za-z0-9_.]*/))) {
       out.push({ t: 'name', v: m[0].toUpperCase(), s: i, e: i + m[0].length });
-    } else if ((m = rest.match(/^(<=|>=|<>|[-+*/^&=<>(),:;%])/))) {
-      out.push({ t: 'op', v: m[0] === ';' ? ',' : m[0], s: i, e: i + m[0].length });
+    } else if ((m = rest.match(/^(<=|>=|<>|[-+*/^&=<>(),:;%{}])/))) {
+      out.push({ t: 'op', v: m[0] === ';' ? ',' : m[0], s: i, e: i + m[0].length, ...(m[0] === ';' ? { semi: true } : {}) });
     } else throw new Error('#NAME?');
     i += m[0].length;
   }
@@ -82,6 +85,7 @@ function tokenize(src: string): Tok[] {
 
 type Node =
   | { k: 'lit'; v: Scalar }
+  | { k: 'arr'; v: Scalar[][] }
   | { k: 'ref'; c: number; r: number; sheet?: string }
   | { k: 'range'; c1: number; r1: number; c2: number; r2: number; sheet?: string }
   | { k: 'un'; op: string; a: Node }
@@ -142,6 +146,25 @@ function parse(src: string): Node {
       throw new Error('#NAME?');
     }
     if (tk.v === '(') { const n = binary(0); take(')'); return n; }
+    // An array constant like Excel's: {1,2,3} is a row, {1;2;3} a column, {1,2;3,4} two rows.
+    if (tk.v === '{') {
+      const rows: Scalar[][] = [[]];
+      for (;;) {
+        let t = toks[i++];
+        let sign = 1;
+        if (t?.t === 'op' && (t.v === '-' || t.v === '+')) { sign = t.v === '-' ? -1 : 1; t = toks[i++]; }
+        if (t?.t === 'num') rows[rows.length - 1].push(sign * t.v);
+        else if (t?.t === 'str') rows[rows.length - 1].push(t.v);
+        else if (t?.t === 'name' && (t.v === 'TRUE' || t.v === 'FALSE')) rows[rows.length - 1].push(t.v === 'TRUE');
+        else throw new Error('#VALUE!');
+        const sep = toks[i++];
+        if (sep?.t === 'op' && sep.v === '}') break;
+        if (sep?.t === 'op' && sep.v === ',') { if (sep.semi) rows.push([]); continue; }
+        throw new Error('#VALUE!');
+      }
+      if (rows.some(r => r.length !== rows[0].length)) throw new Error('#VALUE!');
+      return { k: 'arr', v: rows };
+    }
     throw new Error('#VALUE!');
   };
   const node = binary(0);
@@ -677,7 +700,27 @@ function MORE(): Record<string, Fn> {
   };
 }
 
-export const FUNCTION_NAMES = [...Object.keys(FUNCTIONS).filter(n => !['TRUE', 'FALSE'].includes(n)), 'ROW', 'COLUMN', 'ROWS', 'COLUMNS'].sort();
+// Excel's other functions (Formula.js), where ours has no function of that name.
+for (const [name, fn] of Object.entries(moreFunctions())) if (!FUNCTIONS[name]) FUNCTIONS[name] = fn;
+
+/** =DEVISE(100,"EUR","XAF") / =CURRENCY(…), optionally a 4th argument: the date of the rate (a date or "2024-03-06"). */
+const currencyFn: Fn = a => {
+  const amount = toNum(arg(a, 0)), from = toStr(arg(a, 1)).trim(), to = toStr(arg(a, 2)).trim();
+  if (isError(amount)) return amount;
+  if (!/^[A-Za-z]{3,5}$/.test(from) || !/^[A-Za-z]{3,5}$/.test(to)) return err('#VALUE!');
+  const d = arg(a, 3);
+  const date = d === '' ? 'latest' : typeof d === 'number' ? serialToDate(d).toISOString().slice(0, 10) : toStr(d).slice(0, 10);
+  const table = ratesNow(date);
+  if (!table) return err('#N/A'); // the rates are loading; the sheet works it out again when they arrive
+  const v = convert(amount, from, to, table);
+  return v === null ? err('#VALUE!') : v;
+};
+FUNCTIONS.DEVISE = currencyFn;
+FUNCTIONS.CURRENCY = currencyFn;
+FUNCTIONS.MONEDA = currencyFn;
+FUNCTIONS.WAEHRUNG = currencyFn;
+
+export const FUNCTION_NAMES = [...new Set([...Object.keys(FUNCTIONS).filter(n => !['TRUE', 'FALSE'].includes(n)), 'ROW', 'COLUMN', 'ROWS', 'COLUMNS'])].sort();
 
 /** Days since 1899-12-30, the way spreadsheets store dates. */
 export function dateSerial(d: Date): number {
@@ -703,6 +746,7 @@ function evalNode(n: Node, get: Getter, here?: Here): Value {
   const ev = (x: Node) => evalNode(x, get, here);
   switch (n.k) {
     case 'lit': return n.v;
+    case 'arr': return n.v;
     case 'ref': return get(n.c, n.r, n.sheet);
     case 'range': {
       if ((n.r2 - n.r1 + 1) * (n.c2 - n.c1 + 1) > 1_000_000) return err('#REF!');

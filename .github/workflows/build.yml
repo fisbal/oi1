@@ -64,6 +64,8 @@ jobs:
         run: npm run check:contrast
       - name: Adapting a Stage deck to its audience works on PC and phone
         run: npm run check:audience
+      - name: Office Class knows Excel's functions (440+, Insert function, DEVISE) on PC and phone
+        run: npm run check:formulas
       - name: Choosing the copilot (Claude, ChatGPT, Gemini, Microsoft …) works on PC and phone
         run: npm run check:copilot
       - name: Keep the screenshots
