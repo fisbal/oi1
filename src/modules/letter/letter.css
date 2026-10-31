@@ -433,3 +433,23 @@
 .source-ai { display: flex; gap: 8px; margin: 4px 0 12px; }
 .source-ai input { flex: 1; min-width: 0; }
 @media (max-width: 640px) { .menu-columns { grid-template-columns: 1fr 1fr; } .menu-columns .menu-item { padding: 7px 6px; } }
+
+/* References > Models and Check sources */
+.refm-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 8px; max-width: min(860px, calc(100vw - 80px)); scrollbar-width: thin; }
+.refm-tabs button { flex: none; border: 1px solid var(--hair); background: transparent; color: inherit; border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.refm-tabs button.on { background: var(--accent, #3b82f6); border-color: transparent; color: #fff; }
+.refm-body { max-height: min(62vh, 560px); overflow: auto; max-width: min(860px, calc(100vw - 80px)); display: grid; gap: 10px; padding: 2px; }
+.refm-body h3 { margin: 0 0 6px; font-size: 14px; }
+.refm-body h4 { margin: 10px 0 4px; font-size: 13px; }
+.refm-rules, .refm-card { border: 1px solid var(--hair); border-radius: 14px; padding: 12px 14px; }
+.refm-rules ul { margin: 0 0 10px; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+.refm-adapt { columns: 2; }
+.refm-card p { margin: 4px 0; font-size: 13px; line-height: 1.5; padding-left: 2.2em; text-indent: -2.2em; overflow-wrap: anywhere; }
+.refm-k { display: inline-block; min-width: 5.5em; margin-right: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: .6; text-indent: 0; }
+.refm-card .btn, .refm-rules .btn { margin-top: 6px; }
+.refm-check { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; max-height: min(60vh, 520px); overflow: auto; max-width: min(760px, calc(100vw - 80px)); }
+.refm-check li { border: 1px solid var(--hair); border-radius: 12px; padding: 10px 12px; font-size: 13px; overflow-wrap: anywhere; }
+.refm-check li div { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+.refm-miss { color: #d97706; font-weight: 600; }
+.fill-list label.missing input { outline: 2px solid #d97706; }
+@media (max-width: 600px) { .refm-adapt { columns: 1; } .refm-tabs, .refm-body, .refm-check { max-width: calc(100vw - 64px); } }

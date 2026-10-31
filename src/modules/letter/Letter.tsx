@@ -33,10 +33,11 @@ import { SPACING, THEMES } from './themes';
 import { CV_TEMPLATES } from './templates/cv';
 import { FillDialog, ProfileDialog } from './templates/dialogs';
 import {
-  bibliographyJson, captionJson, citedSources, indexEntries, indexJson, refTargets, refText, restyleCitations, tableOfFiguresJson,
+  CITATION_STYLES, bibliographyJson, captionJson, citedSources, indexEntries, indexJson, refTargets, refText, restyleCitations, tableOfFiguresJson, updateSource,
   type CaptionLabel, type CitationStyle, type RefForm, type RefTarget, type Source,
 } from './references';
 import { SourceDialog } from './sourceDialog';
+import { RefCheckDialog, RefModelsDialog } from './refModels';
 import { LETTERS } from './templates/letters';
 import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, selectNextField } from './templates/markup';
 import { profileValues } from './templates/profile';
@@ -109,8 +110,13 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   }));
   const setView = useCallback((v: Partial<ViewState>) => setViewState(cur => ({ ...cur, ...v })), []);
   const [layout, setLayout] = useState<LayoutResult>({ pages: 1, tail: 96, notes: [] });
-  const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands' | 'fill' | 'profile' | 'source' | 'sourceAi'>(null);
-  const [citeStyle, setCiteStyleState] = useState<CitationStyle>(() => (shell.storage.get('citeStyle') as CitationStyle | null) ?? 'apa');
+  const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands' | 'fill' | 'profile' | 'source' | 'sourceAi' | 'refModels' | 'refCheck'>(null);
+  // What the source dialog starts from: a type of document (Models) or a source to complete (Check sources).
+  const [sourceStart, setSourceStart] = useState<{ initial?: Partial<Source>; highlight?: (keyof Source)[]; update?: boolean } | null>(null);
+  const [citeStyle, setCiteStyleState] = useState<CitationStyle>(() => {
+    const saved = shell.storage.get('citeStyle') as CitationStyle | null;
+    return saved && saved in CITATION_STYLES ? saved : getLanguage() === 'fr' ? 'apaFr' : 'apa';
+  });
   const [copilot, setCopilot] = useState(false);
   const [copilotStart, setCopilotStart] = useState<{ id: string; n: number }>();
   const [docLang, setDocLang] = useState<'fr' | 'en'>(() => (shell.storage.get('docLang') as 'fr' | 'en' | null) || (getLanguage() === 'fr' ? 'fr' : 'en'));
@@ -817,7 +823,13 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     },
     newCitation: (ai: boolean) => {
       if (activeRef.current !== 'body') { shell.notify(t('letter.footnoteBodyOnly')); return; }
+      setSourceStart(null);
       setPanel(ai ? 'sourceAi' : 'source');
+    },
+    refModels: () => setPanel('refModels'),
+    refCheck: () => {
+      if (!body || !citedSources(body.state.doc).length) { shell.notify(t('letter.citeNone')); return; }
+      setPanel('refCheck');
     },
     cite: (src: Source) => body?.chain().focus().insertCitation(src, citeStyle).run(),
     citedSources: () => (body ? citedSources(body.state.doc) : []),
@@ -1145,7 +1157,21 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
         onDone={n => shell.notify(n ? t('letter.docs.filled', { n }) : t('letter.docs.noFields'))} />}
       {panel === 'profile' && <ProfileDialog onClose={() => setPanel(null)} />}
       {(panel === 'source' || panel === 'sourceAi') && <SourceDialog shell={shell} aiFirst={panel === 'sourceAi'}
-        onClose={() => { setPanel(null); body.commands.focus(); }} onDone={src => { setTimeout(() => actions.cite(src)); }} />}
+        initial={sourceStart?.initial} highlight={sourceStart?.highlight}
+        onClose={() => { setPanel(null); setSourceStart(null); body.commands.focus(); }}
+        onDone={src => {
+          if (sourceStart?.update) { const n = updateSource(body, src, citeStyle); shell.notify(t('letter.refCheck.fixed', { n })); return; }
+          setTimeout(() => actions.cite(src));
+        }} />}
+      {panel === 'refModels' && <RefModelsDialog style={citeStyle} onClose={() => setPanel(null)}
+        onStyle={st => { actions.setCiteStyle(st); setPanel(null); }}
+        onUse={(kind, st) => {
+          if (st !== citeStyle) actions.setCiteStyle(st);
+          setSourceStart({ initial: { kind } });
+          setPanel('source');
+        }} />}
+      {panel === 'refCheck' && <RefCheckDialog sources={citedSources(body.state.doc)} style={citeStyle} onClose={() => setPanel(null)}
+        onFix={(src, missing) => { setSourceStart({ initial: src, highlight: missing, update: true }); setPanel('source'); }} />}
       {panel === 'commands' && <CommandPalette commands={commands} onClose={() => { setPanel(null); activeEditor?.commands.focus(); }} />}
     </div>
   );

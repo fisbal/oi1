@@ -9,6 +9,8 @@ export type HelpText = [en: string, fr: string];
 
 export const HELP: Record<string, HelpText> = {
   // ---------- shared with Letter and Stage ----------
+  'letter.refModels': ['Opens the reference models: one tab per style (APA 7 in English or French, MLA, Chicago, IEEE, ISO 690…) with its layout rules and, for each type of document, the pattern, a real example and “Use this model”.', 'Ouvre les modèles de références : un onglet par norme (APA 7 en anglais ou en français, MLA, Chicago, IEEE, ISO 690…) avec ses règles de mise en page et, pour chaque type de document, le format, un exemple réel et « Utiliser ce modèle ».'],
+  'letter.refCheck': ['Checks every source cited in the document and lists what the chosen style still needs (year, publisher, DOI, pages…). “Complete” fills it in and updates every citation of that source.', 'Vérifie chaque source citée dans le document et liste ce que la norme choisie demande encore (année, éditeur, DOI, pages…). « Compléter » l’ajoute et met à jour toutes les citations de cette source.'],
   'letter.paste': ['Puts what you copied at the selected place. A table copied from Excel, Word or a web page keeps its rows and columns.', 'Colle ce que vous avez copié à l’endroit choisi. Un tableau copié depuis Excel, Word ou une page web garde ses lignes et ses colonnes.'],
   'letter.cut': ['Removes the selection and keeps it, ready to paste somewhere else (Ctrl+X).', 'Enlève la sélection et la garde, prête à être collée ailleurs (Ctrl+X).'],
   'letter.copy': ['Copies the selection without removing it (Ctrl+C). Then click where it should go and Paste.', 'Copie la sélection sans l’enlever (Ctrl+C). Cliquez ensuite à l’endroit voulu et collez.'],

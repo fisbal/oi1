@@ -97,6 +97,8 @@ export interface RibbonActions {
   citeStyle: CitationStyle;
   setCiteStyle: (st: CitationStyle) => void;
   newCitation: (ai: boolean) => void;
+  refModels: () => void;
+  refCheck: () => void;
   cite: (src: Source) => void;
   citedSources: () => Source[];
   bibliography: (title: string) => void;
@@ -648,6 +650,8 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
               </Drop>
               <Btn icon="sparkle" title="letter.sourceAi" text onClick={() => actions.newCitation(true)} disabled={!isBody} />
             </div>
+            <Btn big icon="apps" title="letter.refModels" onClick={actions.refModels} disabled={!isBody} />
+            <Btn big icon="check" title="letter.refCheck" onClick={actions.refCheck} disabled={!isBody} />
             <Drop big icon="book" title="letter.bibliography">
               {close => BIBLIOGRAPHY_TITLES.map(id => (
                 <MenuItem key={id} label={t(`letter.bib.${id}` as MessageKey)} onClick={() => { actions.bibliography(t(`letter.bib.${id}` as MessageKey)); close(); }} />
