@@ -26,6 +26,9 @@ import { CHART_TYPES, ChartSvg, DARK, LIGHT, PALETTES, chartData, svgToPng } fro
 import { condLooks, type CondLook } from './cond';
 import { autofill, type Box } from './fill';
 import { InsertFunction, functionsIn, type FnCategory } from './functions';
+import { Converter, FEATURED, ProGallery, toolById, type ProCat } from './pro/ProUi';
+import { PRO_CATEGORIES, buildTool, type ProTool } from './pro/tools';
+import { tx, type Lang } from './pro/build';
 import { CondDialog, FilterMenu, FindPanel, HIGHLIGHT_KINDS, TOP_KINDS, type CondKind, type FindOptions } from './panels';
 import { borderCss, printHtml, sheetHtml } from './print';
 
@@ -47,7 +50,7 @@ const ZOOMS = [0.25, 0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 3, 4];
 interface Pos { c: number; r: number }
 interface Sel { a: Pos; f: Pos }
 interface Saved { book: WorkbookData; active: number; link: HandoffLink | null; name: string }
-type Tab = 'home' | 'insert' | 'formulas' | 'data' | 'view' | 'chart' | 'oi1';
+type Tab = 'home' | 'insert' | 'formulas' | 'metiers' | 'data' | 'view' | 'chart' | 'oi1';
 
 const boxOf = (s: Sel): Range => ({ c1: Math.min(s.a.c, s.f.c), r1: Math.min(s.a.r, s.f.r), c2: Math.max(s.a.c, s.f.c), r2: Math.max(s.a.r, s.f.r) });
 const newId = (p: string) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -138,6 +141,8 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const [filterMenu, setFilterMenu] = useState<null | { c: number; left: number; top: number }>(null);
   const [condDialog, setCondDialog] = useState<CondKind | null>(null);
   const [fnDialog, setFnDialog] = useState<FnCategory | 'all' | null>(null);
+  const [proCat, setProCat] = useState<ProCat>(() => { try { return (localStorage.getItem('oi1.class.proCat') as ProCat) || 'all'; } catch { return 'all'; } });
+  const [proDialog, setProDialog] = useState<null | 'gallery' | 'converter'>(null);
   const [chartSel, setChartSel] = useState<string | null>(null);
   const [fillTo, setFillTo] = useState<Box | null>(null);
   const undo = useRef<WorkbookData[]>([]);
@@ -1223,6 +1228,32 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     commit({ ...b, sheets: [...b.sheets, emptySheet(t('class.sheet', { n }))] });
     pickSheet(b.sheets.length);
   };
+  // ---------- Métiers: ready professional sheets and world money ----------
+  const proLang = (['en', 'fr', 'es', 'pt', 'de'].includes(lang.slice(0, 2)) ? lang.slice(0, 2) : 'en') as Lang;
+  const pickProCat = (c: ProCat) => { setProCat(c); try { localStorage.setItem('oi1.class.proCat', c); } catch { /* blocked */ } };
+  const addProSheet = (tool: ProTool) => {
+    if (edit) commitEdit();
+    const b = bookRef.current;
+    commit({ ...b, sheets: [...b.sheets, buildTool(tool, proLang, b.sheets.map(s => s.name))] });
+    pickSheet(b.sheets.length);
+  };
+  const putFormula = (formula: string) => {
+    const { c, r } = sel.a;
+    changeSheet(s => { s.cells[key(c, r)] = { ...s.cells[key(c, r)], input: formula, style: { ...s.cells[key(c, r)]?.style, format: 'number', decimals: 2, thousands: true } }; });
+  };
+  // Each number of the selection gets its converted value in a new column on the right, as a live =DEVISE() formula.
+  const convertSelection = (from: string, to: string) => {
+    const { c2, r1, r2 } = range;
+    const out = c2 + 1;
+    changeSheet(s => {
+      for (let r = r1; r <= r2; r++) {
+        const v = values.get(key(c2, r));
+        if (typeof v === 'number') s.cells[key(out, r)] = { input: `=DEVISE(${cellName(c2, r)},"${from}","${to}")`, style: { format: 'number', decimals: 2, thousands: true } };
+        else if (r === r1 && typeof v === 'string' && v) s.cells[key(out, r)] = { input: `${v} (${to})`, style: s.cells[key(c2, r)]?.style };
+      }
+    });
+    setSel({ a: { c: out, r: r1 }, f: { c: out, r: r2 } });
+  };
   // Renaming happens right in the tab (no pop-up box: installed apps on phones do not always show one).
   const [renaming, setRenaming] = useState<{ i: number; error?: boolean } | null>(null);
   const [tabMenu, setTabMenu] = useState<{ i: number; x: number; y: number; sure?: boolean } | null>(null);
@@ -1505,7 +1536,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
 
   const tabs: { id: Tab; label: MessageKey }[] = [
     { id: 'home', label: 'letter.tab.home' }, { id: 'insert', label: 'letter.tab.insert' }, { id: 'formulas', label: 'class.tab.formulas' },
-    { id: 'data', label: 'class.tab.data' }, { id: 'view', label: 'letter.tab.view' },
+    { id: 'metiers', label: 'class.tab.metiers' }, { id: 'data', label: 'class.tab.data' }, { id: 'view', label: 'letter.tab.view' },
   ];
   const shownTab: Tab = tab === 'chart' && !chart ? 'insert' : tab;
   const formats: NumberFormat[] = ['general', 'number', 'integer', 'currency', 'accounting', 'percent', 'fraction', 'scientific', 'date', 'longDate', 'time', 'dateTime', 'text'];
@@ -1740,6 +1771,24 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               </Drop>
             </Group>
           </>}
+          {shownTab === 'metiers' && <>
+            <Group label="class.pro.group.category">
+              <div className="pro-catbtns">
+                {PRO_CATEGORIES.map(c => <Btn key={c.id} text icon={c.icon} title={tx(c.name, proLang)} active={proCat === c.id} onClick={() => pickProCat(c.id)} />)}
+                <Btn text icon="columns" title="class.pro.cat.all" active={proCat === 'all'} onClick={() => pickProCat('all')} />
+              </div>
+            </Group>
+            <Group label="class.pro.group.tools">
+              {FEATURED[proCat].map(f => { const tool = toolById(f.id)!; return (
+                <Btn key={f.id} big icon={tool.icon} title={tx(tool.name, proLang)} label={<span className="rb-label">{tx(f.short, proLang)}</span>} onClick={() => addProSheet(tool)} />
+              ); })}
+              <Btn big icon="index" title="class.pro.gallery" onClick={() => setProDialog('gallery')} />
+            </Group>
+            <Group label="class.pro.group.money">
+              <Btn big icon="currency" title="class.pro.converter" onClick={() => setProDialog('converter')} />
+              <Btn big icon="table" title="class.pro.table" onClick={() => addProSheet(toolById('currencies')!)} />
+            </Group>
+          </>}
           {shownTab === 'view' && <>
             <Group label="class.group.show">
               <Btn big icon="gridlines" title="class.gridlines" active={!sheet.noGrid} onClick={() => changeSheet(s => { if (s.noGrid) delete s.noGrid; else s.noGrid = true; })} />
@@ -1947,6 +1996,10 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           onApply={off => changeSheet(s => { if (!s.filter) return; const hidden = { ...s.filter.hidden }; if (off.length) hidden[filterMenu.c] = off; else delete hidden[filterMenu.c]; s.filter = { ...s.filter, hidden }; })}
           onClose={() => setFilterMenu(null)} />
       )}
+      {proDialog === 'gallery' && <ProGallery lang={proLang} start={proCat} onPick={addProSheet} onClose={() => setProDialog(null)} />}
+      {proDialog === 'converter' && <Converter lang={proLang} start={typeof values.get(key(sel.a.c, sel.a.r)) === 'number' ? values.get(key(sel.a.c, sel.a.r)) as number : undefined}
+        hasSelection={[...Array(range.r2 - range.r1 + 1)].some((_, i) => typeof values.get(key(range.c2, range.r1 + i)) === 'number')}
+        onFormula={putFormula} onConvertSelection={convertSelection} onClose={() => setProDialog(null)} />}
       {fnDialog && <InsertFunction start={fnDialog} onClose={() => setFnDialog(null)} onPick={fn => startEdit(`=${fn}(`, 'edit')} />}
       {condDialog && <CondDialog kind={condDialog} range={single ? currentRegion(sel.a) : range} onClose={() => setCondDialog(null)} onOk={rule => addRule(rule)} />}
 
