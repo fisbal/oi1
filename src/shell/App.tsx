@@ -1,4 +1,5 @@
 import { WebAnswer } from '../ui/WebAnswer';
+import { WantBar } from '../ui/want/WantBar';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Handoff, MountedModule, OpenedFile, RecentFile, ShellApi } from './contract';
 import { idb } from './db';
@@ -519,6 +520,7 @@ function TabHost({ tab, hidden, makeApi, onOpen, onDrop }: { tab: Tab; hidden: b
         <span className="app-badge" aria-hidden="true">{entry.badge}</span>
         <span className="app-name">{entry.name}</span>
         <span className="app-doc" title={tab.title}>{tab.title}</span>
+        <WantBar moduleId={tab.moduleId} />
         <SaveBadge tabId={tab.tabId} onOpen={onOpen} />
       </div>
       <div ref={ref} className="module-host" hidden={hidden} />
