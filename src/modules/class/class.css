@@ -51,7 +51,8 @@
   position: absolute; display: flex; padding: 0 7px; font-size: 13.5px; line-height: 1.2; color: var(--ink); white-space: nowrap; overflow: hidden;
   font-variant-numeric: tabular-nums; pointer-events: none; box-sizing: border-box;
 }
-.cell > span { position: relative; overflow: hidden; text-overflow: clip; }
+/* Cut on the sides only: a hanging letter (g, y) or an accent (É) taller than the line still shows whole. */
+.cell > span { position: relative; overflow-x: clip; overflow-y: visible; text-overflow: clip; }
 .cell.wrap > span { white-space: pre-wrap; overflow-wrap: anywhere; width: 100%; text-align: inherit; }
 .cell.wrap { text-align: left; }
 .cell.wrap[style*="flex-end"] { text-align: right; }
