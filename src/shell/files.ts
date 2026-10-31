@@ -106,6 +106,15 @@ export async function saveFile(name: string, content: Blob | string | (() => Pro
     return typeof c === 'string' ? new Blob([c], { type: mimeType }) : c;
   };
   const target = options.target?.handle;
+  if (options.quiet) {
+    // AutoSave: write over the file only when the browser already allows it, and never ask anything.
+    if (!target) return null;
+    const h = target as unknown as PermissionHandle;
+    if (h.queryPermission && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted') return null;
+    const blob = await toBlob();
+    await write(target, blob);
+    return { ref: { name: target.name, handle: target }, blob };
+  }
   if (target && !options.saveAs && target.name.toLowerCase().endsWith(name.slice(name.lastIndexOf('.')).toLowerCase())) {
     try {
       if (await allowed(target, 'readwrite')) {

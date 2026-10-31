@@ -412,6 +412,15 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     setDirty(false);
     autosave();
   };
+  // AutoSave: once the letter has a file, the shell writes it there after each pause in the work.
+  const quietSave = useRef<() => Promise<FileRef | null>>(async () => null);
+  quietSave.current = async () => {
+    if (!body || !fileRef?.handle || !fileName.toLowerCase().endsWith('.docx')) return null;
+    const ref = await shell.saveFile(fileName, makeDocx, DOCX_TYPE, { target: fileRef, quiet: true });
+    if (ref) setDirty(false);
+    return ref;
+  };
+  useEffect(() => { shell.autoSave(() => quietSave.current()); return () => shell.autoSave(null); }, [shell]);
 
   const saveAs = (format: SaveFormat) => {
     if (!body) return;

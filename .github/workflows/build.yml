@@ -56,6 +56,8 @@ jobs:
         run: npm run check:sync
       - name: Check spelling, grammar and style underlines and the fix bubble
         run: npm run check:proof
+      - name: Check AutoSave keeps every change and writes the document's file by itself
+        run: npm run check:autosave
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4

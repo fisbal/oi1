@@ -27,6 +27,8 @@ export interface SaveOptions {
   target?: FileRef | null;
   /** Always ask where to save, like Word's "Save as". */
   saveAs?: boolean;
+  /** Only write over `target` if that is already allowed; never ask anything (AutoSave). Resolves to null otherwise. */
+  quiet?: boolean;
 }
 
 export interface ShellApi {
@@ -44,6 +46,12 @@ export interface ShellApi {
     load(key: string): Promise<string | null>;
     save(key: string, value: string): Promise<void>;
   };
+  /**
+   * AutoSave: give the shell a way to write the document to its own file without asking (use `saveFile` with
+   * `{ target, quiet: true }`), resolving to the file or null when there is none yet. The shell calls it after a
+   * pause in the work when AutoSave is on, and shows "Saved" in the app bar. Pass null to stop.
+   */
+  autoSave(fn: (() => Promise<FileRef | null>) | null): void;
   /** Files this module opened or saved lately, newest first. */
   recent: {
     list(): Promise<RecentFile[]>;

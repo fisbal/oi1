@@ -737,6 +737,13 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     setFileRef(ref);
     setFileName(ref.name);
   };
+  // AutoSave: once the deck has a .pptx file, the shell writes it there after each pause in the work.
+  const quietSave = useRef<() => Promise<FileRef | null>>(async () => null);
+  quietSave.current = async () => {
+    if (!fileRef?.handle || !fileName.toLowerCase().endsWith('.pptx')) return null;
+    return shell.saveFile(fileName, pptxBlob, PPTX_TYPE, { target: fileRef, quiet: true });
+  };
+  useEffect(() => { shell.autoSave(() => quietSave.current()); return () => shell.autoSave(null); }, [shell]);
   const share = async () => {
     const f = new File([await pptxBlob()], `${baseName()}.pptx`, { type: PPTX_TYPE });
     if (navigator.canShare?.({ files: [f] })) await navigator.share({ files: [f], title }).catch(() => {});
