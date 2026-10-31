@@ -826,8 +826,10 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       const replace = isEmptyDoc(body) || confirm(t('letter.docs.replaceAsk'));
       if (replace) body.commands.setContent({ type: 'doc', content });
       else body.chain().focus().insertContent(content).run();
-      if ('theme' in tpl && replace) {
-        const th = THEMES.find(x => x.id === tpl.theme);
+      // A template with its own look brings it; the others go back to the plain white page if the page was dark
+      // (from a dark theme or the Creative CV), so a memo never opens black.
+      if (replace && ('theme' in tpl || isDark(page.color))) {
+        const th = THEMES.find(x => x.id === ('theme' in tpl ? tpl.theme : 'office'));
         if (th) smart.theme(th);
       }
       // What "My info" knows fills itself in; the cursor goes to the first field left.

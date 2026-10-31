@@ -19,6 +19,7 @@
     "check:training": "node scripts/check-training.mjs",
     "check:sync": "node scripts/check-sync.mjs",
     "check:proof": "node scripts/check-proof.mjs",
+    "check:contrast": "node scripts/check-contrast.mjs",
     "check:audience": "node scripts/check-audience.mjs"
   },
   "dependencies": {

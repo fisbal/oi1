@@ -1204,11 +1204,16 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     commit({ ...b, sheets: [...b.sheets, emptySheet(t('class.sheet', { n }))] });
     pickSheet(b.sheets.length);
   };
-  const renameSheet = async (i: number) => {
-    const old = book.sheets[i].name;
-    const name = prompt(t('class.renameSheet'), old)?.trim().replace(/[\\/?*[\]:]/g, '').slice(0, 31);
-    if (!name || name === old) return;
-    if (book.sheets.some((s, j) => j !== i && s.name.toLowerCase() === name.toLowerCase())) { alert(t('class.sheetNameTaken')); return; }
+  // Renaming happens right in the tab (no pop-up box: installed apps on phones do not always show one).
+  const [renaming, setRenaming] = useState<{ i: number; error?: boolean } | null>(null);
+  const [tabMenu, setTabMenu] = useState<{ i: number; x: number; y: number; sure?: boolean } | null>(null);
+  const renameSheet = (i: number) => { setTabMenu(null); pickSheet(i); setRenaming({ i }); };
+  /** Gives sheet `i` its new name; false when another sheet has it. */
+  const applyName = async (i: number, typed: string): Promise<boolean> => {
+    const old = bookRef.current.sheets[i]?.name;
+    const name = typed.trim().replace(/[\\/?*[\]:]/g, '').slice(0, 31);
+    if (!old || !name || name === old) return true;
+    if (bookRef.current.sheets.some((s, j) => j !== i && s.name.toLowerCase() === name.toLowerCase())) return false;
     const { renameSheetRefs } = await import('../../formats/formula');
     const b = bookRef.current;
     // Formulas on every sheet that point at the old name follow the new one.
@@ -1217,14 +1222,43 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       for (const [k, cell] of Object.entries(s.cells)) cells[k] = cell.input.startsWith('=') ? { ...cell, input: renameSheetRefs(cell.input, old, name) } : cell;
       return { ...s, cells, ...(j === i ? { name } : {}) };
     }) });
+    return true;
   };
   const deleteSheet = (i: number) => {
-    if (book.sheets.length < 2 || !confirm(t('class.deleteSheetConfirm', { name: book.sheets[i].name }))) return;
+    if (bookRef.current.sheets.length < 2) return;
     const b = bookRef.current;
     commit({ ...b, sheets: b.sheets.filter((_, j) => j !== i) });
     setActive(a => Math.max(0, a >= i ? a - 1 : a));
     setChartSel(null);
   };
+  const duplicateSheet = (i: number) => {
+    const b = bookRef.current;
+    const src = b.sheets[i];
+    let n = 2;
+    while (b.sheets.some(s => s.name === `${src.name} (${n})`)) n++;
+    const copy = { ...structuredClone(src), name: `${src.name} (${n})`.slice(0, 31) };
+    commit({ ...b, sheets: [...b.sheets.slice(0, i + 1), copy, ...b.sheets.slice(i + 1)] });
+    pickSheet(i + 1);
+  };
+  const moveSheet = (i: number, dir: -1 | 1) => {
+    const b = bookRef.current, j = i + dir;
+    if (j < 0 || j >= b.sheets.length) return;
+    const sheets = [...b.sheets];
+    [sheets[i], sheets[j]] = [sheets[j], sheets[i]];
+    commit({ ...b, sheets });
+    setActive(j);
+  };
+  const setSheetColor = (i: number, color: string | null) => {
+    const b = bookRef.current;
+    commit({ ...b, sheets: b.sheets.map((sh, j) => {
+      if (j !== i) return sh;
+      const { tabColor: _old, ...rest } = sh;
+      return color ? { ...rest, tabColor: color } : rest;
+    }) });
+  };
+  // A long press on a phone opens the same menu as a right-click.
+  const pressTimer = useRef(0);
+  const openTabMenu = (i: number, x: number, y: number) => { if (edit) commitEdit(); setTabMenu({ i, x, y }); };
   const setTabColor = (color: string | null) => changeSheet(s => { if (color) s.tabColor = color; else delete s.tabColor; });
 
   // ---------- view ----------
@@ -1673,7 +1707,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             </Group>
             <Group label="class.group.sheets">
               <Btn big icon="new" title="class.addSheet" onClick={addSheet} />
-              <Btn big icon="rename" title="class.renameSheet" onClick={() => void renameSheet(active)} />
+              <Btn big icon="rename" title="class.renameSheet" onClick={() => renameSheet(active)} />
               <Drop big icon="fill" title="class.tabColor" swatch={sheet.tabColor ?? null}>
                 {close => <ColorGrid none="letter.noColor" value={sheet.tabColor} onPick={c => { setTabColor(c); close(); }} />}
               </Drop>
@@ -1831,15 +1865,38 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       </div>
 
       <div className="sheet-tabs">
-        {book.sheets.map((s, i) => (
+        {book.sheets.map((s, i) => renaming?.i === i ? (
+          <input key={i} className={`sheet-tab sheet-rename${renaming.error ? ' bad' : ''}`} defaultValue={s.name} maxLength={31} autoFocus
+            aria-label={t('class.renameSheet')} title={renaming.error ? t('class.sheetNameTaken') : t('class.renameSheet')}
+            size={Math.max(6, s.name.length + 2)} onFocus={e => e.currentTarget.select()}
+            onKeyDown={e => {
+              if (e.key === 'Escape') { setRenaming(null); gridRef.current?.focus(); }
+              if (e.key === 'Enter') e.currentTarget.blur();
+              e.stopPropagation();
+            }}
+            onBlur={e => {
+              const typed = e.currentTarget.value, el = e.currentTarget;
+              void applyName(i, typed).then(ok => { if (ok) setRenaming(null); else { setRenaming({ i, error: true }); el.focus(); } });
+            }} />
+        ) : (
           <button key={i} type="button" className={`sheet-tab${i === active ? ' on' : ''}`} style={s.tabColor ? { boxShadow: `inset 0 -3px 0 ${s.tabColor}` } : undefined}
             onClick={() => pickSheet(i)}
-            onDoubleClick={() => void renameSheet(i)} onContextMenu={e => { e.preventDefault(); deleteSheet(i); }} title={t('class.sheetTabHint')}>
+            onDoubleClick={() => renameSheet(i)} onContextMenu={e => { e.preventDefault(); openTabMenu(i, e.clientX, e.clientY); }}
+            onPointerDown={e => { if (e.pointerType !== 'mouse') { const { clientX: x, clientY: y } = e; pressTimer.current = window.setTimeout(() => openTabMenu(i, x, y), 500); } }}
+            onPointerUp={() => window.clearTimeout(pressTimer.current)} onPointerLeave={() => window.clearTimeout(pressTimer.current)}
+            title={t('class.sheetTabHint')}>
             {s.name}
           </button>
         ))}
         <button type="button" className="sheet-add" title={t('class.addSheet')} aria-label={t('class.addSheet')} onClick={addSheet}>+</button>
       </div>
+      {tabMenu && <SheetTabMenu at={tabMenu} count={book.sheets.length} color={book.sheets[tabMenu.i]?.tabColor}
+        onClose={() => setTabMenu(null)}
+        onRename={() => renameSheet(tabMenu.i)}
+        onDuplicate={() => { setTabMenu(null); duplicateSheet(tabMenu.i); }}
+        onMove={dir => { setTabMenu(null); moveSheet(tabMenu.i, dir); }}
+        onColor={c => { setTabMenu(null); setSheetColor(tabMenu.i, c); }}
+        onDelete={() => { if (!tabMenu.sure) setTabMenu({ ...tabMenu, sure: true }); else { setTabMenu(null); deleteSheet(tabMenu.i); } }} />}
       <footer className="status">
         <span className="status-file">{painter ? t('class.painterHint') : fileName || `${title}.xlsx`}</span>
         {hiddenRows.size > 0 && <span>{t('class.filter.status', { n: (sheet.filter!.range.r2 - sheet.filter!.range.r1) - hiddenRows.size, total: sheet.filter!.range.r2 - sheet.filter!.range.r1 })}</span>}
@@ -1883,4 +1940,43 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const rg = single ? currentRegion(sel.a) : range;
     changeSheet(s => { s.rules = [...(s.rules ?? []), { range: rg, ...rule, id: newId('r') }]; });
   }
+}
+
+const TAB_SWATCHES = ['#C62828', '#EF6C00', '#F9A825', '#2E7D32', '#00838F', '#1565C0', '#6A1B9A', '#AD1457', '#5D4037', '#546E7A'];
+
+/** The menu of a sheet tab (right-click, or a long press on a phone): rename, copy, move, color, delete. */
+function SheetTabMenu({ at, count, color, onClose, onRename, onDuplicate, onMove, onColor, onDelete }: {
+  at: { i: number; x: number; y: number; sure?: boolean }; count: number; color?: string;
+  onClose: () => void; onRename: () => void; onDuplicate: () => void; onMove: (dir: -1 | 1) => void; onColor: (c: string | null) => void; onDelete: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: at.x, top: at.y });
+  useLayoutEffect(() => {
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return;
+    // Opens above the tab (tabs sit at the bottom) and never leaves the screen.
+    setPos({ left: Math.max(8, Math.min(at.x, innerWidth - r.width - 8)), top: Math.max(8, Math.min(at.y - r.height, innerHeight - r.height - 8)) });
+  }, [at.x, at.y]);
+  useEffect(() => {
+    const away = (e: Event) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const id = window.setTimeout(() => document.addEventListener('pointerdown', away, true));
+    document.addEventListener('keydown', esc);
+    return () => { window.clearTimeout(id); document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', esc); };
+  }, [onClose]);
+  return (
+    <div ref={ref} className="sheet-menu" role="menu" style={pos}>
+      <button type="button" role="menuitem" onClick={onRename}><Icon name="rename" size={16} />{t('class.renameSheet')}</button>
+      <button type="button" role="menuitem" onClick={onDuplicate}><Icon name="copy" size={16} />{t('class.sheetMenu.duplicate')}</button>
+      <button type="button" role="menuitem" onClick={() => onMove(-1)} disabled={at.i === 0}><Icon name="prev" size={16} />{t('class.sheetMenu.moveLeft')}</button>
+      <button type="button" role="menuitem" onClick={() => onMove(1)} disabled={at.i >= count - 1}><Icon name="next" size={16} />{t('class.sheetMenu.moveRight')}</button>
+      <div className="sheet-menu-colors" role="group" aria-label={t('class.tabColor')}>
+        {TAB_SWATCHES.map(c => <button key={c} type="button" className={c === color ? 'on' : ''} style={{ background: c }} title={c} aria-label={c} onClick={() => onColor(c)} />)}
+        <button type="button" className="none" title={t('letter.noColor')} aria-label={t('letter.noColor')} onClick={() => onColor(null)}>✕</button>
+      </div>
+      <button type="button" role="menuitem" className={`danger${at.sure ? ' sure' : ''}`} onClick={onDelete} disabled={count < 2}>
+        <Icon name="trash" size={16} />{at.sure ? t('class.sheetMenu.deleteSure') : t('class.sheetMenu.delete')}
+      </button>
+    </div>
+  );
 }
