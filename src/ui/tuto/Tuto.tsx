@@ -43,8 +43,8 @@ async function inLanguage(en: string, lang: string): Promise<string> {
   if (lang === 'en' || lang === 'fr') return en;
   const k = `${lang}|${en}`;
   if (translated.has(k)) return translated.get(k)!;
-  const tr = await browserTranslator(lang as 'es').catch(() => null);
-  const out = tr ? (await tr([en]))[0] : en;
+  const tr = await browserTranslator(lang, 'en').catch(() => null);
+  const out = tr ? ((await tr([en]).catch(() => null))?.out[0] || en) : en;
   translated.set(k, out);
   return out;
 }
