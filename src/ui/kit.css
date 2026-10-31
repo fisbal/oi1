@@ -286,3 +286,36 @@
   .fast-scroll-host { scrollbar-width: auto; scrollbar-color: color-mix(in srgb, var(--app, var(--gold)) 70%, transparent) rgba(var(--fg-rgb), .05); }
 }
 @media print { .fast-scroll { display: none !important; } }
+
+/* ---------- Tuto: the panel that explains every ribbon button ---------- */
+.ribbon-tabs > .ribbon-tuto { color: var(--app, var(--gold)); font-weight: 600; }
+.ribbon-tabs > .ribbon-tuto span { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 4px; border-radius: 50%; border: 1.5px solid currentColor; font-size: 11px; line-height: 1; }
+.tuto-panel { position: fixed; right: 8px; bottom: 8px; width: min(380px, calc(100vw - 16px)); z-index: 60; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; background: var(--panel, var(--bg)); color: var(--fg); border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0,0,0,.35); overflow: hidden; }
+.tuto-panel header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tuto-panel header b { font-size: 15px; }
+.tuto-close { width: 32px; height: 32px; border-radius: 8px; font-size: 20px; line-height: 1; }
+.tuto-intro, .tuto-hint { margin: 0; font-size: 13px; opacity: .8; line-height: 1.4; }
+.tuto-cats { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; flex: none; }
+.tuto-cats button { flex: none; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
+.tuto-cats button.on { background: var(--app, var(--gold)); color: #fff; border-color: transparent; }
+.tuto-explain { display: flex; align-items: center; gap: 6px; font-size: 13px; flex: none; }
+.tuto-body { display: grid; grid-template-columns: 1fr 1.2fr; gap: 10px; min-height: 0; flex: 1; }
+.tuto-list { overflow-y: auto; min-height: 0; padding-right: 2px; }
+.tuto-group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .65; margin: 8px 0 4px; }
+.tuto-item { border: 0; background: none; color: inherit; display: block; width: 100%; text-align: left; padding: 6px 8px; border-radius: 8px; font-size: 13px; line-height: 1.3; overflow-wrap: anywhere; }
+.tuto-item:hover { background: rgba(var(--fg-rgb), .07); }
+.tuto-item.on { background: color-mix(in srgb, var(--app, var(--gold)) 22%, transparent); font-weight: 600; }
+.tuto-help { overflow-y: auto; min-height: 0; font-size: 14px; line-height: 1.5; }
+.tuto-help h3 { margin: 4px 0 6px; font-size: 15px; overflow-wrap: anywhere; }
+.tuto-help p { margin: 0 0 10px; }
+.tuto-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tuto-actions button { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); font-size: 13px; }
+.tuto-actions button.primary { background: var(--app, var(--gold)); color: #fff; border-color: transparent; }
+.tuto-flash { animation: tuto-flash 0.5s ease-in-out 3; outline: 2px solid var(--app, var(--gold)); outline-offset: 2px; border-radius: 8px; }
+@keyframes tuto-flash { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--app, var(--gold)) 45%, transparent); } }
+@media (max-width: 700px) {
+  .tuto-panel { top: auto !important; left: 8px; right: 8px; width: auto; height: 48vh; }
+  .tuto-body { grid-template-columns: 1fr 1fr; }
+  .tuto-intro { display: none; }
+}
+@media print { .tuto-panel { display: none !important; } }

@@ -15,6 +15,7 @@ import {
 } from '../../formats/slides';
 import { FileMenu } from '../../ui/FileMenu';
 import { Btn, ColorGrid, Combo, Dialog, Drop, Group, Icon, MenuItem, NumberBox, RibbonToggle, type ComboGroup } from '../../ui/kit';
+import { TutoTab } from '../../ui/tuto/Tuto';
 import { qrDataUrl } from '../../ui/qr';
 import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
 import { usePinchZoom } from '../../ui/pinch';
@@ -1118,6 +1119,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
         <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
         {tabs.map(x => <button key={x.id} type="button" role="tab" aria-selected={shownTab === x.id} className={shownTab === x.id ? 'on' : ''} onClick={() => setTab(x.id)}>{t(x.label)}</button>)}
         <button type="button" role="tab" aria-selected={shownTab === 'oi1'} className={`ribbon-special${shownTab === 'oi1' ? ' on' : ''}`} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
+        <TutoTab />
         <RibbonToggle />
         {hasFormat && <button type="button" role="tab" aria-selected={shownTab === 'format'} className={shownTab === 'format' ? 'on' : ''} onClick={() => setTab('format')}>{t('stage.tab.format')}</button>}
         {tableSel && <button type="button" role="tab" aria-selected={shownTab === 'table'} className={shownTab === 'table' ? 'on' : ''} onClick={() => setTab('table')}>{t('letter.tab.table')}</button>}
@@ -1161,9 +1163,9 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           <Group label="letter.group.font">
             <div className="rows">
               <div className="row">
-                <Combo className="font-box" label={t('letter.font')} value={fontShown} groups={fontGroups}
+                <Combo className="font-box" help="letter.font" label={t('letter.font')} value={fontShown} groups={fontGroups}
                   itemStyle={f => ({ fontFamily: cssFont(f) })} onPick={f => format(c => c.setFontFamily(f))} />
-                <Combo className="size-box" label={t('letter.fontSize')} value={String(sizeShown)} numeric inputMode="decimal"
+                <Combo className="size-box" help="letter.fontSize" label={t('letter.fontSize')} value={String(sizeShown)} numeric inputMode="decimal"
                   groups={[{ items: [...FONT_SIZES, 32, 40, 44, 54, 60, 66, 80, 96].sort((a, b) => a - b).filter((v, i, a) => a.indexOf(v) === i).map(String) }]} onPick={v => setSize(parseFloat(v.replace(',', '.')))} />
                 <Btn icon="grow" title="letter.grow" onClick={() => step(1)} disabled={!textOn} />
                 <Btn icon="shrink" title="letter.shrink" onClick={() => step(-1)} disabled={!textOn} />

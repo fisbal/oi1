@@ -212,17 +212,23 @@ interface BtnProps {
   style?: CSSProperties;
   /** Show the label next to the icon. */
   text?: boolean;
+  /** The Tuto's explanation when the button is made on the fly (a ready sheet, a chart type…); otherwise the Tuto
+   *  explains it from its title's message key. */
+  help?: string;
 }
 
 // A message key has a dot and no space ("class.addSheet"); anything else is already a text, even with a dot ("MwSt. …").
-const tr = (key: string) => (key.includes('.') && !/\s/.test(key) ? t(key as MessageKey) : key);
+const isKey = (key: string) => key.includes('.') && !/\s/.test(key);
+const tr = (key: string) => (isKey(key) ? t(key as MessageKey) : key);
+/** What the Tuto reads to explain a ribbon control: its message key, or a ready explanation. */
+const helpAttrs = (title: string, help?: string) => (help && isKey(help) ? { 'data-help': help } : { 'data-help': isKey(title) ? title : undefined, 'data-help-text': help });
 
 /** A ribbon button. It keeps the editor's selection, so formatting applies to the selected text. */
-export function Btn({ icon, label, title, onClick, active, disabled, big, style, text }: BtnProps) {
+export function Btn({ icon, label, title, onClick, active, disabled, big, style, text, help }: BtnProps) {
   const name = tr(title);
   return (
     <button type="button" className={`rb${big ? ' big' : ''}${active ? ' on' : ''}${text ? ' txt' : ''}`}
-      title={name} aria-label={name} aria-pressed={active} disabled={disabled} style={style}
+      title={name} aria-label={name} aria-pressed={active} disabled={disabled} style={style} {...helpAttrs(title, help)}
       onMouseDown={e => e.preventDefault()} onClick={() => onClick()}>
       {icon && (big ? <span className="key"><Icon name={icon} size={20} /></span> : <Icon name={icon} size={16} />)}
       {label ?? (text || big ? <span className="rb-label">{name}</span> : null)}
@@ -269,9 +275,9 @@ export function useOutsideClose(open: boolean, close: () => void) {
 }
 
 /** A button that opens a panel. `children` gets a function to close the panel. */
-export function Drop({ icon, label, title, children, active, swatch, big, text, wide, disabled }: {
+export function Drop({ icon, label, title, children, active, swatch, big, text, wide, disabled, help }: {
   icon?: string; label?: ReactNode; title: MessageKey | string; children: (close: () => void) => ReactNode;
-  active?: boolean; swatch?: string | null; big?: boolean; text?: boolean; wide?: boolean; disabled?: boolean;
+  active?: boolean; swatch?: string | null; big?: boolean; text?: boolean; wide?: boolean; disabled?: boolean; help?: string;
 }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
@@ -298,7 +304,7 @@ export function Drop({ icon, label, title, children, active, swatch, big, text, 
   }, [open]);
   return (
     <div className="drop" ref={ref}>
-      <button type="button" className={`rb${big ? ' big' : ''}${active ? ' on' : ''}${text ? ' txt' : ''}`} title={name} aria-label={name}
+      <button type="button" className={`rb${big ? ' big' : ''}${active ? ' on' : ''}${text ? ' txt' : ''}`} title={name} aria-label={name} {...helpAttrs(title, help)}
         aria-haspopup="true" aria-expanded={open} disabled={disabled} onMouseDown={e => e.preventDefault()} onClick={() => setOpen(o => !o)}>
         {icon && <span className={`rb-icon${big ? ' key' : ''}`}><Icon name={icon} size={big ? 20 : 16} />{swatch !== undefined && <i className="swatch" style={{ background: swatch ?? 'transparent' }} />}</span>}
         {label ?? (text || big ? <span className="rb-label">{name}</span> : null)}
@@ -408,9 +414,11 @@ export interface ComboGroup { label?: string; items: string[] }
  * A text box with a full list under it, like Word's font and size boxes: the whole list shows when it opens,
  * typing narrows it, Enter takes the highlighted item (or what was typed), Escape puts the old value back.
  */
-export function Combo({ value, groups, onPick, label, className, itemStyle, inputMode, numeric }: {
+export function Combo({ value, groups, onPick, label, className, itemStyle, inputMode, numeric, help }: {
   value: string; groups: ComboGroup[]; onPick: (v: string) => void; label: string; className: string;
   itemStyle?: (item: string) => CSSProperties; inputMode?: 'decimal'; numeric?: boolean;
+  /** The Tuto's message key for this box, like 'letter.font'. */
+  help?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(value);
@@ -442,7 +450,7 @@ export function Combo({ value, groups, onPick, label, className, itemStyle, inpu
   let n = -1;
   return (
     <div className={`combo ${className}`} ref={ref}>
-      <input value={text} aria-label={label} title={label} inputMode={inputMode} role="combobox" aria-expanded={open}
+      <input value={text} aria-label={label} title={label} data-help={help} inputMode={inputMode} role="combobox" aria-expanded={open}
         style={itemStyle?.(value)}
         onFocus={e => { e.currentTarget.select(); setTyped(false); setOpen(true); }}
         onMouseDown={() => setOpen(true)}
@@ -454,7 +462,7 @@ export function Combo({ value, groups, onPick, label, className, itemStyle, inpu
           else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); setTyped(false); setText(value); }
           else if (e.key === 'Tab') setOpen(false);
         }} />
-      <button type="button" className="combo-caret" tabIndex={-1} aria-label={label} onMouseDown={e => e.preventDefault()}
+      <button type="button" className="combo-caret" tabIndex={-1} aria-label={label} data-help={help} onMouseDown={e => e.preventDefault()}
         onClick={() => { setTyped(false); setOpen(o => !o); }}><Icon name="caret" size={10} /></button>
       {open && flat.length > 0 && (
         <div className="drop-panel combo-list" role="listbox" ref={list} onMouseDown={e => e.preventDefault()}
