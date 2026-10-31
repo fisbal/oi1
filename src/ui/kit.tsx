@@ -214,7 +214,8 @@ interface BtnProps {
   text?: boolean;
 }
 
-const tr = (key: string) => (key.includes('.') ? t(key as MessageKey) : key);
+// A message key has a dot and no space ("class.addSheet"); anything else is already a text, even with a dot ("MwSt. …").
+const tr = (key: string) => (key.includes('.') && !/\s/.test(key) ? t(key as MessageKey) : key);
 
 /** A ribbon button. It keeps the editor's selection, so formatting applies to the selected text. */
 export function Btn({ icon, label, title, onClick, active, disabled, big, style, text }: BtnProps) {

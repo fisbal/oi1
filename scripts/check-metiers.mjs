@@ -39,7 +39,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
 
   // 1. The tab and its categories.
   await showTab(page);
-  for (const c of ['Finance', 'Accounting', 'All together']) check(await page.locator(`${H} button[aria-label="${c}"]:visible`).count() === 1, `${name}: a "${c}" category button`);
+  for (const c of ['Finance', 'Accounting', 'Economics', 'All together']) check(await page.locator(`${H} button[aria-label="${c}"]:visible`).count() === 1, `${name}: a "${c}" category button`);
   await page.locator(`${H} button[aria-label="Accounting"]:visible`).click();
   await page.waitForTimeout(200);
   if (!(await page.locator(`${H} button[aria-label="Invoice"]:visible, ${H} button[aria-label^="Invoice"]:visible`).count())) await showTab(page);
@@ -58,6 +58,30 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   check(texts.some(x => /1[\s,.]?211[.,]96/.test(x)), `${name}: the loan sheet works out the monthly payment (200 000 at 4% over 20 years: 1 211.96) ${texts.slice(0, 14).join(' | ')}`);
   check(!texts.some(x => /^#[A-Z/0!?]+/.test(x)), `${name}: no formula error on the loan sheet`);
 
+  // 2b. Audit the loan sheet's formulas and its amounts: each audit writes a report sheet.
+  for (const [label, title] of [['Formulas', /Formula health check/], ['Benford', /Benford/], ['Outliers', /Outliers/]]) {
+    if (!(await page.locator(`${H} button[aria-label^="${label === 'Formulas' ? 'Formula health check' : label === 'Benford' ? 'Benford' : 'Outliers'}"]:visible`).count())) await showTab(page);
+    const before = await page.locator(`${H} .sheet-tab`).count();
+    await page.locator(`${H} button[aria-label^="${label === 'Formulas' ? 'Formula health check' : label === 'Benford' ? 'Benford' : 'Outliers'}"]:visible`).first().click();
+    await page.waitForTimeout(600);
+    const after = await page.locator(`${H} .sheet-tab`).count();
+    const t = (await cellTexts(page)).join(' | ');
+    check(after === before + 1 && title.test(t), `${name}: the ${label} audit writes its report on a new sheet (${t.slice(0, 90)})`);
+    check(!/#(VALUE|REF|NAME|DIV)/.test(t), `${name}: the ${label} report has no formula error`);
+    await page.locator(`${H} .sheet-tab`, { hasText: /Loan and repayment/ }).first().click();
+    await page.waitForTimeout(300);
+  }
+
+  // 2c. Economics: its own tools.
+  if (!(await page.locator(`${H} button[aria-label="Economics"]:visible`).count())) await showTab(page);
+  await page.locator(`${H} button[aria-label="Economics"]:visible`).click();
+  await page.waitForTimeout(200);
+  if (!(await page.locator(`${H} button[aria-label="Inflation and purchasing power"]:visible`).count())) await showTab(page);
+  await page.locator(`${H} button[aria-label="Inflation and purchasing power"]:visible`).click();
+  await page.waitForTimeout(600);
+  const infl = await cellTexts(page);
+  check(infl.some(x => /970[.,]87/.test(x)) && !infl.some(x => /^#[A-Z/0!?]+/.test(x)), `${name}: Economics adds the inflation sheet (1 000 at 3% → 970.87 after a year)`);
+
   // 3. The gallery: every tool, search by a word, fits the screen.
   if (!(await page.locator(`${H} button[aria-label="All tools"]:visible`).count())) await showTab(page);
   await page.locator(`${H} button[aria-label="All tools"]:visible`).click();
@@ -65,7 +89,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   await dlg.waitFor({ timeout: 3000 });
   await dlg.locator('.pro-cats button', { hasText: 'All together' }).click();
   const cards = await dlg.locator('.pro-card').count();
-  check(cards >= 40, `${name}: the gallery offers ${cards} ready sheets`);
+  check(cards >= 60, `${name}: the gallery offers ${cards} ready sheets`);
   check(fits(await dlg.boundingBox(), viewport), `${name}: the gallery fits the screen`);
   await dlg.locator('.fn-search').fill('vat');
   await page.waitForTimeout(200);

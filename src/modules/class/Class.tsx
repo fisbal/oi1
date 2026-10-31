@@ -27,7 +27,8 @@ import { condLooks, type CondLook } from './cond';
 import { autofill, type Box } from './fill';
 import { InsertFunction, functionsIn, type FnCategory } from './functions';
 import { Converter, FEATURED, ProGallery, toolById, type ProCat } from './pro/ProUi';
-import { PRO_CATEGORIES, buildTool, type ProTool } from './pro/tools';
+import { PRO_CATEGORIES, buildTool, sheetNameFor, type ProTool } from './pro/tools';
+import { AUDITS, AUDIT_SHORT, runAudit, type AuditId } from './pro/audit';
 import { tx, type Lang } from './pro/build';
 import { CondDialog, FilterMenu, FindPanel, HIGHLIGHT_KINDS, TOP_KINDS, type CondKind, type FindOptions } from './panels';
 import { borderCss, printHtml, sheetHtml } from './print';
@@ -1241,6 +1242,18 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     commit({ ...b, sheets: [...b.sheets, buildTool(tool, proLang, b.sheets.map(s => s.name))] });
     pickSheet(b.sheets.length);
   };
+  // Audit: reads the selection (or the whole used area when one cell is selected) and writes a report sheet.
+  const runAuditTool = (id: AuditId) => {
+    if (edit) commitEdit();
+    const b = bookRef.current;
+    const one = range.c1 === range.c2 && range.r1 === range.r2;
+    const used = usedRange(sheet);
+    const box = one ? { c1: 0, r1: 0, c2: Math.max(0, used.cols), r2: Math.max(0, used.rows) } : { c1: range.c1, r1: range.r1, c2: range.c2, r2: range.r2 };
+    const meta = AUDITS.find(x => x.id === id)!;
+    const name = sheetNameFor({ id, icon: meta.icon, name: meta.name, desc: meta.desc, model: { rows: [] } }, proLang, b.sheets.map(s => s.name));
+    commit({ ...b, sheets: [...b.sheets, runAudit(id, { sheet, values, box, lang: proLang, name })] });
+    pickSheet(b.sheets.length);
+  };
   const putFormula = (formula: string) => {
     const { c, r } = sel.a;
     changeSheet(s => { s.cells[key(c, r)] = { ...s.cells[key(c, r)], input: formula, style: { ...s.cells[key(c, r)]?.style, format: 'number', decimals: 2, thousands: true } }; });
@@ -1796,6 +1809,9 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
                 <Btn key={f.id} big icon={tool.icon} title={tx(tool.name, proLang)} label={<span className="rb-label">{tx(f.short, proLang)}</span>} onClick={() => addProSheet(tool)} />
               ); })}
               <Btn big icon="index" title="class.pro.gallery" onClick={() => setProDialog('gallery')} />
+            </Group>
+            <Group label="class.pro.group.audit">
+              {AUDITS.map(x => <Btn key={x.id} big icon={x.icon} title={`${tx(x.name, proLang)}: ${tx(x.desc, proLang)}`} label={<span className="rb-label">{tx(AUDIT_SHORT[x.id], proLang)}</span>} onClick={() => runAuditTool(x.id)} />)}
             </Group>
             <Group label="class.pro.group.money">
               <Btn big icon="currency" title="class.pro.converter" onClick={() => setProDialog('converter')} />
