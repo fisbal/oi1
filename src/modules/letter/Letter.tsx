@@ -12,6 +12,8 @@ import { baseLang } from '../../ui/proof/proof';
 import { FileMenu } from '../../ui/FileMenu';
 import { Icon } from '../../ui/kit';
 import { Copilot, useCopilotShortcut } from '../../ui/Copilot';
+import { usePinchZoom } from '../../ui/pinch';
+import { FastScroll } from '../../ui/FastScroll';
 import { letterCopilot } from './copilot';
 import { htmlBody, textToHtml, wrapHtml } from './html';
 import { PASTE_PROMPTS, pasteHtml, type PasteKind } from './textTools';
@@ -1019,7 +1021,11 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
   ].join('\n');
   const watermark = page.watermark;
   const commands = buildCommands(actions, body, activeEditor, setView, view, inTable);
-  const setZoom = (z: Zoom) => setView({ zoom: typeof z === 'number' ? Math.min(5, Math.max(0.1, z)) : z });
+  // Zooming shows the pages: from the web layout it switches to the print layout, where the zoom applies.
+  const setZoom = (z: Zoom) => setView({ zoom: typeof z === 'number' ? Math.min(5, Math.max(0.1, z)) : z, ...(isPrint ? {} : { layout: 'print' as const }) });
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
+  usePinchZoom(canvasRef, () => scaleRef.current, z => setZoom(z), { min: 0.1, max: 5 });
 
   return (
     <div className={`letter ${scope}${painting ? ' painting' : ''}${focusMode ? ' focus-mode' : ''}`} ref={rootRef}>
@@ -1029,6 +1035,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
         proofTools={<ProofButtons editor={activeEditor} ai={shell.ai} lang={lang} notify={m => shell.notify(m)} />} />
       {focusMode && <button type="button" className="focus-exit" onClick={exitFocus}>{t('letter.focusExit')}</button>}
       <div className="letter-body">
+      <FastScroll target={canvasRef} />
       {outline && !focusMode && <OutlinePane editor={body} onClose={() => smart.outline()} />}
       <div className="canvas" ref={canvasRef}>
         {(panel === 'find' || panel === 'replace') && <FindBar editor={body} replace={panel === 'replace'} onClose={() => { setPanel(null); body.commands.focus(); }} />}
@@ -1075,11 +1082,12 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
         )}
         <span className="status-file" title={fileName || `${title}.docx`}>{fileName || `${title}.docx`}{dirty && fileRef ? ' •' : ''}</span>
         <span className="status-zoom">
-          <button type="button" aria-label={t('letter.zoomOut')} title={t('letter.zoomOut')} onClick={() => setZoom(Math.round((scale - 0.1) * 10) / 10)} disabled={!isPrint}>−</button>
-          <input type="range" min={10} max={300} step={5} value={zoomPct} aria-label={t('letter.zoom')} disabled={!isPrint}
+          <button type="button" aria-label={t('letter.zoomOut')} title={t('letter.zoomOut')} onClick={() => setZoom(Math.round((scale - 0.1) * 10) / 10)}>−</button>
+          <input type="range" min={10} max={300} step={5} value={zoomPct} aria-label={t('letter.zoom')}
             onChange={e => setZoom(Number(e.target.value) / 100)} />
-          <button type="button" aria-label={t('letter.zoomIn')} title={t('letter.zoomIn')} onClick={() => setZoom(Math.round((scale + 0.1) * 10) / 10)} disabled={!isPrint}>+</button>
+          <button type="button" aria-label={t('letter.zoomIn')} title={t('letter.zoomIn')} onClick={() => setZoom(Math.round((scale + 0.1) * 10) / 10)}>+</button>
           <span className="pct">{zoomPct}%</span>
+          <button type="button" className="fit" aria-label={t('ui.fitAll')} title={t('ui.fitAll')} onClick={() => setZoom('page')}><Icon name="onepage" size={13} /></button>
         </span>
       </footer>
       {panel === 'file' && (

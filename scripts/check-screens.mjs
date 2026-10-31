@@ -118,6 +118,8 @@ try {
   for (const app of ['home', 'Letter', 'Stage']) {
     const turned = await checkRotationAndPinch(browser, url, {
       contextOptions: { locale: 'fr-FR', serviceWorkers: 'allow' },
+      // Class, Letter and Stage zoom the sheet, page or slide under the fingers (their zoom % in the status bar).
+      appZoom: async page => { const t = await page.locator('.module-host:not([hidden]) .status-zoom .pct').first().textContent({ timeout: 500 }).catch(() => null); return t ? Number(t.replace(/\D/g, '')) : null; },
       prepare: async page => {
         if (app === 'home') return;
         await page.locator(`.slab:has-text("Office ${app}")`).first().click();

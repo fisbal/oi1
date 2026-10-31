@@ -68,6 +68,8 @@ jobs:
         run: npm run check:formulas
       - name: Office Class Business tab (ready finance and accounting sheets, currency converter) on PC and phone
         run: npm run check:metiers
+      - name: Manual zoom in Class, Letter and Stage (pinch, Ctrl+wheel, See it all, side scroll bar) on PC and phone
+        run: npm run check:zoom
       - name: Choosing the copilot (Claude, ChatGPT, Gemini, Microsoft …) works on PC and phone
         run: npm run check:copilot
       - name: Keep the screenshots

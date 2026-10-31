@@ -23,6 +23,7 @@
     "check:audience": "node scripts/check-audience.mjs",
     "check:formulas": "node scripts/check-formulas.mjs",
     "check:metiers": "node scripts/check-metiers.mjs",
+    "check:zoom": "node scripts/check-zoom.mjs",
     "check:autosave": "node scripts/check-autosave.mjs",
     "check:cloud": "node scripts/check-cloud.mjs",
     "check:copilot": "node scripts/check-copilot.mjs"

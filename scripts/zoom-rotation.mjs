@@ -77,7 +77,9 @@ const DEVICES = [
 ];
 
 // prepare(page) opens the screen to test (optional); audit runs in the page and returns a list of problems.
-export async function checkRotationAndPinch(browser, url, { prepare, audit = fits, contextOptions = {}, pinch = true } = {}) {
+// `appZoom` (optional) reads the app's own zoom: an app may zoom its document under the fingers instead of the page,
+// which counts as a working pinch too.
+export async function checkRotationAndPinch(browser, url, { prepare, audit = fits, contextOptions = {}, pinch = true, appZoom } = {}) {
   const problems = [];
   let turns = 0;
   for (const d of DEVICES) {
@@ -96,10 +98,13 @@ export async function checkRotationAndPinch(browser, url, { prepare, audit = fit
       }
       if (pinch) {
         const cdp = await ctx.newCDPSession(page);
+        const before = appZoom ? await appZoom(page) : null;
         await cdp.send('Input.synthesizePinchGesture', { x: d.portrait.width / 2, y: d.portrait.height / 2, scaleFactor: 2.5, gestureSourceType: 'default', relativeSpeed: 400 });
         await page.waitForTimeout(300);
         const scale = await page.evaluate(() => window.visualViewport ? window.visualViewport.scale : 1);
-        if (scale < 1.3) problems.push(`${d.name}: a two-finger pinch does not zoom the page (scale ${scale.toFixed(2)})`);
+        const after = appZoom ? await appZoom(page) : null;
+        const appZoomed = before !== null && after !== null && after >= before * 1.3;
+        if (scale < 1.3 && !appZoomed) problems.push(`${d.name}: a two-finger pinch does not zoom the page or the document (scale ${scale.toFixed(2)}${before !== null ? `, app zoom ${before} → ${after}` : ''})`);
       }
     } finally {
       await ctx.close();
