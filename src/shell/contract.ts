@@ -103,10 +103,12 @@ export interface ShellApi {
 }
 
 export interface AiApi {
-  /** True when the user has set Claude up on this device. */
+  /** True when the user has set their AI up on this device (Claude unless they chose another). */
   ready(): boolean;
-  /** Ask Claude. The answer streams through `onText` (the whole text so far) and the promise gives all of it. */
+  /** Ask the AI. The answer streams through `onText` (the whole text so far) and the promise gives all of it. */
   ask(req: AiRequest): Promise<string>;
+  /** Which AI answers (Claude unless the person chose another), for the copilot's header. */
+  provider?(): { id: string; name: string };
 }
 
 export interface AiRequest {

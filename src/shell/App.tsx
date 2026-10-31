@@ -1,3 +1,4 @@
+import { WebAnswer } from '../ui/WebAnswer';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Handoff, MountedModule, OpenedFile, RecentFile, ShellApi } from './contract';
 import { idb } from './db';
@@ -10,8 +11,8 @@ import { moduleForFile, modules } from './modules';
 import { addRecent, listRecent, onRecentChange, openRecent, removeRecent } from './recent';
 import { Backdrop, BrandMark, SceneArt, Wordmark, useTilt } from './Scene';
 import { store } from './storage';
+import { aiFor } from './ai';
 import { autoSaveOn, forgetTab, onSaveStatus, registerSaver, saveStatus, setAutoSave, trackedSave } from './saveStatus';
-import { ai } from './ai';
 import { setTheme, useTheme } from './theme';
 import { useLanguage } from './useLanguage';
 
@@ -156,7 +157,7 @@ export default function App() {
       return () => { if (answerers.get(tabId) === fn) answerers.delete(tabId); };
     },
     notify,
-    ai,
+    ai: aiFor(moduleId),
   }), [openModule, notify]);
 
   // Drop a file anywhere on the window to open it.
@@ -310,6 +311,7 @@ export default function App() {
           <TabHost key={tab.tabId} tab={tab} hidden={tab.tabId !== activeId} makeApi={makeApi} onOpen={openAnyFile} />
         ))}
       </main>
+      <WebAnswer />
       {toast && <div key={toast.n} className="toast" role="status">{toast.text}</div>}
     </>
   );
