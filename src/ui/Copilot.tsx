@@ -9,6 +9,7 @@ import type { AiApi } from '../shell/contract';
 import { AI_MODELS, AiError, aiSettings, type AiModel } from '../shell/ai';
 import { modules } from '../shell/modules';
 import { PROVIDERS, aiChoice, provider, providerKey, setProviderKey, type Provider } from '../shell/providers';
+import { browserAiState, loadPuter, onWebWait, puterSignIn, puterSignOut, puterUser, webWait } from '../shell/webAi';
 import { getLanguage, LANGUAGES, t, type MessageKey } from '../shell/i18n';
 import { useLanguage } from '../shell/useLanguage';
 import { Icon } from './kit';
@@ -105,29 +106,49 @@ function errorText(err: unknown): string {
   return t('ai.err.other', { msg: String((err as Error)?.message ?? err) });
 }
 
-/** Choosing the copilot's AI and giving its key: Claude by default, or any other the person prefers. */
+type Mode = 'free' | 'web' | 'browser' | 'key';
+const modeOf = (p: Provider): Mode => (p.kind === 'puter' ? 'free' : p.kind === 'web' ? 'web' : p.kind === 'browser' ? 'browser' : 'key');
+const inMode = (m: Mode) => PROVIDERS.filter(x => modeOf(x) === m);
+
+/**
+ * Choosing the copilot's AI. Free first: the AI's public site with the person's own account, or the AI built
+ * into the browser. A key (the AI's API) is the advanced way, for answers written straight into the document.
+ */
 function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: boolean; appName: string }) {
   const appId = modules.find(m => m.name === appName)?.id;
   const choice = aiChoice.get();
   const [pid, setPid] = useState(() => aiChoice.forApp(appId).id);
-  const p = provider(pid) ?? PROVIDERS[0];
+  const p = provider(pid) ?? inMode('free')[0];
+  const mode = modeOf(p);
   const claude = p.kind === 'anthropic';
   const [key, setKey] = useState(() => (claude ? aiSettings.key() : providerKey(pid)));
   const [model, setModel] = useState<string>(() => (claude ? aiSettings.model() : choice.models[pid] ?? ''));
   const [endpoint, setEndpoint] = useState(choice.azure.endpoint);
   const [deployment, setDeployment] = useState(choice.azure.deployment);
   const [onlyHere, setOnlyHere] = useState(() => !!(appId && choice.byApp[appId]));
+  const [browserState, setBrowserState] = useState<'none' | 'download' | 'ready' | '?'>('?');
+  useEffect(() => { if (mode === 'browser') void browserAiState().then(setBrowserState); }, [mode]);
+  // Free: who is signed in to Puter (loading its script now also lets the first question open its sign-in at once).
+  const [puter, setPuter] = useState<{ state: 'loading' | 'out' | 'in' | 'offline'; user?: string }>({ state: 'loading' });
+  useEffect(() => { if (mode === 'free') void puterUser().then(u => setPuter(u ? { state: 'in', user: u } : { state: 'out' }), () => setPuter({ state: 'offline' })); }, [mode]);
   const pick = (id: string) => {
-    const next = provider(id) ?? PROVIDERS[0];
-    setPid(id);
-    setKey(next.kind === 'anthropic' ? aiSettings.key() : providerKey(id));
-    setModel(next.kind === 'anthropic' ? aiSettings.model() : aiChoice.get().models[id] ?? '');
+    const next = provider(id) ?? inMode('free')[0];
+    setPid(next.id);
+    setKey(next.kind === 'anthropic' ? aiSettings.key() : providerKey(next.id));
+    setModel(next.kind === 'anthropic' ? aiSettings.model() : aiChoice.get().models[next.id] ?? '');
+  };
+  // Back to a mode: the AI last used in it, else its first.
+  const pickMode = (m: Mode) => {
+    if (m === mode) return;
+    const c = aiChoice.get();
+    const before = [c.main, ...Object.values(c.byApp)].map(provider).find(x => x && modeOf(x) === m);
+    pick((before ?? inMode(m)[0]).id);
   };
   const hint: Record<AiModel, MessageKey> = { 'claude-opus-5-5': 'ai.model.best', 'claude-sonnet-5-5': 'ai.model.fast', 'claude-haiku-5-5': 'ai.model.fastest' };
-  const complete = p.local || (!!key.trim() && (p.kind !== 'azure' || (!!endpoint.trim() && !!deployment.trim())));
+  const complete = mode === 'web' || mode === 'free' || (mode === 'browser' ? browserState !== 'none' && browserState !== '?' : p.local || (!!key.trim() && (p.kind !== 'azure' || (!!endpoint.trim() && !!deployment.trim()))));
   const save = () => {
     if (claude) aiSettings.set(key, model as AiModel);
-    else {
+    else if (mode === 'key') {
       setProviderKey(pid, key);
       const models = { ...aiChoice.get().models };
       if (model.trim()) models[pid] = model.trim(); else delete models[pid];
@@ -139,69 +160,100 @@ function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: 
     aiChoice.set({ byApp });
     onDone();
   };
-  const groups: { label: MessageKey; list: Provider[] }[] = [
-    { label: 'ai.groupTop', list: PROVIDERS.filter(x => x.top) },
-    { label: 'ai.groupMore', list: PROVIDERS.filter(x => !x.top && !x.local) },
-    { label: 'ai.groupLocal', list: PROVIDERS.filter(x => x.local) },
-  ];
+  const groups: { label: MessageKey; list: Provider[] }[] = mode === 'web' || mode === 'free'
+    ? [{ label: 'ai.groupTop', list: inMode(mode).filter(x => x.top) }, { label: 'ai.groupMore', list: inMode(mode).filter(x => !x.top) }]
+    : [
+      { label: 'ai.groupTop', list: inMode('key').filter(x => x.top) },
+      { label: 'ai.groupMore', list: inMode('key').filter(x => !x.top && !x.local) },
+      { label: 'ai.groupLocal', list: inMode('key').filter(x => x.local) },
+    ];
   const site = (() => { try { return new URL(p.keyUrl).hostname.replace(/^www\./, ''); } catch { return p.keyUrl; } })();
+  const short = p.name.replace(/ \(.*\)$/, '');
   return (
     <form className="copilot-setup" onSubmit={e => { e.preventDefault(); if (complete) save(); }}>
       <div className="copilot-orb" aria-hidden="true"><Icon name="sparkle" size={22} /></div>
       <h3>{t('ai.chooseTitle')}</h3>
-      <p>{t('ai.chooseText')}</p>
-      <label className="copilot-field">
-        <span>{t('ai.provider')}</span>
-        <select value={pid} onChange={e => pick(e.target.value)} className="copilot-provider">
-          {groups.map(g => <optgroup key={g.label} label={t(g.label)}>{g.list.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>)}
-        </select>
-      </label>
-      {p.kind === 'azure' && <>
+      <div className="copilot-modes" role="tablist" aria-label={t('ai.howTitle')}>
+        {(['free', 'web', 'browser', 'key'] as Mode[]).map(m => (
+          <button key={m} type="button" role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''} onClick={() => pickMode(m)}>
+            <b>{t(`ai.mode.${m}` as MessageKey)}</b><span>{t(`ai.mode.${m}Sub` as MessageKey)}</span>
+          </button>
+        ))}
+      </div>
+      {mode === 'browser' ? (
+        <p className="copilot-fine">{t(browserState === 'ready' ? 'ai.browserReady' : browserState === 'download' ? 'ai.browserDownload' : browserState === 'none' ? 'ai.browserNone' : 'ai.browserCheck')}</p>
+      ) : (
         <label className="copilot-field">
-          <span>{t('ai.endpoint')}</span>
-          <input value={endpoint} onChange={e => setEndpoint(e.target.value)} placeholder="https://my-resource.openai.azure.com" autoComplete="off" spellCheck={false} />
-        </label>
-        <label className="copilot-field">
-          <span>{t('ai.deployment')}</span>
-          <input value={deployment} onChange={e => setDeployment(e.target.value)} placeholder="gpt-4o" autoComplete="off" spellCheck={false} />
-        </label>
-      </>}
-      {!p.local && <>
-        <label className="copilot-field">
-          <span>{t('ai.keyLabel')}</span>
-          <input type="password" value={key} onChange={e => setKey(e.target.value)} placeholder={p.keyHint ?? ''} autoComplete="off" spellCheck={false} />
-        </label>
-        <a className="copilot-link" href={p.keyUrl} target="_blank" rel="noreferrer">{t('ai.getKeyAt', { site })} ↗</a>
-      </>}
-      {p.local && <>
-        <p className="copilot-fine">{t('ai.localHint', { name: p.name.replace(/ \(.*\)$/, '') })}</p>
-        <a className="copilot-link" href={p.keyUrl} target="_blank" rel="noreferrer">{t('ai.install', { name: p.name.replace(/ \(.*\)$/, '') })} ↗</a>
-      </>}
-      {claude ? (
-        <label className="copilot-field">
-          <span>{t('ai.model')}</span>
-          <select value={model} onChange={e => setModel(e.target.value)}>
-            {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} · {t(hint[m.id])}</option>)}
+          <span>{t('ai.provider')}</span>
+          <select value={pid} onChange={e => pick(e.target.value)} className="copilot-provider">
+            {groups.map(g => <optgroup key={g.label} label={t(g.label)}>{g.list.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>)}
           </select>
         </label>
-      ) : p.kind !== 'azure' && (
-        <label className="copilot-field">
-          <span>{t('ai.model')}</span>
-          <input value={model} onChange={e => setModel(e.target.value)} placeholder={p.model} autoComplete="off" spellCheck={false} />
-        </label>
       )}
+      {mode === 'free' && <>
+        <p className="copilot-fine">{t('ai.freeHow', { name: short })}</p>
+        <div className="copilot-account">
+          {puter.state === 'in' && <><span>{t('ai.freeSignedIn', { user: puter.user ?? '' })}</span>
+            <button type="button" onClick={() => void puterSignOut().then(() => setPuter({ state: 'out' }))}>{t('ai.freeSignOut')}</button></>}
+          {puter.state === 'out' && <button type="button" className="primary" onClick={() => void puterSignIn().then(u => setPuter(u ? { state: 'in', user: u } : { state: 'out' }), () => {})}>{t('ai.freeSignIn')}</button>}
+          {puter.state === 'loading' && <span>{t('ai.browserCheck').replace(/…$/, '')}…</span>}
+          {puter.state === 'offline' && <span>{t('ai.freeOffline')}</span>}
+        </div>
+      </>}
+      {mode === 'web' && <>
+        <p className="copilot-fine">{t('ai.webHow', { name: short })}</p>
+        <a className="copilot-link" href={p.keyUrl} target="_blank" rel="noreferrer">{t('ai.webAccount', { site })} ↗</a>
+      </>}
+      {mode === 'browser' && browserState === 'none' && <a className="copilot-link" href={p.keyUrl} target="_blank" rel="noreferrer">{t('ai.browserHelp')} ↗</a>}
+      {mode === 'key' && <>
+        <p className="copilot-fine">{t('ai.chooseText')}</p>
+        {p.kind === 'azure' && <>
+          <label className="copilot-field">
+            <span>{t('ai.endpoint')}</span>
+            <input value={endpoint} onChange={e => setEndpoint(e.target.value)} placeholder="https://my-resource.openai.azure.com" autoComplete="off" spellCheck={false} />
+          </label>
+          <label className="copilot-field">
+            <span>{t('ai.deployment')}</span>
+            <input value={deployment} onChange={e => setDeployment(e.target.value)} placeholder="gpt-4o" autoComplete="off" spellCheck={false} />
+          </label>
+        </>}
+        {!p.local && <>
+          <label className="copilot-field">
+            <span>{t('ai.keyLabel')}</span>
+            <input type="password" value={key} onChange={e => setKey(e.target.value)} placeholder={p.keyHint ?? ''} autoComplete="off" spellCheck={false} />
+          </label>
+          <a className="copilot-link" href={p.keyUrl} target="_blank" rel="noreferrer">{t('ai.getKeyAt', { site })} ↗</a>
+        </>}
+        {p.local && <>
+          <p className="copilot-fine">{t('ai.localHint', { name: short })}</p>
+          <a className="copilot-link" href={p.keyUrl} target="_blank" rel="noreferrer">{t('ai.install', { name: short })} ↗</a>
+        </>}
+        {claude ? (
+          <label className="copilot-field">
+            <span>{t('ai.model')}</span>
+            <select value={model} onChange={e => setModel(e.target.value)}>
+              {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} · {t(hint[m.id])}</option>)}
+            </select>
+          </label>
+        ) : p.kind !== 'azure' && (
+          <label className="copilot-field">
+            <span>{t('ai.model')}</span>
+            <input value={model} onChange={e => setModel(e.target.value)} placeholder={p.model} autoComplete="off" spellCheck={false} />
+          </label>
+        )}
+      </>}
       {appId && (
         <label className="copilot-check">
           <input type="checkbox" checked={onlyHere} onChange={e => setOnlyHere(e.target.checked)} />
           <span>{t('ai.onlyApp', { app: appName })}</span>
         </label>
       )}
-      <p className="copilot-fine">{p.local ? t('ai.privacyLocal') : t('ai.privacyOf', { name: p.name })}</p>
+      <p className="copilot-fine">{mode === 'browser' || p.local ? t('ai.privacyLocal') : mode === 'free' ? t('ai.privacyFree', { name: short }) : mode === 'web' ? t('ai.privacyWeb', { name: short }) : t('ai.privacyOf', { name: p.name })}</p>
       <div className="copilot-setup-buttons">
-        <button type="submit" className="primary" disabled={!complete}>{t('ai.connect')}</button>
+        <button type="submit" className="primary" disabled={!complete}>{mode === 'key' ? t('ai.connect') : t('ai.use')}</button>
         {canCancel && <button type="button" onClick={onDone}>{t('letter.cancel')}</button>}
       </div>
-      {canCancel && !p.local && key && (
+      {canCancel && mode === 'key' && !p.local && key && (
         <button type="button" className="copilot-forget" onClick={() => { if (claude) aiSettings.forget(); else setProviderKey(pid, ''); setKey(''); }}>{t('ai.forget')}</button>
       )}
     </form>
@@ -218,6 +270,9 @@ export function Copilot({ host, ai, onClose, start }: {
   const [, setTick] = useState(0);
   useEffect(() => aiSettings.onChange(() => setTick(n => n + 1)), []);
   useEffect(() => aiChoice.onChange(() => setTick(n => n + 1)), []);
+  useEffect(() => onWebWait(() => setTick(n => n + 1)), []);
+  // Free (Puter): load it now, so the first question can open its sign-in window straight from the click.
+  useEffect(() => { if (ai.provider?.().id.startsWith('free-')) void loadPuter().catch(() => {}); }, [ai]);
   const [settings, setSettings] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
@@ -266,7 +321,7 @@ export function Copilot({ host, ai, onClose, start }: {
         : await ai.ask({ system: systemPrompt(hostRef.current), messages: [...history, { role: 'user', content }], signal: ctrl.signal, onText: so => update(answer.id, { text: so }) });
       update(answer.id, { text, pending: false, done: true });
     } catch (err) {
-      if (ctrl.signal.aborted) update(answer.id, { pending: false, done: true, text: answer.text || t('ai.stopped'), plain: true });
+      if (ctrl.signal.aborted || (err as Error)?.name === 'AbortError') update(answer.id, { pending: false, done: true, text: answer.text || t('ai.stopped'), plain: true });
       else update(answer.id, { pending: false, error: true, text: errorText(err) });
       if (err instanceof AiError && err.kind === 'key') setSettings(true);
     } finally {
@@ -328,7 +383,7 @@ export function Copilot({ host, ai, onClose, start }: {
             </div>
           ) : (
             <div key={m.id} className={`copilot-msg claude${m.error ? ' error' : ''}`} aria-live={m.pending ? 'polite' : undefined}>
-              {m.pending && !m.text ? <span className="copilot-dots"><i /><i /><i /> {t('ai.thinking')}</span> : <Answer text={m.text} />}
+              {m.pending && !m.text ? <span className="copilot-dots"><i /><i /><i /> {webWait() ? t('ai.web.open', { site: webWait()!.site }) : t('ai.thinking')}</span> : <Answer text={m.text} />}
               {m.done && !m.error && !m.plain && (
                 <div className="copilot-apply">
                   {host.applies.map(a => (

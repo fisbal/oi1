@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { aiFor } from '../ai';
+import { webWait } from '../webAi';
 import { PROVIDERS, aiChoice, setProviderKey } from '../providers';
 
 /** A server-sent event stream made of `events`. */
@@ -13,7 +14,9 @@ describe('copilot providers', () => {
 
   it('offers at least 20 AIs, Claude first', () => {
     expect(PROVIDERS.length).toBeGreaterThanOrEqual(20);
-    expect(PROVIDERS[0].id).toBe('claude');
+    expect(PROVIDERS[0].id).toBe('free-claude');
+    expect(PROVIDERS.filter(p => p.kind === 'puter').length).toBeGreaterThanOrEqual(20);
+    expect(PROVIDERS.filter(p => p.kind === 'web').length).toBeGreaterThanOrEqual(20);
     for (const id of ['openai', 'gemini', 'azure', 'github', 'mistral', 'deepseek', 'ollama']) expect(PROVIDERS.some(p => p.id === id)).toBe(true);
   });
 
@@ -80,5 +83,43 @@ describe('copilot providers', () => {
     await expect(aiFor().ask({ system: 'S', messages: [{ role: 'user', content: 'Q' }] })).rejects.toMatchObject({ kind: 'limit' });
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'));
     await expect(aiFor().ask({ system: 'S', messages: [{ role: 'user', content: 'Q' }] })).rejects.toMatchObject({ kind: 'network' });
+  });
+
+  it('works without a key: the public site opens with the request, and the pasted answer comes back', async () => {
+    aiChoice.set({ main: 'web-chatgpt' });
+    expect(aiFor('letter').ready()).toBe(true);
+    const opened: string[] = [];
+    vi.spyOn(window, 'open').mockImplementation(((url: string) => { opened.push(url); return null; }) as typeof window.open);
+    const answer = aiFor('letter').ask({ system: 'Be brief', messages: [{ role: 'user', content: 'Hi' }], schema: { type: 'object' } });
+    expect(opened[0]).toMatch(/^https:\/\/chatgpt\.com\/\?q=Be%20brief/);
+    expect(webWait()?.site).toBe('ChatGPT');
+    webWait()!.answer('Here it is:\n```json\n{"ok": true}\n```');
+    expect(JSON.parse(await answer)).toEqual({ ok: true });
+    expect(webWait()).toBeNull();
+  });
+
+  it('starts with free Claude and no key, unless a Claude key was given before', async () => {
+    localStorage.clear();
+    vi.resetModules();
+    expect((await import('../providers')).aiChoice.get().main).toBe('free-claude');
+    localStorage.setItem('oi1:ai:key', 'sk-ant-x');
+    vi.resetModules();
+    expect((await import('../providers')).aiChoice.get().main).toBe('claude');
+  });
+
+  it('answers for free through Puter, with no key, streaming into the app', async () => {
+    aiChoice.set({ main: 'free-gemini' });
+    expect(aiFor('stage').ready()).toBe(true);
+    const asked: { prompt: unknown; model?: string }[] = [];
+    (globalThis as { puter?: unknown }).puter = {
+      auth: { isSignedIn: () => true, signIn: async () => {}, signOut: () => {}, getUser: async () => ({ username: 'martin' }) },
+      ai: { chat: async (prompt: unknown, o: { model?: string }) => { asked.push({ prompt, model: o.model }); return (async function* () { yield { text: 'Bon' }; yield { text: 'jour' }; })(); } },
+    };
+    const seen: string[] = [];
+    expect(await aiFor('stage').ask({ system: 'S', messages: [{ role: 'user', content: 'Q' }], onText: s => seen.push(s) })).toBe('Bonjour');
+    expect(seen).toEqual(['Bon', 'Bonjour']);
+    expect(asked[0].model).toBe('gemini-2.5-flash');
+    expect(String(asked[0].prompt)).toContain('Q');
+    delete (globalThis as { puter?: unknown }).puter;
   });
 });

@@ -4,8 +4,9 @@
 // provider. One AI for every app, or a different one for an app. Office Code+'s Master corrector uses the same keys.
 
 import type { AiRequest } from './contract';
+import { browserAiHere } from './webAi';
 
-export type ProviderKind = 'anthropic' | 'openai' | 'gemini' | 'azure';
+export type ProviderKind = 'anthropic' | 'openai' | 'gemini' | 'azure' | 'web' | 'browser' | 'puter';
 export interface Provider {
   id: string;
   name: string;
@@ -22,9 +23,63 @@ export interface Provider {
   top?: boolean;
   /** What the key looks like, for the key field. */
   keyHint?: string;
+  /** web: the public chat's address, with {q} where the request goes when the site takes it. */
+  web?: string;
 }
 
+/** Free, with the person's own account on the AI's public site: no key (see webAi.ts). */
+const WEB: [id: string, name: string, url: string, top?: boolean][] = [
+  ['claude', 'Claude.ai', 'https://claude.ai/new?q={q}', true],
+  ['chatgpt', 'ChatGPT', 'https://chatgpt.com/?q={q}', true],
+  ['gemini', 'Google Gemini', 'https://gemini.google.com/app', true],
+  ['copilot', 'Microsoft Copilot', 'https://copilot.microsoft.com/?q={q}', true],
+  ['lechat', 'Le Chat (Mistral)', 'https://chat.mistral.ai/chat?q={q}', true],
+  ['deepseek', 'DeepSeek', 'https://chat.deepseek.com/', true],
+  ['perplexity', 'Perplexity', 'https://www.perplexity.ai/search?q={q}', true],
+  ['googleai', 'Google AI Mode', 'https://www.google.com/search?udm=50&q={q}'],
+  ['bing', 'Copilot in Bing', 'https://www.bing.com/search?showconv=1&q={q}'],
+  ['grok', 'Grok (xAI)', 'https://grok.com/?q={q}'],
+  ['meta', 'Meta AI', 'https://www.meta.ai/'],
+  ['duck', 'Duck.ai (DuckDuckGo, private)', 'https://duckduckgo.com/?q={q}&ia=chat'],
+  ['brave', 'Brave Leo', 'https://search.brave.com/search?q={q}&summary=1'],
+  ['you', 'You.com', 'https://you.com/search?q={q}&tbm=youchat'],
+  ['huggingchat', 'HuggingChat', 'https://huggingface.co/chat/'],
+  ['qwen', 'Qwen Chat', 'https://chat.qwen.ai/'],
+  ['kimi', 'Kimi (Moonshot)', 'https://www.kimi.com/'],
+  ['poe', 'Poe', 'https://poe.com/'],
+  ['pi', 'Pi', 'https://pi.ai/talk'],
+  ['lumo', 'Lumo (Proton, private)', 'https://lumo.proton.me/'],
+  ['glm', 'Z.ai (GLM)', 'https://chat.z.ai/'],
+];
+
+/** Free, answers in the app: one free Puter account, no key (see webAi.ts). */
+const FREE: [id: string, name: string, model: string][] = [
+  ['claude', 'Claude', 'anthropic/claude-opus-4.1'],
+  ['chatgpt', 'ChatGPT', 'openai/gpt-5.4-mini'],
+  ['gemini', 'Google Gemini', 'gemini-2.5-flash'],
+  ['mistral', 'Mistral', 'mistralai/mistral-medium-3.1'],
+  ['deepseek', 'DeepSeek', 'deepseek/deepseek-v3.2'],
+  ['grok', 'Grok (xAI)', 'x-ai/grok-4-1-fast-non-reasoning'],
+  ['llama', 'Llama (Meta)', 'meta-llama/llama-4-maverick'],
+  ['claude-haiku', 'Claude Haiku (fast)', 'anthropic/claude-3.5-haiku'],
+  ['gpt-pro', 'ChatGPT Pro', 'openai/gpt-5-pro'],
+  ['gpt-nano', 'ChatGPT Nano (fast)', 'openai/gpt-5.4-nano'],
+  ['gpt-oss', 'GPT-OSS (open model)', 'openai/gpt-oss-120b'],
+  ['gemini-pro', 'Gemini Pro', 'gemini-2.5-pro'],
+  ['gemini-lite', 'Gemini Flash Lite (fast)', 'gemini-2.5-flash-lite'],
+  ['deepseek-r1', 'DeepSeek R1 (reasoning)', 'deepseek/deepseek-r1-0528'],
+  ['mistral-small', 'Mistral Small (fast)', 'mistralai/mistral-small-3.2-24b-instruct'],
+  ['mixtral', 'Mixtral 8x22B', 'mistralai/mixtral-8x22b-instruct'],
+  ['grok-420', 'Grok 4.20', 'x-ai/grok-4.20'],
+  ['llama-scout', 'Llama 4 Scout', 'meta-llama/llama-4-scout'],
+  ['llama-70b', 'Llama 3.3 70B', 'meta-llama/llama-3.3-70b-instruct'],
+  ['glm', 'GLM (Z.ai)', 'z-ai/glm-5.3'],
+];
+
 export const PROVIDERS: Provider[] = [
+  ...FREE.map(([id, name, model], i): Provider => ({ id: `free-${id}`, name, kind: 'puter', base: '', model, keyUrl: 'https://puter.com', top: i < 7 })),
+  ...WEB.map(([id, name, url, top]): Provider => ({ id: `web-${id}`, name, kind: 'web', base: '', model: '', keyUrl: url.replace(/[?&][^?&]*\{q\}.*$/, ''), web: url, top })),
+  { id: 'browser', name: 'Browser AI (Chrome, Edge)', kind: 'browser', base: '', model: '', keyUrl: 'https://developer.chrome.com/docs/ai/built-in', local: true },
   { id: 'claude', name: 'Claude (Anthropic)', kind: 'anthropic', base: 'https://api.anthropic.com', model: 'claude-opus-5-5', keyUrl: 'https://console.anthropic.com/settings/keys', top: true, keyHint: 'sk-ant-…' },
   { id: 'openai', name: 'ChatGPT (OpenAI)', kind: 'openai', base: 'https://api.openai.com/v1', model: 'gpt-4o-mini', keyUrl: 'https://platform.openai.com/api-keys', top: true, keyHint: 'sk-…' },
   { id: 'gemini', name: 'Google Gemini', kind: 'gemini', base: 'https://generativelanguage.googleapis.com/v1beta', model: 'gemini-2.0-flash', keyUrl: 'https://aistudio.google.com/apikey', top: true, keyHint: 'AIza…' },
@@ -70,18 +125,20 @@ export interface AiChoice {
   /** Microsoft Azure OpenAI: the resource's address and the deployment's name. */
   azure: { endpoint: string; deployment: string };
 }
-const EMPTY: AiChoice = { main: 'claude', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' } };
+// No key needed by default: Claude through a free Puter account. Someone who already gave a Claude key keeps it.
+const hadClaudeKey = () => { try { return !!localStorage.getItem('oi1:ai:key'); } catch { return false; } };
+const EMPTY: AiChoice = { main: 'free-claude', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' } };
 let cache: AiChoice | null = null;
 const listeners = new Set<() => void>();
 
 export const aiChoice = {
-  get: (): AiChoice => (cache ??= read(SETTINGS, EMPTY)),
+  get: (): AiChoice => (cache ??= read(SETTINGS, { ...EMPTY, main: hadClaudeKey() ? 'claude' : EMPTY.main })),
   set(patch: Partial<AiChoice>) { cache = { ...aiChoice.get(), ...patch }; write(SETTINGS, cache); for (const fn of listeners) fn(); },
   onChange(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
   /** The provider an app uses. */
   forApp(app?: string): Provider {
     const c = aiChoice.get();
-    return provider((app && c.byApp[app]) || c.main) ?? PROVIDERS[0];
+    return provider((app && c.byApp[app]) || c.main) ?? provider('free-claude')!;
   },
   model: (p: Provider) => aiChoice.get().models[p.id]?.trim() || (p.kind === 'azure' ? aiChoice.get().azure.deployment : p.model),
 };
@@ -172,6 +229,8 @@ export async function askProvider(p: Provider, req: AiRequest): Promise<string> 
 
 /** Whether `p` can answer: it has a key (or runs on this computer, or is Azure with its address). */
 export function providerReady(p: Provider, claudeKey: string): boolean {
+  if (p.kind === 'web' || p.kind === 'puter') return true;
+  if (p.kind === 'browser') return browserAiHere();
   if (p.kind === 'anthropic') return !!claudeKey;
   if (p.local) return true;
   if (p.kind === 'azure') return !!providerKey(p.id) && !!aiChoice.get().azure.endpoint && !!aiChoice.get().azure.deployment;

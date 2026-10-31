@@ -3,6 +3,7 @@
 // api.anthropic.com, and never written into a file, the repo or an autosave. A small proxy can replace
 // the key later (see docs/copilot.md) without changing any app: they all go through shell.ai.
 
+import { askBrowser, askPuter, askWeb } from './webAi';
 import type { AiApi, AiRequest } from './contract';
 import { store } from './storage';
 import { aiChoice, askProvider, ProviderError, providerReady } from './providers';
@@ -84,6 +85,16 @@ export function aiFor(app?: string): AiApi {
     ask: async req => {
       const p = aiChoice.forApp(app);
       if (p.kind === 'anthropic') return ask(req);
+      if (p.kind === 'web') return askWeb(p.name, p.web!, req);
+      if (p.kind === 'puter') {
+        try { return await askPuter(aiChoice.model(p), req); } catch (err) {
+          if (req.signal?.aborted || (err as Error)?.name === 'AbortError') throw err;
+          throw new AiError('network', `${p.name} (Puter): ${String((err as Error)?.message ?? (err as { error?: { message?: string } })?.error?.message ?? err)}`);
+        }
+      }
+      if (p.kind === 'browser') {
+        try { return await askBrowser(req); } catch (err) { if (req.signal?.aborted) throw err; throw new AiError('other', `${p.name}: ${String((err as Error)?.message ?? err)}`); }
+      }
       if (!providerReady(p, aiSettings.key())) throw new AiError('key', 'No API key');
       try {
         return await askProvider(p, req);

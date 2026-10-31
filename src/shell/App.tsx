@@ -1,3 +1,4 @@
+import { WebAnswer } from '../ui/WebAnswer';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Handoff, MountedModule, OpenedFile, RecentFile, ShellApi } from './contract';
 import { idb } from './db';
@@ -290,6 +291,7 @@ export default function App() {
           <TabHost key={tab.tabId} tab={tab} hidden={tab.tabId !== activeId} makeApi={makeApi} />
         ))}
       </main>
+      <WebAnswer />
       {toast && <div key={toast.n} className="toast" role="status">{toast.text}</div>}
     </>
   );
