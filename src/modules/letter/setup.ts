@@ -18,6 +18,7 @@ import { Citation, IndexTerm } from './references';
 import { Comment, Deletion, Footnote, Insertion, Modification, TrackChanges } from './review';
 import { Search } from './search';
 import { FieldTyping } from './templates/markup';
+import { Proofing, type ProofOptions } from '../../ui/proof/extension';
 
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 
@@ -40,7 +41,8 @@ function insertImages(editor: Editor, files: File[], pos?: number) {
   }
 }
 
-export function letterExtensions(part: 'body' | 'header' | 'footer'): Extensions {
+/** `proof` turns on the underlines of the spelling, grammar and style check (left out for files read or written). */
+export function letterExtensions(part: 'body' | 'header' | 'footer', proof?: ProofOptions): Extensions {
   const body = part === 'body';
   return [
     StarterKit.configure({
@@ -60,6 +62,7 @@ export function letterExtensions(part: 'body' | 'header' | 'footer'): Extensions
     CellBackground,
     ListStyle,
     PageNumber,
+    ...(proof ? [Proofing.configure(proof)] : []),
     FileHandler.configure({
       allowedMimeTypes: IMAGE_TYPES,
       onDrop: (editor, files, pos) => insertImages(editor, files, pos),

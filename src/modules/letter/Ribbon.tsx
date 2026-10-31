@@ -3,12 +3,13 @@
 // and a command search that finds any command by name.
 
 import { useEditorState, type Editor } from '@tiptap/react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { BULLET_CHARS, BULLET_STYLES, NUMBER_STYLES, numberLabel, type BorderSide, type Borders } from './extensions';
 import { FONT_GROUPS, FONT_SIZES, STYLE_IDS, cssFont, previewStyle, type DocStyles, type StyleId } from './model';
 import { LINE_NUMBERS, MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, WATERMARKS, isDark, pageInches, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
 import type { AppInfo, TabInfo } from '../../shell/contract';
+import { PROOF_TAGS } from '../../ui/proof/proof';
 import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, NumberBox, RibbonToggle, type ComboGroup } from '../../ui/kit';
 import { CopilotButton } from '../../ui/Copilot';
 import { CALLOUTS, CALLOUT_KINDS, CLEAN_UPS, TABLE_STYLES, applyTableStyle, type CalloutKind, type CleanUp, type TableStyleId } from './smart';
@@ -146,10 +147,6 @@ const STYLE_KEYS: Record<StyleId, MessageKey> = {
 const GALLERY: StyleId[] = ['normal', 'title', 'subtitle', 'h1', 'h2', 'h3', 'h4', 'quote'];
 
 const SYMBOLS = '©®™€£¥¢§¶†‡•·–—…‰′″°±×÷≈≠≤≥∞√∑πΩµ←→↑↓↔✓✗★☆♥♦♣♠«»‹›„“”‘’¿¡'.split('');
-const LANGS = [
-  'en-US', 'en-GB', 'en-CA', 'en-AU', 'fr-FR', 'fr-CA', 'fr-BE', 'fr-CH', 'es-ES', 'es-MX', 'pt-PT', 'pt-BR', 'de-DE', 'de-AT', 'de-CH',
-  'it-IT', 'nl-NL', 'pl-PL', 'sv-SE', 'da-DK', 'nb-NO', 'fi-FI', 'ru-RU', 'uk-UA', 'el-GR', 'tr-TR', 'ar', 'he', 'zh-CN', 'ja-JP', 'ko-KR', 'hi-IN',
-];
 
 /** Inches for US paper sizes, centimeters everywhere else, like Word. */
 export function unitFor(page: PageSettings): 'in' | 'cm' {
@@ -213,10 +210,12 @@ const BORDER_PRESETS: [string, (color: string) => Borders | null][] = (() => {
   ];
 })();
 
-export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, view, setView, actions, suite }: {
+export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, view, setView, actions, suite, proofTools }: {
   editor: Editor; body: Editor; styles: DocStyles; page: PageSettings; setPage: (p: PageSettings) => void;
   lang: string; setLang: (l: string) => void; view: ViewState; setView: (v: Partial<ViewState>) => void; actions: RibbonActions;
   suite: SuiteState;
+  /** Style check, grammar online and the user's dictionary, shared by every app. */
+  proofTools?: ReactNode;
 }) {
   const [tab, setTab] = useState<TabId>('home');
   const s = useEditorState({
@@ -716,6 +715,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           </Group>
           <Group label="letter.group.proofing">
             <Btn big icon="spell" title="letter.spelling" onClick={() => setView({ spell: !view.spell })} active={view.spell} />
+            {proofTools}
             <Btn big icon="count" title="letter.wordCount" onClick={actions.wordCount} />
           </Group>
           <Group label="letter.group.speech">
@@ -723,7 +723,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           </Group>
           <Group label="letter.group.language">
             <Drop big icon="language" title="letter.language">
-              {close => LANGS.map(l => (
+              {close => PROOF_TAGS.map(l => (
                 <MenuItem key={l} active={lang === l} label={new Intl.DisplayNames([document.documentElement.lang || 'en'], { type: 'language' }).of(l) ?? l}
                   onClick={() => { setLang(l); close(); }} />
               ))}
