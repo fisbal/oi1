@@ -43,6 +43,12 @@
 .doc-text > :first-child { margin-top: 0; }
 .doc-text p, .doc-text h1, .doc-text h2, .doc-text h3, .doc-text h4, .doc-text h5, .doc-text h6 { min-height: 1lh; }
 .doc-text ul, .doc-text ol { margin: 0 0 8pt; padding-left: 36pt; }
+/* Word's default numbering goes 1. → a. → i. by level, and a list inside a list adds no gap. */
+.doc-text ol:not([data-list-style]) ol:not([data-list-style]) { list-style-type: lower-alpha; }
+.doc-text ol:not([data-list-style]) ol:not([data-list-style]) ol:not([data-list-style]) { list-style-type: lower-roman; }
+.doc-text li > ul, .doc-text li > ol { margin-bottom: 0; }
+/* A tab with Word tab stops gets its width from the layout (tabStops.ts). */
+.doc-text .tab-x { display: inline-block; white-space: pre; overflow: hidden; vertical-align: baseline; }
 .doc-text li > p { margin-bottom: 0; }
 .doc-text blockquote { margin: 8pt 0 8pt 18pt; padding-left: 12pt; border-left: 3px solid #A5A5A5; }
 .doc-text a { color: #0563C1; text-decoration: underline; }

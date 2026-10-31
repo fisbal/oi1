@@ -7,7 +7,7 @@ import {
   AlignmentType, BorderStyle, CommentRangeEnd, CommentRangeStart, CommentReference, DeletedTextRun, Document, ExternalHyperlink,
   Footer, FootnoteReferenceRun, Header, HeadingLevel, ImageRun, InsertedTextRun, LevelFormat,
   LineRuleType, Packer, PageBorderDisplay, PageBorderOffsetFrom, PageBreak, PageNumber, PageOrientation, Paragraph,
-  ShadingType, Tab, Table, TableCell, TableRow, TextRun, WidthType,
+  ShadingType, Tab, TabStopType, Table, TableCell, TableRow, TextRun, WidthType,
   type ICommentOptions, type IParagraphOptions, type IRunOptions, type ParagraphChild,
 } from 'docx';
 import JSZip from 'jszip';
@@ -263,6 +263,7 @@ class DocxWriter {
       indent: Object.keys(indent).length ? indent : undefined,
       shading: a.background ? { fill: toHex(a.background), type: ShadingType.CLEAR, color: 'auto' } : undefined,
       border: borderOptions(a.borders as Borders | null),
+      tabStops: tabStopsOf(a.tabStops as string | null),
     };
   }
 
@@ -352,6 +353,8 @@ class DocxWriter {
       : { style: BorderStyle.SINGLE, size: 4, color: 'A6A6A6' };
     return new Table({
       rows, width: { size: 100, type: WidthType.PERCENTAGE },
+      // The same room inside cells as on screen (2 pt top and bottom, 5 pt at the sides).
+      margins: { top: 40, bottom: 40, left: 100, right: 100 },
       borders: { top: line, bottom: line, left: line, right: line, insideHorizontal: line, insideVertical: line },
     });
   }
@@ -430,6 +433,14 @@ class DocxWriter {
     const run = new TextRun({ ...this.runOptions(node.marks), children });
     return [link ? new ExternalHyperlink({ link, children: [run] }) : run];
   }
+}
+
+const TAB_KIND = { l: TabStopType.LEFT, c: TabStopType.CENTER, r: TabStopType.RIGHT, d: TabStopType.DECIMAL } as const;
+function tabStopsOf(v: string | null | undefined) {
+  if (!v) return undefined;
+  const stops = v.split(',').map(s => /^([lcrd])(\d+(?:\.\d+)?)$/.exec(s.trim())).filter(Boolean)
+    .map(m => ({ type: TAB_KIND[m![1] as keyof typeof TAB_KIND], position: pt20(Number(m![2])) }));
+  return stops.length ? stops : undefined;
 }
 
 function textOf(node: JSONContent): string {

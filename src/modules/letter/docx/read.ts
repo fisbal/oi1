@@ -70,6 +70,22 @@ interface ParaProps {
   before?: number; after?: number; line?: number | string;
   indLeft?: number; indRight?: number; indFirst?: number;
   shade?: string; borders?: Borders; numId?: string; ilvl?: number; pageBreakBefore?: boolean; outline?: number;
+  /** Tab stops as "l144,c288,r468" (kind and position in points). */
+  tabs?: string;
+}
+
+/** Word's <w:tabs>: left, center, right and decimal stops (a cleared stop is left out). */
+function readTabs(pPr: Element | null): string | undefined {
+  const tabs = kid(pPr, 'tabs');
+  if (!tabs) return undefined;
+  const out = kids(tabs, 'tab').map(t => {
+    const v = attr(t, 'val') ?? 'left';
+    const pos = twipsToPt(attr(t, 'pos'));
+    if (pos === undefined || v === 'clear' || v === 'bar' || v === 'num') return '';
+    const k = v === 'center' ? 'c' : v === 'right' || v === 'end' ? 'r' : v === 'decimal' ? 'd' : 'l';
+    return `${k}${pos}`;
+  }).filter(Boolean);
+  return out.length ? out.join(',') : undefined;
 }
 
 function merge<T extends object>(...layers: (T | undefined)[]): T {
@@ -206,6 +222,7 @@ class Context {
       ilvl: numPr ? num(attr(kid(numPr, 'ilvl'), 'val')) ?? 0 : undefined,
       pageBreakBefore: onOff(kid(pPr, 'pageBreakBefore')),
       outline: num(attr(kid(pPr, 'outlineLvl'), 'val')),
+      tabs: readTabs(pPr),
     };
   }
 
@@ -412,6 +429,7 @@ class Reader {
       if (p.indFirst) attrs.indentFirst = p.indFirst;
     }
     if (p.indRight) attrs.indentRight = p.indRight;
+    if (p.tabs) attrs.tabStops = p.tabs;
     if (p.shade) attrs.background = p.shade;
     if (p.borders) attrs.borders = p.borders;
 
