@@ -58,6 +58,8 @@ jobs:
         run: npm run check:proof
       - name: Check AutoSave keeps every change and writes the document's file by itself
         run: npm run check:autosave
+      - name: AutoSave to the cloud (GitHub) works on PC and phone
+        run: npm run check:cloud
       - name: Check every word is readable on its page, highlight and theme (contrast)
         run: npm run check:contrast
       - name: Keep the screenshots

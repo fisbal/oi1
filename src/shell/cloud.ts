@@ -68,7 +68,10 @@ const repoPath = () => `/repos/${cloudAccount()!.login}/${cloudSettings().repo}`
 const enc = (p: string) => p.split('/').map(encodeURIComponent).join('/');
 
 async function base64(blob: Blob): Promise<string> {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
+  // FileReader where Blob.arrayBuffer is missing (older WebViews).
+  const buf = typeof blob.arrayBuffer === 'function' ? await blob.arrayBuffer()
+    : await new Promise<ArrayBuffer>((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result as ArrayBuffer); r.onerror = () => ko(r.error); r.readAsArrayBuffer(blob); });
+  const bytes = new Uint8Array(buf);
   let bin = '';
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(bin);
@@ -151,7 +154,7 @@ export async function cloudOpen(path: string): Promise<File> {
   if (!res.ok) throw new GitHubError(res.status, res.statusText);
   const name = path.split('/').pop()!;
   opened.set(name, path);
-  return new File([await res.blob()], name);
+  return new File([await res.arrayBuffer()], name);
 }
 
 /** When a tab closes, its link to a cloud file goes too. */

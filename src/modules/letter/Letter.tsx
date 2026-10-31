@@ -415,8 +415,11 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
   // AutoSave: once the letter has a file, the shell writes it there after each pause in the work.
   const quietSave = useRef<() => Promise<FileRef | null>>(async () => null);
   quietSave.current = async () => {
-    if (!body || !fileRef?.handle || !fileName.toLowerCase().endsWith('.docx')) return null;
-    const ref = await shell.saveFile(fileName, makeDocx, DOCX_TYPE, { target: fileRef, quiet: true });
+    if (!body) return null;
+    // Its own .docx file when it has one; with the cloud on, a document without a file is saved there too.
+    const own = !!fileRef?.handle && fileName.toLowerCase().endsWith('.docx');
+    if (!own && !shell.cloudOn?.()) return null;
+    const ref = await shell.saveFile(own ? fileName : `${baseName()}.docx`, makeDocx, DOCX_TYPE, { target: own ? fileRef : undefined, quiet: true });
     if (ref) setDirty(false);
     return ref;
   };

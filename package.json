@@ -20,6 +20,7 @@
     "check:sync": "node scripts/check-sync.mjs",
     "check:proof": "node scripts/check-proof.mjs",
     "check:autosave": "node scripts/check-autosave.mjs",
+    "check:cloud": "node scripts/check-cloud.mjs",
     "check:contrast": "node scripts/check-contrast.mjs"
   },
   "dependencies": {
