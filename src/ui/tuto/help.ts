@@ -5,6 +5,10 @@
 //
 // Keys ending in ".*" explain a whole family (a chart type, a function category); "{name}" is the button's name.
 
+import { HELP_CODE } from './helpCode';
+import { HELP_LETTER } from './helpLetter';
+import { HELP_STAGE } from './helpStage';
+
 export type HelpText = [en: string, fr: string];
 
 export const HELP: Record<string, HelpText> = {
@@ -111,6 +115,9 @@ export const HELP: Record<string, HelpText> = {
   'class.sendToStage': ['Makes a slide in Office Stage from the selected table.', 'Crée une diapositive Office Stage à partir du tableau choisi.'],
   'class.share': ['Shares the workbook by e-mail, messaging or any app on your device.', 'Partage le classeur par courriel, messagerie ou toute app de l’appareil.'],
   'tuto.app.*': ['Opens {name} in a new tab, next to this one.', 'Ouvre {name} dans un nouvel onglet, à côté de celui-ci.'],
+  ...HELP_LETTER,
+  ...HELP_STAGE,
+  ...HELP_CODE,
 };
 
 /** The explanation of a control: its key's text, a family's text ("class.chart.*") with its name, or null. */

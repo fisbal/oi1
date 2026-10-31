@@ -1303,7 +1303,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               <div className="st-gallery">
                 {galleryThemes.map(th => (
                   <span key={th.id + th.name} className="st-gallery-cell">
-                    <button type="button" className={`st-gallery-item${deck.theme.id === th.id && deck.theme.name === th.name ? ' on' : ''}`} title={themeName(th)} aria-label={themeName(th)} onClick={() => setTheme(th)}>
+                    <button type="button" className={`st-gallery-item${deck.theme.id === th.id && deck.theme.name === th.name ? ' on' : ''}`} title={themeName(th)} aria-label={themeName(th)} data-help="stage.theme.*" onClick={() => setTheme(th)}>
                       <ThemeChip th={th} />
                     </button>
                     {th.group === 'mine' && th.id !== 'file' && <button type="button" className="st-gallery-x" title={t('stage.themes.remove')} aria-label={`${t('stage.themes.remove')} ${th.name}`} onClick={() => removeMyTheme(th.id)}>×</button>}

@@ -9,7 +9,7 @@ import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 
 // Buttons without an explanation yet, per app. These numbers may only shrink.
-const STILL_TO_EXPLAIN = { Class: 0, Letter: 124, Stage: 82, 'Code+': 85 };
+const STILL_TO_EXPLAIN = { Class: 0, Letter: 0, Stage: 0, 'Code+': 0 };
 
 const PORT = Number(process.env.PORT) || 4196;
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore', detached: true });
@@ -61,7 +61,7 @@ try {
       }
       counts[`${name}`] = { items, generic };
       check(items >= 20, `${name}: the Tuto lists ${items} buttons`);
-      check(generic <= STILL_TO_EXPLAIN[app], `${name}: ${generic} buttons still without explanation (at most ${STILL_TO_EXPLAIN[app]})${generic && app === 'Class' ? `: ${missing.slice(0, 8).join(', ')}` : ''}`);
+      check(generic <= STILL_TO_EXPLAIN[app], `${name}: ${generic} buttons still without explanation (at most ${STILL_TO_EXPLAIN[app]})${generic ? `: ${missing.slice(0, 8).join(', ')}` : ''}`);
 
       // Picking a button explains it.
       await cats.first().click();
