@@ -385,3 +385,4 @@
 .st-aud-seg button:first-child { border-radius: 8px 0 0 8px; }
 .st-aud-seg button:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
 .st-aud-seg button.on { background: rgba(var(--fg-rgb), .12); font-weight: 600; }
+.st-stage-wrap { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }

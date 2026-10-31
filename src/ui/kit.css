@@ -271,3 +271,14 @@
 .ribbon-toggle svg { transform: rotate(180deg); transition: transform .2s var(--ease); }
 .ribbon-toggle.min svg { transform: none; }
 .ribbon-toggle:hover { background: rgba(var(--fg-rgb), .06); color: var(--ink); }
+
+/* Side scroll bar that stays visible, also on phones (FastScroll.tsx) */
+.fast-scroll { position: absolute; top: 4px; bottom: 4px; right: 2px; width: 12px; z-index: 7; border-radius: 6px; background: rgba(var(--fg-rgb), .05); touch-action: none; cursor: pointer; }
+.fast-scroll-thumb { position: absolute; left: 2px; right: 2px; min-height: 28px; border-radius: 4px; background: color-mix(in srgb, var(--app, var(--gold)) 70%, transparent); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.fast-scroll:hover .fast-scroll-thumb, .fast-scroll:active .fast-scroll-thumb { background: var(--app, var(--gold)); }
+@media (pointer: coarse) {
+  .fast-scroll { width: 18px; right: 1px; }
+  .fast-scroll-thumb { left: 3px; right: 3px; min-height: 44px; }
+}
+.status-zoom .fit { width: 24px; display: inline-grid; place-items: center; }
+@media print { .fast-scroll { display: none !important; } }

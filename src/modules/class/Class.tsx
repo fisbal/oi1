@@ -38,6 +38,8 @@ const FN_ICON: Record<'financial' | 'logical' | 'text' | 'date' | 'lookup' | 'ma
 };
 import { classCopilot, type ClassBridge } from './copilot';
 import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
+import { usePinchZoom } from '../../ui/pinch';
+import { FastScroll } from '../../ui/FastScroll';
 
 export const EXTENSIONS = ['.xlsx', '.csv', '.tsv'];
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -135,6 +137,8 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const [panel, setPanel] = useState<null | 'file'>(null);
   const [tab, setTab] = useState<Tab>('home');
   const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
+  zoomRef.current = zoom;
   const [headings, setHeadings] = useState(true);
   const [painter, setPainter] = useState<CellStyle | null>(null);
   const [find, setFind] = useState<null | { replace: boolean }>(null);
@@ -1325,7 +1329,16 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const setTabColor = (color: string | null) => changeSheet(s => { if (color) s.tabColor = color; else delete s.tabColor; });
 
   // ---------- view ----------
+  usePinchZoom(scrollRef, () => zoomRef.current, setZoom, { min: 0.25, max: 4 });
   const stepZoom = (dir: 1 | -1) => setZoom(zv => (dir > 0 ? ZOOMS.find(x => x > zv + 1e-9) ?? zv : [...ZOOMS].reverse().find(x => x < zv - 1e-9) ?? zv));
+  // The whole filled part of the sheet in view at once (at least A1:H20, so an empty sheet does not zoom in a lot).
+  const fitSheet = () => {
+    const c2 = Math.max(used.cols, 7), r2 = Math.max(used.rows, 19);
+    const w = lefts[c2 + 1] / z, h = tops[r2 + 1] / z;
+    if (!w || !h) return;
+    setZoom(Math.round(Math.max(0.25, Math.min(1.5, Math.min((view.w - 16) / w, (view.h - 16) / h))) * 100) / 100);
+    requestAnimationFrame(() => { const el = scrollRef.current; if (el) { el.scrollLeft = 0; el.scrollTop = 0; } });
+  };
   const zoomToSelection = () => {
     const w = (lefts[range.c2 + 1] - lefts[range.c1]) / z, h = (tops[range.r2 + 1] - tops[range.r1]) / z;
     if (!w || !h) return;
@@ -1815,6 +1828,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               <Btn big icon="zoomout" title="letter.zoomOut" onClick={() => stepZoom(-1)} disabled={zoom <= ZOOMS[0]} />
               <Btn big icon="search" title="class.zoom100" onClick={() => setZoom(1)} active={zoom === 1} />
               <Btn big icon="focus" title="class.zoomSelection" onClick={zoomToSelection} />
+              <Btn big icon="onepage" title="ui.fitAll" onClick={fitSheet} />
             </Group>
             <Group label="class.group.window">
               <Drop big icon="freeze" title="class.freeze" active={!!sheet.freeze}>
@@ -1932,6 +1946,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               {editorAt && !editorAt.top && !editorAt.left && editorAt.el}
             </div>
           </div>
+          <FastScroll target={scrollRef} />
           {fr > 0 && (
             <div className="pane pane-top" style={{ height: FH, width: view.w }}>
               <div ref={topPaneRef} className="pane-inner">{topCells}{editorAt?.top && !editorAt.left && editorAt.el}</div>
@@ -2003,6 +2018,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             onChange={e => setZoom(Number(e.target.value) / 100)} onDoubleClick={() => setZoom(1)} />
           <button type="button" aria-label={t('letter.zoomIn')} title={t('letter.zoomIn')} onClick={() => stepZoom(1)} disabled={zoom >= ZOOMS[ZOOMS.length - 1]}>+</button>
           <span className="pct">{Math.round(zoom * 100)}%</span>
+          <button type="button" className="fit" aria-label={t('ui.fitAll')} title={t('ui.fitAll')} onClick={fitSheet}><Icon name="onepage" size={13} /></button>
         </span>
       </footer>
 

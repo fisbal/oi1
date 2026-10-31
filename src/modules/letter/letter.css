@@ -179,7 +179,7 @@
 }
 
 /* The page area with the outline pane beside it. */
-.letter-body { flex: 1; min-height: 0; display: flex; }
+.letter-body { flex: 1; min-height: 0; display: flex; position: relative; }
 .letter-body > .canvas { min-width: 0; }
 
 .outline-pane {

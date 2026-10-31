@@ -17,6 +17,8 @@ import { FileMenu } from '../../ui/FileMenu';
 import { Btn, ColorGrid, Combo, Dialog, Drop, Group, Icon, MenuItem, NumberBox, RibbonToggle, type ComboGroup } from '../../ui/kit';
 import { qrDataUrl } from '../../ui/qr';
 import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
+import { usePinchZoom } from '../../ui/pinch';
+import { FastScroll } from '../../ui/FastScroll';
 import { FONT_GROUPS, FONT_SIZES, cssFont } from '../letter/model';
 import { readAsDataUrl } from '../letter/setup';
 import { geomPath, isLine } from './geom';
@@ -511,6 +513,9 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const pad = stageSize.w < 600 ? 16 : 48;
     return Math.max(0.05, Math.min((stageSize.w - pad) / deck.w, (stageSize.h - pad) / deck.h));
   }, [zoom, stageSize, deck.w, deck.h]);
+  const kRef = useRef(k);
+  kRef.current = k;
+  usePinchZoom(stageRef, () => kRef.current, z => setZoom(z), { min: 0.1, max: 4 });
   const toSlide = (e: { clientX: number; clientY: number }) => {
     const r = canvasRef.current!.getBoundingClientRect();
     return { x: (e.clientX - r.left) / k, y: (e.clientY - r.top) / k };
@@ -1546,6 +1551,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               <button type="button" onClick={audBack}>{t('stage.audience.back')}</button>
             </div>
           )}
+          <div className="st-stage-wrap">
           <div className="st-stage" ref={stageRef}
             onDragOver={e => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
             onDrop={e => { const files = Array.from(e.dataTransfer.files); if (files.length) { e.preventDefault(); if (files[0].name.toLowerCase().endsWith('.pptx')) void loadFile(wrapDropped(files[0])); else void addImages(files); } }}>
@@ -1576,6 +1582,8 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               </div>
             </div>
           </div>
+          <FastScroll target={stageRef} />
+          </div>
           {notesOpen && (
             <div className="st-notes" style={{ height: notesH }}>
               <div className="st-notes-bar"
@@ -1600,7 +1608,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           <input type="range" min={10} max={200} step={5} value={Math.round(k * 100)} aria-label={t('letter.zoom')} onChange={e => setZoom(Number(e.target.value) / 100)} onDoubleClick={() => setZoom('fit')} />
           <button type="button" aria-label={t('letter.zoomIn')} title={t('letter.zoomIn')} onClick={() => setZoom(ZOOMS.find(z => z > k + 0.001) ?? ZOOMS[ZOOMS.length - 1])}>+</button>
           <span className="pct">{Math.round(k * 100)}%</span>
-          <button type="button" title={t('stage.fit')} aria-label={t('stage.fit')} onClick={() => setZoom('fit')}><Icon name="onepage" size={13} /></button>
+          <button type="button" className="fit" title={t('ui.fitAll')} aria-label={t('ui.fitAll')} onClick={() => setZoom('fit')}><Icon name="onepage" size={13} /></button>
         </span>
       </footer>
 
