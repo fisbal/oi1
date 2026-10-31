@@ -18,7 +18,8 @@
     "check:interactions": "node scripts/check-interactions.mjs",
     "check:training": "node scripts/check-training.mjs",
     "check:sync": "node scripts/check-sync.mjs",
-    "check:proof": "node scripts/check-proof.mjs"
+    "check:proof": "node scripts/check-proof.mjs",
+    "check:contrast": "node scripts/check-contrast.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
