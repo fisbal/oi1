@@ -1,3 +1,4 @@
+import { isStaleBuild, reloadToNewVersion } from '../../shell/staleBuild';
 import { closeHistory } from '@tiptap/pm/history';
 import { EditorContent, useEditor, useEditorState, type Editor, type JSONContent } from '@tiptap/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -383,6 +384,8 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       setDirty(false);
       autosave();
     } catch (err) {
+      // A new version was published while this page was open: reload onto it and open this file again.
+      if (isStaleBuild(err) && await reloadToNewVersion(f)) return;
       alert(`${t('letter.openFailed')} ${f.name}\n${String(err)}`);
     }
   }
@@ -688,6 +691,8 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       if (u.rows < 0) return;
       placeTable(sheetToTable(sheet, { c1: 0, r1: 0, c2: u.cols, r2: u.rows }, computeSheet(sheet), getLanguage(), currencyFor(getLanguage(), book)), undefined, null);
     } catch (err) {
+      // A new version was published while this page was open: reload onto it (the letter is kept on the device).
+      if (isStaleBuild(err) && await reloadToNewVersion()) return;
       alert(`${t('letter.openFailed')} ${f.name}\n${String(err)}`);
     }
   };

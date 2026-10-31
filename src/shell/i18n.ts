@@ -83,6 +83,7 @@ const en = {
   'letter.words': '{n} words',
   'letter.word': '1 word',
   'letter.openFailed': 'This file could not be opened:',
+  'update.reopened': 'Office In 1 was updated to its newest version; your file is open again.',
 
   'home.recent': 'Recent',
   'home.recentRemove': 'Remove from list',
@@ -1851,6 +1852,7 @@ const fr: Messages = {
   'letter.words': '{n} mots',
   'letter.word': '1 mot',
   'letter.openFailed': 'Ce fichier n’a pas pu être ouvert :',
+  'update.reopened': 'Office In 1 vient d’être mis à jour ; votre fichier est rouvert.',
 
   'home.recent': 'Récents',
   'home.recentRemove': 'Retirer de la liste',
@@ -3616,6 +3618,7 @@ const es: Messages = {
   'letter.words': '{n} palabras',
   'letter.word': '1 palabra',
   'letter.openFailed': 'No se pudo abrir este archivo:',
+  'update.reopened': 'Office In 1 se actualizó a su versión más reciente; su archivo está abierto de nuevo.',
 
   'home.recent': 'Recientes',
   'home.recentRemove': 'Quitar de la lista',
@@ -5381,6 +5384,7 @@ const pt: Messages = {
   'letter.words': '{n} palavras',
   'letter.word': '1 palavra',
   'letter.openFailed': 'Não foi possível abrir este arquivo:',
+  'update.reopened': 'O Office In 1 foi atualizado para a versão mais recente; o seu arquivo foi reaberto.',
 
   'home.recent': 'Recentes',
   'home.recentRemove': 'Remover da lista',
@@ -7146,6 +7150,7 @@ const de: Messages = {
   'letter.words': '{n} Wörter',
   'letter.word': '1 Wort',
   'letter.openFailed': 'Diese Datei konnte nicht geöffnet werden:',
+  'update.reopened': 'Office In 1 wurde auf die neueste Version aktualisiert; Ihre Datei ist wieder geöffnet.',
 
   'home.recent': 'Zuletzt verwendet',
   'home.recentRemove': 'Aus der Liste entfernen',

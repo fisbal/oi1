@@ -7,6 +7,7 @@ import { cloudOn, cloudSave, forgetCloudTab } from './cloud';
 import { CloudPanel, useCloud } from './CloudPanel';
 import { LANGUAGES, getLanguage, setLanguage, t, type LanguageCode } from './i18n';
 import { findUpdate, type AppUpdate } from './update';
+import { isStaleBuild, reloadToNewVersion, takeReopenAfterUpdate } from './staleBuild';
 import { moduleForFile, modules } from './modules';
 import { addRecent, listRecent, onRecentChange, openRecent, removeRecent } from './recent';
 import { Backdrop, BrandMark, SceneArt, Wordmark, useTilt } from './Scene';
@@ -76,6 +77,13 @@ export default function App() {
     else alert(`${t('shell.cannotOpen')} ${file.name}`);
   }, [openModule]);
 
+  // A tab that never showed anything (its app could not load): removed without asking.
+  const dropTab = useCallback((tabId: string) => {
+    forgetTab(tabId);
+    setTabs(ts => ts.filter(x => x.tabId !== tabId));
+    setActiveId(cur => (cur === tabId ? null : cur));
+  }, []);
+
   const closeTab = useCallback((tabId: string) => {
     forgetTab(tabId);
     forgetCloudTab(tabId);
@@ -137,6 +145,10 @@ export default function App() {
     const kept = rememberedChoice();
     if (kept) applyLanguage(to, kept); else setLangAsk(to);
   };
+  // The page reloaded itself onto a new version while a file was being opened: open it again.
+  useEffect(() => {
+    void takeReopenAfterUpdate().then(f => { if (f) { openAnyFile(f); notify(t('update.reopened')); } });
+  }, [openAnyFile, notify]);
   useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(null), 3200);
@@ -360,7 +372,7 @@ export default function App() {
           </div>
         </section>
         {tabs.map(tab => (
-          <TabHost key={tab.tabId} tab={tab} hidden={tab.tabId !== activeId} makeApi={makeApi} onOpen={openAnyFile} />
+          <TabHost key={tab.tabId} tab={tab} hidden={tab.tabId !== activeId} makeApi={makeApi} onOpen={openAnyFile} onDrop={dropTab} />
         ))}
       </main>
       <WebAnswer />
@@ -403,7 +415,7 @@ function timeAgo(time: number): string {
 }
 
 /** Mounts one module into its own element and keeps it alive while the tab is open. */
-function TabHost({ tab, hidden, makeApi, onOpen }: { tab: Tab; hidden: boolean; makeApi: (tabId: string, moduleId: string) => ShellApi; onOpen: (f: OpenedFile) => void }) {
+function TabHost({ tab, hidden, makeApi, onOpen, onDrop }: { tab: Tab; hidden: boolean; makeApi: (tabId: string, moduleId: string) => ShellApi; onOpen: (f: OpenedFile) => void; onDrop: (tabId: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const first = useRef({ makeApi, file: tab.file, handoff: tab.handoff });
 
@@ -414,6 +426,13 @@ function TabHost({ tab, hidden, makeApi, onOpen }: { tab: Tab; hidden: boolean; 
     let cancelled = false;
     entry?.load?.().then(({ default: mod }) => {
       if (!cancelled) mounted = mod.mount(el, first.current.makeApi(tab.tabId, tab.moduleId), first.current.file, first.current.handoff);
+    }).catch(err => {
+      if (!isStaleBuild(err)) { console.error(err); return; }
+      // A new version was published while this page was open and this app's part has a new name: reload onto
+      // the new version. A tab made just now for a file is dropped, and the file opens again after the reload.
+      const file = first.current.file;
+      if (file) onDrop(tab.tabId);
+      void reloadToNewVersion(file);
     });
     return () => {
       cancelled = true;

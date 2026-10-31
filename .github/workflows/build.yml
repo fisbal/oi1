@@ -86,6 +86,19 @@ jobs:
       - name: Publish to gh-pages
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
+          # A page opened before this release still asks for the previous release's parts (the Word reader,
+          # the Excel reader…), whose names change with every build. Keep the previous release's files one
+          # more release so that page keeps working; older pages reload themselves (src/shell/staleBuild.ts).
+          # assets/.release lists this build's own files, so only one older release is ever carried along.
+          (cd dist/assets && ls -A > .release)
+          if git clone -q --depth 1 --branch gh-pages https://x-access-token:${{ github.token }}@github.com/${{ github.repository }} prev 2>/dev/null; then
+            if [ -f prev/assets/.release ]; then keep=$(cat prev/assets/.release); else keep=$(ls -A prev/assets 2>/dev/null); fi
+            for f in $keep; do
+              [ "$f" = .release ] && continue
+              [ -e "dist/assets/$f" ] || { [ -f "prev/assets/$f" ] && cp "prev/assets/$f" "dist/assets/$f"; }
+            done
+            rm -rf prev
+          fi
           cd dist
           touch .nojekyll
           git init -q -b gh-pages
