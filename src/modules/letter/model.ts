@@ -115,6 +115,8 @@ export function cssFont(name: string): string {
 
 function cssLineHeight(v: number | string | undefined): string | undefined {
   if (v === undefined) return undefined;
+  // Word's "single" spacing is the font's own line height (about 1.2 for Calibri), which CSS calls normal.
+  if (v === 1 || v === '1') return 'normal';
   return typeof v === 'number' ? String(v) : v;
 }
 
