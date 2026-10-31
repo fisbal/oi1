@@ -99,6 +99,12 @@ export function downloadFile(name: string, content: Blob | string, mimeType: str
 }
 
 /** Saves a file, returning where it went (with the blob, for the recent files list), or null if cancelled. */
+/** The content of a save as a Blob. */
+export async function blobOf(content: Blob | string | (() => Promise<Blob | string>), mimeType: string): Promise<Blob> {
+  const c = typeof content === 'function' ? await content() : content;
+  return typeof c === 'string' ? new Blob([c], { type: mimeType }) : c;
+}
+
 export async function saveFile(name: string, content: Blob | string | (() => Promise<Blob | string>), mimeType: string,
   options: SaveOptions = {}): Promise<{ ref: FileRef; blob: Blob } | null> {
   const toBlob = async () => {

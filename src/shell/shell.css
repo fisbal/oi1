@@ -372,3 +372,34 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .app-bar .autosave-label, .app-bar .app-doc { display: none; }
   .save-badge { font-size: 11px; max-width: 46vw; }
 }
+
+/* Save to the cloud */
+.cloud-btn { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; }
+.cloud-btn.on { color: var(--ink); border-color: var(--app, var(--gold)); }
+@media (max-width: 520px) { .cloud-btn-label { display: none; } }
+.save-area, .home-cloud { position: relative; }
+.cloud-panel {
+  position: absolute; z-index: 70; right: 0; top: calc(100% + 6px); width: min(340px, calc(100vw - 32px)); padding: 12px 14px; border-radius: 14px;
+  background: rgba(var(--bg-rgb), .98); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 14px 40px rgba(0, 0, 0, .25);
+  display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.4; text-align: left; white-space: normal;
+}
+.home-cloud .cloud-panel { left: 0; right: auto; }
+/* The hero fades in with a transform, which makes its own layer: lift it so its cloud panel sits over the app cards. */
+.hero-actions { position: relative; z-index: 6; }
+@media (max-width: 520px) {
+  .cloud-panel, .home-cloud .cloud-panel { position: fixed; left: 16px; right: 16px; top: 64px; width: auto; max-height: calc(100vh - 80px); overflow: auto; }
+}
+.cloud-head { display: flex; align-items: center; }
+.cloud-head b { flex: 1; }
+.cloud-x { border: 0; background: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
+.cloud-panel p { margin: 0; }
+.cloud-panel a { color: var(--gold-deep, var(--gold)); }
+.cloud-field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.cloud-field input { height: 32px; padding: 0 9px; border: 1px solid var(--line); border-radius: 8px; background: rgba(var(--bg-rgb), .8); color: var(--ink); font: inherit; font-size: 13px; }
+.cloud-panel > button { height: 34px; border: 1px solid var(--line); border-radius: 9px; background: rgba(var(--bg-rgb), .9); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.cloud-panel > button.primary { background: var(--gold); border-color: transparent; color: #1b1407; font-weight: 600; }
+.cloud-files { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.cloud-files button { width: 100%; display: flex; justify-content: space-between; gap: 8px; padding: 7px 8px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.cloud-files button:hover { background: rgba(var(--fg-rgb), .06); }
+.cloud-files small, .cloud-empty, .cloud-fine { color: var(--muted); font-size: 12px; }
+.cloud-error { color: #b3261e; }

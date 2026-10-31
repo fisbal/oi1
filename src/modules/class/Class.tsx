@@ -597,9 +597,10 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   // AutoSave: once the book has an .xlsx file, the shell writes it there after each pause in the work.
   const quietSave = useRef<() => Promise<FileRef | null>>(async () => null);
   quietSave.current = async () => {
-    if (!fileRef?.handle || !fileName.toLowerCase().endsWith('.xlsx')) return null;
+    const own = !!fileRef?.handle && fileName.toLowerCase().endsWith('.xlsx');
+    if (!own && !shell.cloudOn?.()) return null;
     const { writeXlsx } = await import('../../formats/xlsx');
-    return shell.saveFile(fileName, () => writeXlsx({ ...bookRef.current, currency }, lang), XLSX_TYPE, { target: fileRef, quiet: true });
+    return shell.saveFile(own ? fileName : `${baseName()}.xlsx`, () => writeXlsx({ ...bookRef.current, currency }, lang), XLSX_TYPE, { target: own ? fileRef : undefined, quiet: true });
   };
   useEffect(() => { shell.autoSave(() => quietSave.current()); return () => shell.autoSave(null); }, [shell]);
   const saveCsv = () => {

@@ -3,6 +3,7 @@
 
 import type { FileRef } from './contract';
 import { store } from './storage';
+import { cloudOn } from './cloud';
 
 export interface SaveStatus { state: 'idle' | 'saving' | 'saved' | 'error'; where: 'device' | 'file' | 'cloud'; name?: string; at: number }
 type Saver = () => Promise<FileRef | null>;
@@ -48,11 +49,11 @@ export async function trackedSave(tabId: string, work: () => Promise<unknown>) {
     set(tabId, { state: 'saving' });
     try {
       const ref = await saver();
-      set(tabId, ref ? { state: 'saved', where: 'file', name: ref.name, at: Date.now() } : { state: 'saved', where: 'device', at: Date.now() });
+      set(tabId, ref ? { state: 'saved', where: ref.cloud ? 'cloud' : 'file', name: ref.name, at: Date.now() } : { state: 'saved', where: 'device', at: Date.now() });
     } catch {
       set(tabId, { state: 'error', at: Date.now() });
     }
-  }, 2500));
+  }, cloudOn() ? 6000 : 2500)); // each cloud save is a commit: wait for a longer pause
 }
 
 export function forgetTab(tabId: string) { statuses.delete(tabId); savers.delete(tabId); window.clearTimeout(timers.get(tabId)); }
