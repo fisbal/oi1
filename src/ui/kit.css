@@ -204,6 +204,11 @@
   display: flex; align-items: center; gap: 10px; padding: 6px 14px; font-size: 13px; color: var(--ink);
   background: linear-gradient(90deg, rgba(212,168,67,.16), rgba(212,168,67,.04)); border-bottom: 1px solid var(--hair);
 }
+/* Synchro state of a live part: up to date, catching up, or different. */
+.live-badge { font: 600 11px var(--sans); padding: 2px 9px; border-radius: 99px; color: #fff; white-space: nowrap; flex-shrink: 0; }
+.live-synced { background: #2e7d32; }
+.live-pending { background: #b26a00; }
+.live-different { background: #c62828; }
 .link-banner svg { color: var(--gold); flex-shrink: 0; }
 .link-banner .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .link-banner button { height: 26px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--hair); background: rgba(var(--shade-rgb), calc(.25 * var(--shade-k))); color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 600; }

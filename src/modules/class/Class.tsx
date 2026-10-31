@@ -9,6 +9,7 @@ import { flushSync } from 'react-dom';
 import type { FileRef, Handoff, HandoffLink, OpenedFile, RecentFile, ShellApi, TableData } from '../../shell/contract';
 import { t, type MessageKey } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
+import { isLiveId, liveStore, newLiveId, tableText, type SyncState } from '../../shell/live';
 import { useTheme } from '../../shell/theme';
 import { parseCsv, toCsv } from '../../formats/csv';
 import { FUNCTION_NAMES, cellName, colName, isError, moveRefs, parseCell, type Scalar } from '../../formats/formula';
@@ -115,6 +116,8 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const bookRef = useRef(book);
   const [active, setActive] = useState(Math.min(initial.active, initial.book.sheets.length - 1));
   const [link, setLink] = useState<HandoffLink | null>(initial.link);
+  const linkRef = useRef(link);
+  linkRef.current = link;
   const [fileName, setFileName] = useState(initial.name);
   const [fileRef, setFileRef] = useState<FileRef | null>(null);
   const [sel, setSel] = useState<Sel>({ a: { c: 0, r: 0 }, f: { c: 0, r: 0 } });
@@ -645,9 +648,10 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   // The table (or the selection) on a new slide in Office Stage, linked so changes can be sent there.
   const sendToStage = () => {
     const { table } = sendRange();
-    const id = newId('l');
+    const id = newLiveId();
+    void liveStore().ensure(id, { kind: 'table', title, table }, 'class', 'class');
     const tabId = shell.openModule('stage', undefined, { kind: 'table', title, table, link: { tabId: shell.tabId, id, moduleId: 'class', title } });
-    if (tabId) setLink({ tabId, id, moduleId: 'stage', title: 'Office Stage' });
+    if (tabId) setLink({ tabId, id, moduleId: 'stage', title: 'Office Stage', sheet: sheet.name });
   };
   const chartToStage = async () => {
     if (!chart) return;
@@ -670,18 +674,19 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   };
   const sendToLetter = async (letterTab: string | null) => {
     const { table } = sendRange();
-    const id = link?.moduleId === 'letter' && letterTab === link.tabId ? link.id : newId('l');
+    const id = link?.moduleId === 'letter' && letterTab === link.tabId && isLiveId(link.id) ? link.id : newLiveId();
+    void liveStore().ensure(id, { kind: 'table', title, table }, 'class', 'class');
     const mine: HandoffLink = { tabId: shell.tabId, id, moduleId: 'class', title };
     if (letterTab) {
       const ok = await shell.send(letterTab, { kind: 'table', title, table, link: mine });
       if (!ok) { shell.notify(t('class.letterGone')); return; }
       const target = shell.tabs('letter').find(x => x.tabId === letterTab);
-      setLink({ tabId: letterTab, id, moduleId: 'letter', title: target?.title ?? 'Office Letter' });
+      setLink({ tabId: letterTab, id, moduleId: 'letter', title: target?.title ?? 'Office Letter', sheet: sheet.name });
       shell.notify(t('class.sentToLetter', { title: target?.title ?? 'Office Letter' }));
       shell.showTab(letterTab);
     } else {
       const tabId = shell.openModule('letter', undefined, { kind: 'table', title, table, link: mine });
-      if (tabId) setLink({ tabId, id, moduleId: 'letter', title: 'Office Letter' });
+      if (tabId) setLink({ tabId, id, moduleId: 'letter', title: 'Office Letter', sheet: sheet.name });
     }
   };
   const updateLetter = async () => {
@@ -742,15 +747,72 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const name = (h.title ?? t('class.sheet', { n: b.sheets.length + 1 })).slice(0, 31);
     commit({ ...b, sheets: [...b.sheets, { name, cells: tableToCells(h.table), widths: {} }] });
     setActive(b.sheets.length);
-    if (h.link) setLink(h.link);
+    if (h.link) setLink({ ...h.link, sheet: name });
     return true;
   }));
+
+  // ---------- Synchro: a linked table is a live part ----------
+  // The linked sheet follows every change made in Letter, Stage or another window, and sends its own at once.
+  const [liveState, setLiveState] = useState<SyncState | null>(null);
+  const liveIndex = () => {
+    const l = linkRef.current;
+    if (!l || !isLiveId(l.id)) return -1;
+    const i = bookRef.current.sheets.findIndex(s => s.name === l.sheet);
+    return i >= 0 ? i : 0;
+  };
+  const liveTable = (i: number, vals = computeBook(bookRef.current)[i]): TableData => {
+    const s = bookRef.current.sheets[i];
+    const u = usedRange(s);
+    return sheetToTable(s, { c1: 0, r1: 0, c2: Math.max(0, u.cols), r2: Math.max(0, u.rows) }, vals, lang, currency);
+  };
+  const lastPart = useRef<string | null>(null);
+  useEffect(() => {
+    const id = link?.id;
+    if (!isLiveId(id)) { setLiveState(null); return; }
+    const store = liveStore();
+    const apply = (table: TableData | undefined) => {
+      const i = liveIndex();
+      if (i < 0 || !table) return;
+      lastPart.current = tableText(table);
+      if (tableText(liveTable(i)) !== lastPart.current) {
+        const b = bookRef.current;
+        const sheets = b.sheets.map((s, k) => (k === i ? { ...s, cells: tableToCells(table) } : s));
+        commit({ ...b, sheets });
+      }
+      setLiveState('synced');
+    };
+    const stop = store.watch(id, c => apply(c.table));
+    void store.read(id).then(c => {
+      if (c.table) { store.addPlace(id, 'class'); apply(c.table); return; }
+      const i = liveIndex();
+      if (i >= 0) void store.ensure(id, { kind: 'table', title, table: liveTable(i) }, 'class', 'class').then(() => setLiveState('synced'));
+    });
+    return stop;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [link?.id]);
+  useEffect(() => {
+    const id = link?.id;
+    if (!isLiveId(id) || lastPart.current === null) return;
+    const i = liveIndex();
+    if (i < 0) return;
+    const table = liveTable(i, allValues[i]);
+    if (tableText(table) === lastPart.current) { setLiveState('synced'); return; }
+    setLiveState('pending');
+    const timer = window.setTimeout(() => {
+      lastPart.current = tableText(table);
+      void liveStore().write(id, { kind: 'table', title, table }).then(() => liveStore().read(id))
+        .then(c => setLiveState(tableText(c.table) === tableText(liveTable(liveIndex())) ? 'synced' : 'different'));
+    }, 250);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book, link?.id]);
   // A letter or a deck asks for a table: give the selection (or the whole table) and link it to that tab.
   useEffect(() => shell.onAsk((_want, from) => {
     const { table } = sendRange();
-    const id = newId('l');
+    const id = newLiveId();
+    void liveStore().ensure(id, { kind: 'table', title, table }, 'class', 'class');
     const target = shell.tabs().find(x => x.tabId === from);
-    setLink({ tabId: from, id, moduleId: target?.moduleId ?? 'letter', title: target?.title ?? 'Office Letter' });
+    setLink({ tabId: from, id, moduleId: target?.moduleId ?? 'letter', title: target?.title ?? 'Office Letter', sheet: sheet.name });
     return { kind: 'table', title, table, link: { tabId: shell.tabId, id, moduleId: 'class', title } };
   }));
   useEffect(() => { if (handoff?.kind === 'file') void loadBook(handoff.file); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
@@ -1701,6 +1763,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
         <div className="link-banner">
           <Icon name="link" />
           <span className="grow">{t('class.linkedTo', { title: link.title })}</span>
+          {liveState && <span className={`live-badge live-${liveState}`} role="status">{t(`live.${liveState}`)}</span>}
           {linkedLetterOpen && <button type="button" className="primary" onClick={() => void updateLetter()}>{t('class.updateLetter')}</button>}
           {linkedLetterOpen && <button type="button" onClick={() => shell.showTab(link.tabId)}>{t('class.showLetter')}</button>}
           <button type="button" onClick={() => setLink(null)}>{t('class.unlink')}</button>

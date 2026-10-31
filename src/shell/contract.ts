@@ -145,6 +145,8 @@ export interface HandoffLink {
   /** The sender's app and title, to show "Linked to …". */
   moduleId: string;
   title: string;
+  /** Office Class: the sheet that holds the linked table. */
+  sheet?: string;
 }
 
 export interface MountedModule {
