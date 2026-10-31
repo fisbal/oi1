@@ -30,11 +30,25 @@ export const webWait = () => waiting;
 export function onWebWait(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
 const changed = () => { for (const fn of listeners) fn(); };
 
+type Schema = { type?: string; properties?: Record<string, Schema>; items?: Schema; enum?: unknown[] };
+/** A small example that has the shape a schema asks for: {"items": ["…"]}. */
+export function exampleOf(schema: Schema): unknown {
+  if (schema.enum?.length) return schema.enum[0];
+  switch (schema.type) {
+    case 'object': return Object.fromEntries(Object.entries(schema.properties ?? {}).map(([k, v]) => [k, exampleOf(v)]));
+    case 'array': return [exampleOf(schema.items ?? {}), '…'].filter((x, i) => i === 0 || typeof x === 'string');
+    case 'number': case 'integer': return 0;
+    case 'boolean': return true;
+    default: return '…';
+  }
+}
+
 /** The whole request as one message a person can paste in any chat. */
 export function webPrompt(req: AiRequest): string {
   const turns = req.messages.map((m, i) => (req.messages.length === 1 ? m.content : `${m.role === 'user' ? 'Me' : 'You'}: ${m.content}${i === req.messages.length - 1 ? '' : '\n'}`));
+  // A plain example of the answer's shape reads better than a JSON schema in a chat (Martin, 2026-10-31).
   const json = req.schema
-    ? `\n\nReply ONLY with JSON that follows this JSON schema, in one code block, nothing else:\n${JSON.stringify(req.schema)}`
+    ? `\n\nPlease answer with only this, in one code block:\n${JSON.stringify(exampleOf(req.schema))}`
     : '';
   return `${req.system}\n\n---\n\n${turns.join('\n')}${json}`;
 }

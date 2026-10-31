@@ -38,9 +38,41 @@ describe('translateHtml', () => {
 });
 
 describe('bestTranslator', () => {
-  it('uses the copilot AI when the browser cannot translate', async () => {
+  it('uses the free online translator when the browser has none (phones), the AI only for what it cannot do', async () => {
+    const real = globalThis.fetch;
+    const urls: string[] = [];
+    globalThis.fetch = (async (u: string) => {
+      urls.push(u);
+      const q = new URL(u).searchParams.get('q')!;
+      if (q === 'Échec') return new Response(JSON.stringify({ responseStatus: 429, responseData: { translatedText: 'MYMEMORY WARNING: YOU USED ALL AVAILABLE FREE TRANSLATIONS' } }));
+      return new Response(JSON.stringify({ responseStatus: 200, responseData: { translatedText: `ON ${q}` } }));
+    }) as typeof fetch;
+    try {
+      const { bestTranslator } = await import('../translate');
+      const asked: string[][] = [];
+      const tr = await bestTranslator('en', 'fr', () => async t => { asked.push(t); return t.map(s => `AI ${s}`); });
+      expect(await tr([' Bonjour ', '12', 'Échec', 'Merci'])).toEqual([' ON Bonjour ', '12', 'AI Échec', 'AI Merci']);
+      expect(asked).toEqual([['Échec', 'Merci']]);
+      expect(urls[0]).toContain('langpair=fr%7Cen');
+    } finally { globalThis.fetch = real; }
+  });
+  it('cuts a long paragraph at sentence ends for the online translator', async () => {
+    const real = globalThis.fetch;
+    const sent: string[] = [];
+    globalThis.fetch = (async (u: string) => { const q = new URL(u).searchParams.get('q')!; sent.push(q); return new Response(JSON.stringify({ responseStatus: 200, responseData: { translatedText: q.toUpperCase() } })); }) as typeof fetch;
+    try {
+      const { onlineTranslator } = await import('../translate');
+      const long = Array.from({ length: 30 }, (_, i) => `Phrase numéro ${i} du paragraphe.`).join(' ');
+      const { out, failed } = await onlineTranslator('en', 'fr')([long]);
+      expect(failed).toEqual([]);
+      expect(sent.length).toBeGreaterThan(1);
+      expect(sent.every(q => q.length <= 450)).toBe(true);
+      expect(out[0]).toBe(long.toUpperCase());
+    } finally { globalThis.fetch = real; }
+  });
+  it('uses the copilot AI when nothing else can translate (same language guess)', async () => {
     const { bestTranslator } = await import('../translate');
-    const tr = await bestTranslator('en', 'fr', () => async t => t.map(s => `AI ${s}`));
+    const tr = await bestTranslator('en', '', () => async t => t.map(s => `AI ${s}`));
     expect(await tr(['Bonjour'])).toEqual(['AI Bonjour']);
   });
   it("uses Chrome's translator for the whole document's language, the AI only for what it fails on", async () => {
