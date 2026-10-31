@@ -56,7 +56,7 @@
 
 .rb {
   display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-  min-width: 28px; height: 27px; padding: 0 6px; border: 1px solid transparent; border-radius: 8px;
+  min-width: 28px; height: 27px; padding: 0 6px; border: 1px solid transparent; border-radius: 999px;
   background: none; color: rgba(var(--ink-rgb), .88); font: inherit; font-size: 13px; line-height: 1; white-space: nowrap;
   transition: background .15s, color .15s, border-color .15s;
 }
@@ -74,7 +74,7 @@
 .rb.big .rb-label { font-size: 11.5px; white-space: normal; text-align: center; line-height: 1.15; hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word; color: var(--muted); min-height: 2.3em; display: flex; align-items: flex-start; justify-content: center; }
 .rb.big:hover:not(:disabled) .rb-label, .rb.big.on .rb-label { color: var(--ink); }
 .key {
-  position: relative; display: inline-grid; place-items: center; width: 38px; height: 34px; flex-shrink: 0; border-radius: 11px;
+  position: relative; display: inline-grid; place-items: center; width: 46px; height: 32px; flex-shrink: 0; border-radius: 999px;
   color: rgba(var(--ink-rgb), .9); border: 1px solid rgba(var(--fg-rgb), .09);
   background: linear-gradient(160deg, var(--key-top), var(--key-bottom)); box-shadow: 0 4px 0 var(--edge), 0 6px 12px rgba(var(--shade-rgb), calc(.45 * var(--shade-k))), inset 0 1px 0 rgba(255,255,255,.08);
   transition: transform .1s, box-shadow .1s, color .15s, border-color .15s;
@@ -86,7 +86,11 @@
 
 .rb-icon { position: relative; display: inline-flex; }
 .rb-icon .swatch { position: absolute; left: -1px; right: -1px; bottom: -4px; height: 3px; border-radius: 1px; }
-.rb-icon.key .swatch { left: 8px; right: 8px; bottom: 5px; height: 3px; }
+.rb-icon.key .swatch { left: 13px; right: 13px; bottom: 5px; height: 3px; border-radius: 99px; }
+/* Toolbar icons are soft capsules (Martin, 2026-10-31: "comme une capsule ovale"): a gel shine on the top half. */
+.key::before { content: ''; position: absolute; left: 7px; right: 7px; top: 2px; height: 42%; border-radius: 999px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0)); opacity: calc(.35 + .4 * var(--gloss-k, 1)); }
+.key > svg { position: relative; }
 .rb-caret { opacity: .6; display: inline-flex; }
 /* A big button's arrow is a small badge on the key's bottom right corner (the key is 38px wide and centered),
    so it never pushes the key aside or floats next to it, whatever the label's width. */
@@ -102,7 +106,7 @@
 .color-a i { position: absolute; left: -2px; right: -2px; bottom: -2px; height: 4px; border-radius: 1px; }
 
 .font-box, .size-box, .glass-input {
-  height: 27px; border: 1px solid var(--line); border-radius: 8px; background: rgba(var(--shade-rgb), calc(.35 * var(--shade-k))); color: var(--ink);
+  height: 27px; border: 1px solid var(--line); border-radius: 999px; background: rgba(var(--shade-rgb), calc(.35 * var(--shade-k))); color: var(--ink);
   font-size: 13px; padding: 0 8px; font-family: inherit;
 }
 .font-box:focus-within, .size-box:focus-within, .glass-input:focus { outline: none; border-color: rgba(212,168,67,.55); box-shadow: 0 0 0 3px rgba(212,168,67,.12); }
@@ -155,11 +159,11 @@
   position: relative; z-index: 5; display: flex; align-items: center; gap: 16px; padding: 2px 14px; min-height: 28px; font-size: 12px; color: var(--muted);
   background: rgba(var(--bg-rgb), .78); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid var(--line);
 }
-.status-btn { border: 0; background: none; color: inherit; font: inherit; padding: 2px 6px; border-radius: 6px; }
+.status-btn { border: 0; background: none; color: inherit; font: inherit; padding: 2px 6px; border-radius: 999px; }
 .status-btn:hover { background: rgba(var(--fg-rgb), .06); color: var(--ink); }
 .status-file { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-zoom { display: flex; align-items: center; gap: 4px; }
-.status-zoom button { border: 0; background: none; color: inherit; font-size: 15px; width: 22px; height: 22px; border-radius: 6px; }
+.status-zoom button { border: 0; background: none; color: inherit; font-size: 15px; width: 22px; height: 22px; border-radius: 999px; }
 .status-zoom button:hover:not(:disabled) { background: rgba(var(--fg-rgb), .06); }
 .status-zoom input { width: 110px; accent-color: var(--gold); }
 .status-zoom .pct { min-width: 38px; text-align: right; }
@@ -169,7 +173,7 @@
 .backstage { position: absolute; inset: 0; z-index: 40; display: flex; background: rgba(var(--bg-rgb), .82); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); animation: reveal .35s var(--ease) both; }
 .backstage-nav { display: flex; flex-direction: column; gap: 2px; width: 220px; padding: 16px 10px; border-right: 1px solid var(--hair); background: linear-gradient(180deg, rgba(212,168,67,.1), rgba(212,168,67,.02)); }
 .backstage-nav button {
-  display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 0; border-radius: 12px; background: none;
+  display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 0; border-radius: 999px; background: none;
   color: var(--ink); font: inherit; font-size: 14px; font-weight: 550; text-align: left;
 }
 .backstage-nav button svg { color: var(--gold); }
@@ -182,7 +186,7 @@
 .recent-list { list-style: none; margin: 0; padding: 0; max-width: 760px; display: grid; gap: 6px; }
 .recent-list button, .saveas-list button {
   display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 14px; width: 100%; padding: 12px 14px;
-  border: 1px solid var(--line); border-radius: 14px; background: var(--glass); color: var(--ink); font: inherit; text-align: left;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--glass); color: var(--ink); font: inherit; text-align: left;
 }
 .recent-list button svg, .saveas-list button svg { color: var(--gold); }
 .recent-list button:hover, .saveas-list button:hover { border-color: var(--hair); background: rgba(var(--fg-rgb), .06); }
@@ -191,7 +195,7 @@
 .saveas-list { max-width: 560px; display: grid; gap: 8px; }
 
 /* ---------- dialogs ---------- */
-.oi-dialog { border: 1px solid var(--hair); border-radius: 22px; padding: 0; background: var(--surface); color: var(--ink); min-width: 320px; box-shadow: 0 30px 80px rgba(var(--shade-rgb), calc(.7 * var(--shade-k))); }
+.oi-dialog { border: 1px solid var(--hair); border-radius: 30px; padding: 0; background: var(--surface); color: var(--ink); min-width: 320px; box-shadow: 0 30px 80px rgba(var(--shade-rgb), calc(.7 * var(--shade-k))); }
 .oi-dialog::backdrop { background: rgba(var(--shade-rgb), calc(.55 * var(--shade-k))); backdrop-filter: blur(3px); }
 .oi-dialog form { padding: 22px 24px; }
 .oi-dialog h2 { margin: 0 0 16px; font-family: var(--display); font-size: 21px; font-weight: 700; }
@@ -259,7 +263,7 @@
 :root.ribbon-min .ribbon-tabs { padding-bottom: 4px; }
 :root.ribbon-min .ribbon-panel {
   position: absolute; left: 0; right: 0; top: 100%; display: none; min-height: 0;
-  background: var(--bar-gradient); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  background: var(--bar-gradient), var(--bg); /* opaque: the page never shows through the buttons */ backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--hair); box-shadow: 0 16px 34px rgba(var(--shade-rgb), calc(.45 * var(--shade-k)));
 }
 :root.ribbon-min .ribbon.open .ribbon-panel { display: flex; }
@@ -293,7 +297,7 @@
 .tuto-panel { position: fixed; right: 8px; bottom: 8px; width: min(380px, calc(100vw - 16px)); z-index: 60; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; background: var(--panel, var(--bg)); color: var(--fg); border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0,0,0,.35); overflow: hidden; }
 .tuto-panel header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .tuto-panel header b { font-size: 15px; }
-.tuto-close { width: 32px; height: 32px; border-radius: 8px; font-size: 20px; line-height: 1; }
+.tuto-close { width: 32px; height: 32px; border-radius: 999px; font-size: 20px; line-height: 1; }
 .tuto-intro, .tuto-hint { margin: 0; font-size: 13px; opacity: .8; line-height: 1.4; }
 .tuto-cats { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; flex: none; }
 .tuto-cats button { flex: none; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
@@ -309,7 +313,7 @@
 .tuto-help h3 { margin: 4px 0 6px; font-size: 15px; overflow-wrap: anywhere; }
 .tuto-help p { margin: 0 0 10px; }
 .tuto-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.tuto-actions button { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); font-size: 13px; }
+.tuto-actions button { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; }
 .tuto-actions button.primary { background: var(--app, var(--gold)); color: #fff; border-color: transparent; }
 .tuto-flash { animation: tuto-flash 0.5s ease-in-out 3; outline: 2px solid var(--app, var(--gold)); outline-offset: 2px; border-radius: 8px; }
 @keyframes tuto-flash { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--app, var(--gold)) 45%, transparent); } }
@@ -319,3 +323,49 @@
   .tuto-intro { display: none; }
 }
 @media print { .tuto-panel { display: none !important; } }
+
+/* ‹ › arrows on strips that scroll sideways (scrollArrows.ts) */
+.scroll-arrow {
+  position: fixed; z-index: 75; display: grid; place-items: center; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--gold, #d4a843) 55%, transparent); color: var(--gold-light, #e9c46a);
+  background: color-mix(in srgb, var(--panel, #1b1b22) 88%, transparent); backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(var(--shade-rgb, 0,0,0), calc(.35 * var(--shade-k, 1))); transition: transform .15s, background .15s;
+}
+.scroll-arrow:hover { transform: scale(1.08); background: color-mix(in srgb, var(--gold, #d4a843) 22%, var(--panel, #1b1b22)); }
+.scroll-arrow[hidden] { display: none; }
+
+/* ---------- Office In 1 tab: "Every app", one soft key per app in its colour (same in every app) ---------- */
+.app-keys { display: grid; grid-template-columns: repeat(3, auto); gap: 5px 6px; align-content: start; padding-top: 2px; }
+.app-key {
+  --soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 13px 0 5px; border-radius: 999px; font: 600 11.5px var(--sans);
+  color: var(--ink); border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line)); white-space: nowrap; cursor: pointer; position: relative;
+  background: linear-gradient(135deg, var(--soft), rgba(var(--fg-rgb), .02) 70%);
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s, background .2s;
+  animation: app-key-in .45s ease both; animation-delay: calc(var(--i, 0) * 35ms);
+}
+/* A gel shine along the top, like a capsule. */
+.app-key::before { content: ''; position: absolute; left: 10px; right: 10px; top: 1px; height: 40%; border-radius: 999px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,0)); opacity: calc(.25 + .45 * var(--gloss-k, 1)); }
+.app-key-art.scene-art { width: 28px; height: 20px; flex: none; transition: transform .25s ease; }
+/* The little pictures move only under the mouse: nothing too much. */
+.app-key .scene-art * { animation-play-state: paused; }
+.app-key:hover:not(:disabled) .scene-art *, .app-key:focus-visible .scene-art * { animation-play-state: running; }
+.app-key:hover:not(:disabled), .app-key:focus-visible {
+  transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 26%, transparent), color-mix(in srgb, var(--accent) 6%, transparent));
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.app-key:hover:not(:disabled) .app-key-art { transform: translateY(-2px) scale(1.12) rotate(-3deg); }
+.app-key:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
+.app-key:disabled { cursor: default; color: var(--muted); border-style: dashed; background: rgba(var(--fg-rgb), .02); }
+.app-key:disabled .app-key-art { opacity: .5; filter: saturate(.5); }
+@keyframes app-key-in { from { opacity: 0; transform: translateY(4px) scale(.97); } to { opacity: 1; transform: none; } }
+/* The other buttons of the Office In 1 tab take the soft colour of the app they lead to. */
+.rgroup.tinted .rb.big .key { color: color-mix(in srgb, var(--accent) 75%, var(--ink)); border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 16%, var(--key-top)), var(--key-bottom)); }
+.rgroup.tinted .rb.big:hover:not(:disabled) .key { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 4px 0 var(--edge), 0 8px 18px -4px color-mix(in srgb, var(--accent) 55%, transparent), inset 0 1px 0 rgba(255,255,255,.1); transform: translateY(-1px); }
+.rgroup.tinted .rgroup-label { color: color-mix(in srgb, var(--accent) 78%, var(--ink)); }
+@media (prefers-reduced-motion: reduce) { .app-key, .app-key .scene-art * { animation: none; } .app-key, .rgroup.tinted .rb.big .key { transition: none; } }
+.rgroup.tinted .rb.big:active:not(:disabled) .key { transform: translateY(3px); box-shadow: 0 1px 0 var(--edge); }

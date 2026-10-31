@@ -20,5 +20,5 @@
 .pf-fix:hover, .pf-fix:focus-visible { background: var(--accent, #1a56c4); color: var(--bg, #fff); }
 .pf-wait { opacity: 0.7; font-style: italic; }
 .pf-actions { display: flex; gap: 4px; margin-top: 8px; border-top: 1px solid var(--line, #e3e3e3); padding-top: 6px; }
-.pf-actions button { border: 0; background: none; font: inherit; color: inherit; padding: 6px 8px; border-radius: 6px; cursor: pointer; min-height: 32px; }
+.pf-actions button { border: 0; background: none; font: inherit; color: inherit; padding: 6px 8px; border-radius: 999px; cursor: pointer; min-height: 32px; }
 .pf-actions button:hover { background: var(--hover, rgba(0, 0, 0, 0.06)); }

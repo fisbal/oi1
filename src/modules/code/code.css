@@ -25,7 +25,7 @@
 .project-name:hover { color: var(--gold-light); }
 .tree-head-tools { display: flex; gap: 2px; }
 .tree-head-tools button, .tree-tools button {
-  display: grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--muted);
+  display: grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 999px; background: none; color: var(--muted);
 }
 .tree-head-tools button:hover, .tree-tools button:hover { background: rgba(var(--fg-rgb), .08); color: var(--gold-light); }
 .tree { flex: 1; overflow: auto; padding: 6px 0 20px; }
@@ -99,7 +99,7 @@
 .console { max-height: 38%; min-height: 110px; display: flex; flex-direction: column; border-top: 1px solid var(--line); background: rgba(var(--bg-rgb), .9); }
 .console header { display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 12px; border-bottom: 1px solid var(--line); }
 .console header .kicker { flex: 1; font-size: 10px; }
-.console header button { border: 0; background: none; color: var(--muted); font: 12px var(--sans); padding: 2px 8px; border-radius: 6px; }
+.console header button { border: 0; background: none; color: var(--muted); font: 12px var(--sans); padding: 2px 8px; border-radius: 999px; }
 .console header button:hover { background: rgba(var(--fg-rgb), .08); color: var(--ink); }
 .console ol { list-style: none; margin: 0; padding: 0; overflow: auto; font: 12px/1.5 "JetBrains Mono Variable", ui-monospace, monospace; }
 .console li { display: flex; gap: 10px; align-items: flex-start; padding: 3px 12px; border-bottom: 1px solid rgba(var(--fg-rgb), .04); }
@@ -200,7 +200,7 @@
 /* The dock under the editor: Problems, Search in all files, Tests. */
 .code-dock { flex: 0 0 auto; height: min(38%, 300px); min-height: 120px; display: flex; flex-direction: column; border-top: 1px solid var(--line); background: rgba(var(--bg-rgb), .92); }
 .code-dock > header { display: flex; align-items: center; gap: 2px; padding: 3px 6px; border-bottom: 1px solid var(--line); }
-.code-dock > header button { border: 0; background: none; color: var(--muted); font: 600 12px var(--sans); padding: 4px 10px; border-radius: 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.code-dock > header button { border: 0; background: none; color: var(--muted); font: 600 12px var(--sans); padding: 4px 10px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
 .code-dock > header button:hover { background: rgba(var(--fg-rgb), .07); color: var(--ink); }
 .code-dock > header button.on { color: var(--gold-light); background: rgba(212,168,67,.12); }
 .code-dock > header b { font-size: 10.5px; padding: 0 6px; border-radius: 99px; background: rgba(var(--fg-rgb), .1); color: var(--ink); }
@@ -226,7 +226,7 @@
 .test-error { color: #ff8a80; font: 12px "JetBrains Mono Variable", ui-monospace, monospace; }
 .dock-search { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); }
 .dock-search input { flex: 1 1 160px; min-width: 0; height: 28px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: rgba(var(--shade-rgb), calc(.35 * var(--shade-k))); color: var(--ink); font: 13px var(--sans); }
-.dock-search > button:not(.fix) { height: 28px; min-width: 32px; border: 1px solid var(--line); border-radius: 8px; background: none; color: var(--muted); font: 600 12px "JetBrains Mono Variable", ui-monospace, monospace; cursor: pointer; }
+.dock-search > button:not(.fix) { height: 28px; min-width: 32px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--muted); font: 600 12px "JetBrains Mono Variable", ui-monospace, monospace; cursor: pointer; }
 .dock-search > button.on { color: var(--gold-light); border-color: var(--gold); background: rgba(212,168,67,.14); }
 @media (max-width: 600px) { .code-dock { height: 45%; } .dock-list li { flex-wrap: wrap; gap: 4px 10px; } }
 .code-dock > header { overflow-x: auto; scrollbar-width: none; }
@@ -296,7 +296,7 @@
 .tr-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 .tr-lines li { display: flex; align-items: center; gap: 6px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 8px; }
 .tr-lines code { flex: 1; min-width: 0; font: 12px "JetBrains Mono Variable", ui-monospace, monospace; white-space: pre; overflow: auto; }
-.tr-lines button { border: 1px solid var(--line); background: none; color: var(--ink); border-radius: 6px; width: 28px; height: 26px; cursor: pointer; }
+.tr-lines button { border: 1px solid var(--line); background: none; color: var(--ink); border-radius: 999px; width: 28px; height: 26px; cursor: pointer; }
 .tr-lines button:disabled { opacity: .35; cursor: default; }
 .tr-sim { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; display: flex; flex-direction: column; gap: 6px; }
 .tr-sim header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }

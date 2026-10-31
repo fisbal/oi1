@@ -20,7 +20,8 @@ import {
 } from '../../formats/sheet';
 import { sheetToTable, tableFromHtml, tableFromText, tableToCells, tableToHtml, tableToText, type Range } from '../../formats/table';
 import { FileMenu } from '../../ui/FileMenu';
-import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, RibbonToggle, type ComboGroup, appIcon } from '../../ui/kit';
+import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, RibbonToggle, type ComboGroup } from '../../ui/kit';
+import { AppKeys, appColor } from '../../ui/AppKeys';
 import { TutoTab } from '../../ui/tuto/Tuto';
 import { FONT_GROUPS, FONT_SIZES, cssFont } from '../letter/model';
 import { CHART_TYPES, ChartSvg, DARK, LIGHT, PALETTES, chartData, svgToPng } from './chart';
@@ -1909,20 +1910,17 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             </Group>
           </>}
           {shownTab === 'oi1' && <>
-            <Group label="class.group.toLetter">
+            <Group label="class.group.toLetter" accent={appColor('letter')}>
               <Drop big icon="send" title="class.sendToLetter">
                 {sendLetterMenu(id => void sendToLetter(id), <span className="kicker">{t('class.sendRangeHint', { range: single ? t('class.wholeTable') : nameBox })}</span>)}
               </Drop>
               <Btn big icon="sync" title="class.updateLetter" onClick={() => void updateLetter()} disabled={!linkedLetterOpen} />
             </Group>
-            <Group label="class.group.toStage">
+            <Group label="class.group.toStage" accent={appColor('stage')}>
               <Btn big icon="stage" title="class.sendToStage" onClick={sendToStage} />
             </Group>
-            <Group label="class.group.apps">
-              {shell.apps().filter(a => a.id !== 'class').map(a => (
-                <Btn key={a.id} big icon={appIcon(a.id)} title={a.name.replace('Office ', '')} help={`tuto.app.${a.id}`}
-                  onClick={() => shell.openModule(a.id)} disabled={!a.ready} />
-              ))}
+            <Group label="letter.group.apps">
+              <AppKeys apps={shell.apps()} self="class" onOpen={id => shell.openModule(id)} />
             </Group>
             <Group label="class.group.share">
               <Btn big icon="share" title="class.share" onClick={() => void share()} />

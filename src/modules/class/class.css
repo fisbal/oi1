@@ -123,7 +123,7 @@ textarea.cell-editor { padding: 4px 6px; resize: none; line-height: 1.3; overflo
   color: var(--ink); font: 13px var(--sans);
 }
 .find-row input:not([type]):focus { outline: none; border-color: rgba(212,168,67,.55); }
-.find-row button { min-width: 28px; height: 28px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--muted); display: grid; place-items: center; }
+.find-row button { min-width: 28px; height: 28px; border-radius: 999px; border: 1px solid transparent; background: none; color: var(--muted); display: grid; place-items: center; }
 .find-row button:hover { color: var(--gold-light); border-color: var(--line); }
 .find-row .find-btn { padding: 0 10px; border-color: var(--line); color: var(--ink); font-size: 12.5px; }
 .find-toggle { width: 22px; display: grid; place-items: center; }
@@ -140,7 +140,7 @@ textarea.cell-editor { padding: 4px 6px; resize: none; line-height: 1.3; overflo
 .filter-list { max-height: 240px; overflow: auto; }
 .filter-list label.menu-item { justify-content: flex-start; gap: 8px; }
 .filter-buttons { display: flex; justify-content: flex-end; gap: 6px; padding-top: 6px; border-top: 1px solid var(--line); margin-top: 4px; }
-.filter-buttons button { height: 28px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: none; color: var(--ink); font-size: 12.5px; }
+.filter-buttons button { height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--ink); font-size: 12.5px; }
 .filter-buttons .primary { background: var(--gold-gradient); color: var(--on-gold); border-color: transparent; font-weight: 650; }
 
 .cond-range { margin: 0 0 10px; color: var(--muted); font-size: 12.5px; }
@@ -238,7 +238,7 @@ textarea.cell-editor { padding: 4px 6px; resize: none; line-height: 1.3; overflo
 .cur-result small { font-size: 13px; color: var(--muted); }
 .cur-source { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.4; }
 .cur-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.cur-actions button { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: none; color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.cur-actions button { min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
 .cur-actions button.primary { background: var(--app, var(--gold)); color: #fff; border-color: transparent; }
 .cur-actions button:disabled { opacity: .5; cursor: default; }
 @media (max-width: 560px) {

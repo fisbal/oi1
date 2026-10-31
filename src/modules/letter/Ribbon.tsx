@@ -11,6 +11,7 @@ import { LINE_NUMBERS, MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, WATERMARKS, isDark
 import type { AppInfo, TabInfo } from '../../shell/contract';
 import { PROOF_TAGS } from '../../ui/proof/proof';
 import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, NumberBox, RibbonToggle, type ComboGroup } from '../../ui/kit';
+import { AppKeys, appColor } from '../../ui/AppKeys';
 import { TutoTab } from '../../ui/tuto/Tuto';
 import { CopilotButton } from '../../ui/Copilot';
 import { CALLOUTS, CALLOUT_KINDS, CLEAN_UPS, TABLE_STYLES, applyTableStyle, type CalloutKind, type CleanUp, type TableStyleId } from './smart';
@@ -889,27 +890,20 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
         </>}
 
         {shownTab === 'oi1' && <>
-          <Group label="letter.group.withClass">
+          <Group label="letter.group.withClass" accent={appColor('class')}>
             <Btn big icon="sheet" title={suite.linkedTable ? 'letter.openLinkedSheet' : 'letter.editInClass'} onClick={actions.editInClass} disabled={!s.inTable} />
             <SheetDrop suite={suite} actions={actions} />
             <Btn big icon="new" title="letter.newSheet" onClick={actions.newSheet} />
           </Group>
-          <Group label="letter.group.withStage">
+          <Group label="letter.group.withStage" accent={appColor('stage')}>
             <Btn big icon="stage" title="letter.makeSlides" onClick={actions.makeSlides} />
           </Group>
-          <Group label="letter.group.withProdfos">
+          <Group label="letter.group.withProdfos" accent={appColor('prodfos')}>
             <Btn big icon="pdf" title="letter.savePdf" onClick={actions.pdf} />
             <Btn big icon="prodfos" title="letter.openProdfos" onClick={() => actions.openApp('prodfos')} />
           </Group>
           <Group label="letter.group.apps">
-            <div className="app-keys">
-              {suite.apps.filter(a => a.id !== 'letter').map(a => (
-                <button key={a.id} type="button" className="app-key" disabled={!a.ready} onClick={() => actions.openApp(a.id)}
-                  style={{ '--accent': a.color } as React.CSSProperties} title={a.ready ? a.name : `${a.name} (${t('home.soon')})`}>
-                  <i />{a.name.replace('Office ', '')}
-                </button>
-              ))}
-            </div>
+            <AppKeys apps={suite.apps} self="letter" onOpen={actions.openApp} />
           </Group>
           <Group label="letter.group.share">
             <Btn big icon="share" title="letter.share" onClick={actions.share} />
