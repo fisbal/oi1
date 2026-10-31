@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { letterExtensions } from '../setup';
 import {
-  CAPTION_LABELS, CITATION_STYLE_IDS, bibliographyJson, captionJson, captionsIn, citedSources, entry, inTextCitation, indexEntries,
-  indexJson, parseSource, people, refTargets, refText, restyleCitations, type Source,
+  CAPTION_LABELS, CITATION_STYLE_IDS, SAMPLE_SOURCES, SOURCE_KINDS, apaEdition, bibliographyJson, captionJson, captionsIn, citedSources, entry, inTextCitation, indexEntries,
+  indexJson, missingFields, parseSource, patternSource, people, refTargets, refText, restyleCitations, updateSource, type Source,
 } from '../references';
 
 const book: Source = { id: 'a', kind: 'book', authors: 'Dupont, Marie; Martin, Paul', title: 'Le droit des lettres', year: '2020', publisher: 'Dalloz', place: 'Paris' };
@@ -28,10 +28,12 @@ describe('citations', () => {
     expect(inTextCitation(book, 'nature', 12)).toBe('¹²');
   });
   it('writes full entries', () => {
-    expect(text(entry(book, 'apa'))).toBe('Dupont, M., & Martin, P. (2020). Le droit des lettres. Paris: Dalloz.');
+    // APA 7 drops the place of publication.
+    expect(text(entry(book, 'apa'))).toBe('Dupont, M., & Martin, P. (2020). Le droit des lettres. Dalloz.');
     const apa = entry(article, 'apa');
-    expect(text(apa)).toContain('LeCun, Y., Bengio, Y., & Hinton, G. (2015). Deep learning. Nature, 521(7553), pp. 436-444. https://doi.org/10.1038/nature14539');
+    expect(text(apa)).toBe('LeCun, Y., Bengio, Y., & Hinton, G. (2015). Deep learning. Nature, 521(7553), 436–444. https://doi.org/10.1038/nature14539');
     expect(apa.find(s => s.text === 'Nature')?.italic).toBe(true);
+    expect(apa.find(s => s.text === '521')?.italic).toBe(true);
     expect(text(entry(article, 'ieee'))).toContain('Y. LeCun, Y. Bengio, and G. Hinton. “Deep learning.” Nature');
     expect(text(entry(book, 'iso690'))).toContain('DUPONT, Marie and MARTIN, Paul. 2020.');
     for (const st of CITATION_STYLE_IDS) expect(text(entry(article, st)), st).toContain('Deep learning');
@@ -50,6 +52,7 @@ describe('citations', () => {
     expect(e.getText()).toContain('[1]');
     expect(e.getText()).toContain('[2]');
     const bib = bibliographyJson(citedSources(e.state.doc), 'apa', 'Références');
+    expect(bib[1].attrs).toMatchObject({ indentLeft: 36, indentFirst: -36, lineHeight: '2' });
     expect(bib[0].content?.[0].text).toBe('Références');
     expect(bib).toHaveLength(4);
     e.destroy(); again.destroy();
@@ -99,5 +102,49 @@ describe('entries without every detail', () => {
   it('leaves no stray commas', () => {
     const bare: Source = { id: 'c', kind: 'book', authors: 'Dupont, Marie', title: 'Le droit', year: '2020' };
     for (const st of CITATION_STYLE_IDS) expect(text(entry(bare, st)), st).not.toMatch(/\.\s*,|,\s*,|,\s*\./);
+  });
+});
+
+describe('APA 7 in French', () => {
+  const fr = (src: Source) => text(entry(src, 'apaFr'));
+  it('uses et, Dans, dir., p., s. d. and éd.', () => {
+    expect(fr(SAMPLE_SOURCES.book)).toBe('Ferris, M. C., Mangasarian, O. L., et Wright, S. J. (2008). Linear programming with MATLAB (2e éd.). Society for Industrial and Applied Mathematics.');
+    expect(fr(SAMPLE_SOURCES.article)).toBe('Baron, R. A., et Tang, J. (2011). The role of entrepreneurs in firm-level innovation: Joint effects of positive affect, creativity, and environmental dynamism. Journal of Business Venturing, 26(1), 49-60. https://doi.org/10.1016/j.jbusvent.2009.06.002');
+    expect(fr(SAMPLE_SOURCES.chapter)).toBe('Harel-Giasson, F. (1990). Femmes gestionnaires : ont-elles réussi? Dans J.-F. Chanlat (dir.), L’individu dans l’organisation : les dimensions oubliées (p. 407-416). Presses de l’Université Laval.');
+    expect(fr(SAMPLE_SOURCES.thesis)).toContain('[Mémoire de maîtrise, Université de Montréal]. Papyrus.');
+    expect(fr(SAMPLE_SOURCES.web)).toBe('Organisation mondiale de la Santé. (2023, 12 octobre). Changement climatique et santé. OMS. https://www.who.int/fr/news-room/fact-sheets/detail/climate-change-and-health');
+    expect(fr({ id: 'n', kind: 'web', authors: '{Ville de Québec}', title: 'Collecte', year: '', container: 'Québec.ca', url: 'https://quebec.ca', accessed: '3 mai 2025' }))
+      .toBe('Ville de Québec. (s. d.). Collecte. Québec.ca. Consulté le 3 mai 2025, à https://quebec.ca');
+    expect(text(entry(SAMPLE_SOURCES.chapter, 'apa'))).toContain('In J.-F. Chanlat (Ed.), ');
+    expect(text(entry(SAMPLE_SOURCES.chapter, 'apa'))).toContain('(pp. 407–416)');
+    expect(inTextCitation(SAMPLE_SOURCES.article, 'apaFr', 1)).toBe('(Baron et Tang, 2011)');
+    expect(apaEdition('3', false)).toBe('3rd ed.');
+    expect(apaEdition('1', true)).toBe('1re éd.');
+  });
+  it('shows a pattern and an example for every type in every style', () => {
+    for (const st of CITATION_STYLE_IDS) for (const k of SOURCE_KINDS) {
+      expect(text(entry(patternSource(k, true), st)).length, `${st} ${k}`).toBeGreaterThan(10);
+      expect(text(entry(SAMPLE_SOURCES[k], st)), `${st} ${k}`).not.toMatch(/ {2}|\.\.|undefined/);
+    }
+    expect(CITATION_STYLE_IDS.length * SOURCE_KINDS.length).toBeGreaterThanOrEqual(20);
+    expect(text(entry(patternSource('book', true), 'apaFr'))).toBe('Auteur, A. A. (Année). Titre du livre : Sous-titre (X e éd.). Éditeur.');
+  });
+  it('sorts by family name and finds what is missing', () => {
+    const bib = bibliographyJson([SAMPLE_SOURCES.web, SAMPLE_SOURCES.article, SAMPLE_SOURCES.chapter], 'apaFr', 'Références');
+    expect(bib.slice(1, 4).map(p => p.content?.map(c => c.text).join('').slice(0, 5))).toEqual(['Baron', 'Harel', 'Organ']);
+    expect(missingFields({ id: 'm', kind: 'article', authors: 'Doe, J.', title: 'X', year: '2020' }, 'apaFr')).toEqual(['container', 'volume', 'pages', 'doi']);
+    expect(missingFields(SAMPLE_SOURCES.chapter, 'apaFr')).toEqual([]);
+  });
+  it('completes a source in every citation', () => {
+    const e = editor();
+    e.commands.setTextSelection(e.state.doc.content.size - 1);
+    const thin: Source = { id: 'z', kind: 'book', authors: 'Roy, Ana', title: 'Livre', year: '' };
+    e.commands.insertCitation(thin, 'apaFr');
+    e.commands.insertCitation(thin, 'apaFr');
+    expect(e.getText()).toContain('(Roy, s. d.)');
+    expect(updateSource(e, { ...thin, year: '2022', publisher: 'Boréal' }, 'apaFr')).toBe(2);
+    expect(e.getText()).toContain('(Roy, 2022)');
+    expect(citedSources(e.state.doc)[0].publisher).toBe('Boréal');
+    e.destroy();
   });
 });

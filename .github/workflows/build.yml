@@ -72,6 +72,8 @@ jobs:
         run: npm run check:zoom
       - name: Changing the language asks what to translate (everything, menus only, document only) on PC and phone
         run: npm run check:translate
+      - name: References (APA in French, models for every style, check sources)
+        run: npm run check:refs
       - name: Choosing the copilot (Claude, ChatGPT, Gemini, Microsoft …) works on PC and phone
         run: npm run check:copilot
       - name: Keep the screenshots

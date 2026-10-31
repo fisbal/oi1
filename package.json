@@ -25,6 +25,7 @@
     "check:metiers": "node scripts/check-metiers.mjs",
     "check:zoom": "node scripts/check-zoom.mjs",
     "check:translate": "node scripts/check-translate.mjs",
+    "check:refs": "node scripts/check-refs.mjs",
     "check:autosave": "node scripts/check-autosave.mjs",
     "check:cloud": "node scripts/check-cloud.mjs",
     "check:copilot": "node scripts/check-copilot.mjs"
