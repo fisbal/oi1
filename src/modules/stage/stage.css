@@ -355,3 +355,33 @@
   .st-fx-grid, .st-gallery { max-width: calc(100vw - 150px); }
   .st-emoji-grid { grid-template-columns: repeat(5, 44px); }
 }
+
+/* Audience: pick who is watching, then compare before / after and keep or go back. */
+.st-aud-menu { width: min(560px, calc(100vw - 32px)); padding: 6px; }
+.st-aud-menu .kicker { display: block; white-space: normal; line-height: 1.4; margin-bottom: 8px; }
+.st-aud-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 4px; max-height: min(52vh, 420px); overflow-y: auto; }
+.st-aud-grid button {
+  display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 9px; border: 1px solid transparent; border-radius: 9px;
+  background: none; color: var(--ink); font: inherit; font-size: 12.5px; line-height: 1.25; text-align: left; cursor: pointer;
+}
+.st-aud-grid button:hover { background: rgba(var(--fg-rgb), .06); }
+.st-aud-grid button.on { border-color: var(--app, #D2601A); background: rgba(var(--fg-rgb), .05); }
+.st-aud-emoji { font-size: 18px; line-height: 1; flex: none; }
+.st-aud-custom { display: flex; gap: 6px; }
+.st-aud-custom input {
+  flex: 1; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(var(--bg-rgb), .7); color: var(--ink); font: inherit; font-size: 13px;
+}
+.st-aud-bar {
+  flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--line);
+  background: rgba(var(--bg-rgb), .85); color: var(--ink); font-size: 13px; line-height: 1.35;
+}
+.st-aud-bar .st-aud-text { flex: 1 1 220px; min-width: 0; }
+.st-aud-bar button { height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: rgba(var(--bg-rgb), .9); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; }
+.st-aud-bar button.primary { background: color-mix(in srgb, var(--app, #D2601A) 80%, #000); border-color: transparent; color: #fff; }
+.st-aud-bar.busy .st-aud-text::after { content: ''; display: inline-block; width: 10px; height: 10px; margin-left: 8px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: -1px; animation: st-aud-spin .8s linear infinite; }
+@keyframes st-aud-spin { to { transform: rotate(360deg); } }
+.st-aud-seg { display: inline-flex; }
+.st-aud-seg button { border-radius: 0; }
+.st-aud-seg button:first-child { border-radius: 8px 0 0 8px; }
+.st-aud-seg button:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
+.st-aud-seg button.on { background: rgba(var(--fg-rgb), .12); font-weight: 600; }
