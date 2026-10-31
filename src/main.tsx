@@ -2,6 +2,10 @@ import { createRoot } from 'react-dom/client';
 import App from './shell/App';
 import './shell/shell.css';
 import { startRibbonMin } from './ui/ribbonMin';
+import { watchStaleBuild } from './shell/staleBuild';
+
+// A page left open across a new release reloads onto it instead of failing (see staleBuild.ts).
+watchStaleBuild();
 
 // iPhones and iPads zoom into any text box with small text when it is tapped, and stay zoomed in, so the app
 // no longer fits the screen. A maximum scale stops that there (iOS still lets people pinch to zoom); other
