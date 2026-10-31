@@ -9,10 +9,13 @@ import { TextStyleKit } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
+import { Proofing, type ProofOptions } from '../../ui/proof/extension';
 import { Placeholder } from '@tiptap/extensions';
 
-export function slideExtensions(placeholder?: () => string): Extensions {
+/** `proof` turns on the spelling, grammar and style underlines (only in the box being typed in). */
+export function slideExtensions(placeholder?: () => string, proof?: ProofOptions): Extensions {
   return [
+    ...(proof ? [Proofing.configure(proof)] : []),
     StarterKit.configure({ link: { openOnClick: false }, trailingNode: false, horizontalRule: false, codeBlock: false, blockquote: false }),
     TextAlign.configure({ types: ['heading', 'paragraph'] }),
     TextStyleKit.configure({ lineHeight: false }),

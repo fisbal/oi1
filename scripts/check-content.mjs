@@ -28,6 +28,7 @@ const SHORT_BY_NATURE = {
   'Outline to Office Letter': 'lists the open letters',
   'Send code to Letter': 'lists the open letters',
   'Cite again': 'lists the sources already cited, so it grows with them',
+  'My dictionary': 'lists the words the user added, so it grows with them',
   'Cross-reference': 'lists the headings and captions of the letter',
   'Bibliography': 'a few titles for the same list, like Word',
   'Line numbers': 'none, every paragraph, every 5 or every 10, like Word',

@@ -28,6 +28,10 @@ import { DIAGRAMS, WORDART, diagramItems, footerItem, slideNumberItem, wordArtIt
 import { myThemes, onMyThemes, removeMyTheme } from './mythemes';
 import { AnimTab } from './AnimTab';
 import { addAnim, playState, stepLength, stepsOf } from './anim';
+import { recheck } from '../../ui/proof/extension';
+import { ProofBubble } from '../../ui/proof/Bubble';
+import { ProofButtons } from '../../ui/proof/ProofButtons';
+import { PROOF_TAGS, baseLang } from '../../ui/proof/proof';
 
 export const EXTENSIONS = ['.pptx'];
 const PPTX_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
@@ -35,7 +39,7 @@ const ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.25, 1.5, 2];
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
 
 interface Saved { deck: Deck; active: number; name: string }
-type Tab = 'home' | 'insert' | 'design' | 'transitions' | 'animations' | 'show' | 'view' | 'oi1' | 'format' | 'table';
+type Tab = 'home' | 'insert' | 'design' | 'transitions' | 'animations' | 'show' | 'review' | 'view' | 'oi1' | 'format' | 'table';
 type Drag =
   | { kind: 'move'; x0: number; y0: number; start: Map<string, { x: number; y: number }>; moved: boolean; clickEdit: string | null }
   | { kind: 'resize'; id: string; hx: number; hy: number; x0: number; y0: number; orig: Item }
@@ -123,13 +127,21 @@ export default function Stage({ shell, file, handoff }: { shell: ShellApi; file?
 
 // ---------- the text editor inside a box ----------
 
+/** Spelling on or off and the proofing language, the same for every deck on this device. */
+const PROOF_KEY = 'oi1.stage.proof';
+const stageProof: { spell: boolean; lang: string } = (() => {
+  try { return { spell: true, lang: '', ...JSON.parse(localStorage.getItem(PROOF_KEY) ?? '{}') }; } catch { return { spell: true, lang: '' }; }
+})();
+const proofOptions = { enabled: () => stageProof.spell, lang: () => stageProof.lang };
+
 function TextEdit({ html, onChange, onReady, placeholder, selectAll, takeTyped }: {
   html: string; onChange: (html: string) => void; onReady: (ed: Editor | null) => void; placeholder: string; selectAll: boolean;
   /** Keys typed while the editor was still opening, so fast typing loses nothing. */
   takeTyped: () => string;
 }) {
   const editor = useEditor({
-    extensions: slideExtensions(() => placeholder),
+    extensions: slideExtensions(() => placeholder, proofOptions),
+    editorProps: { attributes: { spellcheck: String(stageProof.spell && !baseLang(stageProof.lang || getLanguage())), lang: stageProof.lang } },
     content: html,
     onUpdate: ({ editor: ed }) => onChange(ed.getHTML()),
   });
@@ -286,6 +298,13 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     if (!editingSnap.current) { undo.current.push(d); redo.current = []; editingSnap.current = true; }
     setDeck(next);
   }, []);
+  const [proof, setProofState] = useState(() => ({ ...stageProof }));
+  const setProof = (p: Partial<typeof stageProof>) => {
+    Object.assign(stageProof, p);
+    try { localStorage.setItem(PROOF_KEY, JSON.stringify(stageProof)); } catch { /* private window */ }
+    setProofState({ ...stageProof });
+    recheck(editor);
+  };
   const onReady = useCallback((ed: Editor | null) => {
     setEditor(ed);
     if (!ed) return;
@@ -928,7 +947,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const shownTab: Tab = (tab === 'format' && !hasFormat) || (tab === 'table' && !tableSel) ? 'home' : tab;
   const tabs: { id: Tab; label: MessageKey }[] = [
     { id: 'home', label: 'letter.tab.home' }, { id: 'insert', label: 'letter.tab.insert' }, { id: 'design', label: 'letter.tab.design' },
-    { id: 'transitions', label: 'stage.tab.transitions' }, { id: 'animations', label: 'stage.tab.animations' }, { id: 'show', label: 'stage.tab.show' }, { id: 'view', label: 'letter.tab.view' },
+    { id: 'transitions', label: 'stage.tab.transitions' }, { id: 'animations', label: 'stage.tab.animations' }, { id: 'show', label: 'stage.tab.show' }, { id: 'review', label: 'letter.tab.review' }, { id: 'view', label: 'letter.tab.view' },
   ];
   const themeColors = [deck.theme.bg.color, deck.theme.text, ...deck.theme.accents];
   const setFill = (c: string | null) => changeItems(shapeSel.map(i => i.id), it => (it.kind === 'shape' ? { ...it, fill: c } : it));
@@ -1236,6 +1255,21 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           </Group>
         </>}
 
+        {shownTab === 'review' && <>
+          <Group label="letter.group.proofing">
+            <Btn big icon="spell" title="letter.spelling" active={proof.spell} onClick={() => setProof({ spell: !proof.spell })} />
+            <ProofButtons editor={editor} ai={shell.ai} lang={proof.lang} notify={m => shell.notify(m)} />
+          </Group>
+          <Group label="letter.group.language">
+            <Drop big icon="language" title="letter.language">
+              {close => PROOF_TAGS.map(l => (
+                <MenuItem key={l} active={proof.lang === l} label={new Intl.DisplayNames([document.documentElement.lang || 'en'], { type: 'language' }).of(l) ?? l}
+                  onClick={() => { setProof({ lang: proof.lang === l ? '' : l }); close(); }} />
+              ))}
+            </Drop>
+          </Group>
+        </>}
+
         {shownTab === 'view' && <>
           <Group label="letter.group.show">
             <Btn big icon="comment" title="stage.notes" active={notesOpen} onClick={() => { setNotesOpen(o => { shell.storage.set('notes', o ? '0' : '1'); return !o; }); }} />
@@ -1455,6 +1489,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             </div>
           )}
         </div>
+        <ProofBubble editor={editing ? editor : null} />
         {copilot && <Copilot host={stageCopilot(bridge)} ai={shell.ai} onClose={() => { setCopilot(false); rootRef.current?.focus(); }} />}
       </div>
       <footer className="status">
