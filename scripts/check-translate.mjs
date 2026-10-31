@@ -42,6 +42,8 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   await page.addInitScript(() => { delete window.Translator; delete window.LanguageDetector; });
   await page.addInitScript(() => { if (!sessionStorage.getItem('set')) { localStorage.setItem('oi1:ai:key', 'sk-ant-test'); localStorage.setItem('oi1:language', 'fr'); sessionStorage.setItem('set', '1'); } });
   await page.route('https://api.anthropic.com/**', route => route.fulfill({ status: 200, contentType: 'text/event-stream', body: answer(route.request().postData()) }));
+  // The free online translator is out of reach here: this part tests the AI path (the online path is tested below).
+  await page.route('https://api.mymemory.translated.net/**', route => route.abort());
   await page.goto(url);
 
   // Letter.
@@ -114,6 +116,40 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   await page.waitForTimeout(1200);
   const cells = await page.evaluate(h => [...document.querySelectorAll(`${h} .cells .cell`)].map(c => c.textContent.trim()).filter(Boolean), H);
   check(cells.includes('[English] Ventes') && cells.includes('2') && cells.includes('12'), `${name}: Class translates words and keeps formulas and numbers (${cells.join(', ')})`);
+  await ctx.close();
+}
+
+// A phone without a built-in translator and without an AI key (Martin, 2026-10-31: the document went to Claude.ai as
+// a technical message): the free online translator does it inside the app, no copy-paste, no chat site.
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'fr-FR', isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  page.on('pageerror', e => problems.push(`Phone, no key: script error: ${e.message}`));
+  await page.addInitScript(() => { delete window.Translator; delete window.LanguageDetector; delete window.LanguageModel; });
+  await page.addInitScript(() => { if (!sessionStorage.getItem('set')) { localStorage.setItem('oi1:language', 'fr'); sessionStorage.setItem('set', '1'); } });
+  const asked = [];
+  await page.route('https://api.mymemory.translated.net/**', route => {
+    const u = new URL(route.request().url());
+    asked.push(u.searchParams.get('langpair'));
+    route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ responseStatus: 200, responseData: { translatedText: `[ON] ${u.searchParams.get('q')}` } }) });
+  });
+  let popups = 0;
+  ctx.on('page', () => { popups++; });
+  await page.goto(url);
+  await page.locator('.slab:has-text("Office Letter")').first().click();
+  await page.waitForTimeout(1500);
+  const body = page.locator(`${H} .sheet .ProseMirror:not(.header-text):not(.footer-text)`).first();
+  await body.click();
+  await page.keyboard.type('Bonjour le monde');
+  await page.waitForTimeout(300);
+  await pickLang(page, 'English');
+  await dialog(page).locator('.lang-choice-option', { hasText: 'Seulement le document' }).click();
+  await page.waitForFunction(h => document.querySelector(`${h} .sheet .ProseMirror:not(.header-text):not(.footer-text)`)?.textContent.includes('[ON]'), H, { timeout: 8000 }).catch(() => {});
+  const text = await body.innerText();
+  check(text.includes('[ON] ') && text.includes('Bonjour le monde'), `Phone, no key: the free online translator translates the letter in the app (${text.trim().slice(0, 40)})`);
+  check(asked.length > 0 && asked.every(p => p === 'fr|en'), `Phone, no key: it asks from French into English (${[...new Set(asked)].join(', ')})`);
+  check(popups === 0 && !(await page.locator('.web-answer').isVisible().catch(() => false)), 'Phone, no key: no chat site opens and nothing to copy and paste');
   await ctx.close();
 }
 

@@ -213,13 +213,71 @@ export async function browserTranslator(to: string, from: string): Promise<((tex
   };
 }
 
-/** Chrome's translator first (free, no account); the copilot's AI when the browser cannot do the pair, and for the
- *  few texts it fails on. */
+/** Free online translation, no account and no key (MyMemory, translated.net): for phones and browsers without a
+ *  built-in translator. Each text goes as is, in pieces of at most 450 characters cut at sentence ends; texts it
+ *  cannot do (daily limit reached, no network) are listed so the copilot's AI can do them. */
+export const ONLINE_URL = 'https://api.mymemory.translated.net/get';
+const MAX_PIECE = 450;
+
+function pieces(s: string): string[] {
+  if (s.length <= MAX_PIECE) return [s];
+  const parts = s.match(/[^.!?。！？\n]+[.!?。！？]*\s*|\n+/g) ?? [s];
+  const out: string[] = [];
+  let cur = '';
+  for (const p of parts) {
+    if ((cur + p).length > MAX_PIECE && cur) { out.push(cur); cur = ''; }
+    if (p.length > MAX_PIECE) { for (let i = 0; i < p.length; i += MAX_PIECE) out.push(p.slice(i, i + MAX_PIECE)); continue; }
+    cur += p;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+async function onlineOne(text: string, from: string, to: string): Promise<string | null> {
+  const url = `${ONLINE_URL}?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(`${from}|${to}`)}`;
+  const res = await within(fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null), 12000) as
+    { responseStatus?: number | string; responseData?: { translatedText?: string } } | null;
+  const got = res?.responseData?.translatedText;
+  if (!res || Number(res.responseStatus) !== 200 || !got || /MYMEMORY WARNING|QUERY LENGTH LIMIT|INVALID LANGUAGE/i.test(got)) return null;
+  return got;
+}
+
+export function onlineTranslator(to: string, from: string): (texts: string[]) => Promise<{ out: string[]; failed: number[] }> {
+  const memo = new Map<string, string>();
+  return async texts => {
+    const out = [...texts], failed: number[] = [];
+    let stop = false;
+    for (let i = 0; i < texts.length; i++) {
+      const s = texts[i], core = s.trim();
+      if (!hasWords(core)) continue;
+      if (stop) { failed.push(i); continue; }
+      let done = memo.get(core);
+      if (done === undefined) {
+        const bits: string[] = [];
+        for (const piece of pieces(core)) {
+          const lead = /^\s*/.exec(piece)![0], tail = /\s*$/.exec(piece)![0];
+          const r = piece.trim() ? await onlineOne(piece.trim(), from, to) : '';
+          if (r === null) { stop = true; break; }
+          bits.push(lead + r + tail);
+        }
+        if (stop) { failed.push(i); continue; }
+        done = bits.join('');
+        memo.set(core, done);
+      }
+      out[i] = /^\s*/.exec(s)![0] + done + /\s*$/.exec(s)![0];
+    }
+    return { out, failed };
+  };
+}
+
+/** Chrome's translator first (free, no account, on the device); then the free online translator (phones); the
+ *  copilot's AI only for what both could not do. */
 export async function bestTranslator(to: LanguageCode, from: string, ai: () => TranslateTexts): Promise<TranslateTexts> {
   const browser = await browserTranslator(to, from);
-  if (!browser) return ai();
+  const first = browser ?? (from && from !== to ? onlineTranslator(to, from) : null);
+  if (!first) return ai();
   return async texts => {
-    const { out, failed } = await browser(texts);
+    const { out, failed } = await first(texts);
     if (failed.length) {
       const got = await ai()(failed.map(i => texts[i]));
       failed.forEach((i, k) => { out[i] = got[k]; });
