@@ -403,3 +403,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .cloud-files button:hover { background: rgba(var(--fg-rgb), .06); }
 .cloud-files small, .cloud-empty, .cloud-fine { color: var(--muted); font-size: 12px; }
 .cloud-error { color: #b3261e; }
+
+/* Language change: what to translate */
+.lang-choice .dialog-body { display: flex; flex-direction: column; gap: 12px; width: min(460px, calc(100vw - 64px)); }
+.lang-choice-options { display: flex; flex-direction: column; gap: 8px; }
+.lang-choice-option { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line, rgba(127,127,127,.3)); background: none; color: inherit; font: inherit; cursor: pointer; line-height: 1.35; }
+.lang-choice-option b { font-size: 14px; }
+.lang-choice-option small { font-size: 12.5px; opacity: .75; overflow-wrap: anywhere; }
+.lang-choice-option:hover, .lang-choice-option:focus-visible { border-color: var(--gold); background: rgba(212,168,67,.08); }
+.lang-choice-option.default { border-color: rgba(212,168,67,.55); }
+.lang-choice-remember { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.lang-choice-note { margin: 0; font-size: 12px; opacity: .7; line-height: 1.4; }
+@media (max-width: 560px) { .lang-choice .dialog-body { width: calc(100vw - 48px); } }

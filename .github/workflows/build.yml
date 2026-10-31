@@ -70,6 +70,8 @@ jobs:
         run: npm run check:metiers
       - name: Manual zoom in Class, Letter and Stage (pinch, Ctrl+wheel, See it all, side scroll bar) on PC and phone
         run: npm run check:zoom
+      - name: Changing the language asks what to translate (everything, menus only, document only) on PC and phone
+        run: npm run check:translate
       - name: Choosing the copilot (Claude, ChatGPT, Gemini, Microsoft …) works on PC and phone
         run: npm run check:copilot
       - name: Keep the screenshots

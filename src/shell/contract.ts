@@ -56,6 +56,13 @@ export interface ShellApi {
    * pause in the work when AutoSave is on, and shows "Saved" in the app bar. Pass null to stop.
    */
   autoSave(fn: (() => Promise<FileRef | null>) | null): void;
+  /**
+   * Give the shell a way to translate this tab's document when the person changes the language and chooses "the
+   * document" or "everything". The function collects the document's texts, translates them with `tr` (same length,
+   * same order) and applies them in one step that one Undo takes back; it resolves to how many texts changed.
+   * Only words change: layout, styles, numbers, formulas and code stay. Pass null to stop.
+   */
+  translator?(fn: ((tr: (texts: string[]) => Promise<string[]>) => Promise<number>) | null): void;
   /** Files this module opened or saved lately, newest first. */
   recent: {
     list(): Promise<RecentFile[]>;

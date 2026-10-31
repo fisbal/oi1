@@ -1,3 +1,4 @@
+import { closeHistory } from '@tiptap/pm/history';
 import { EditorContent, useEditor, useEditorState, type Editor, type JSONContent } from '@tiptap/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { FileRef, Handoff, HandoffLink, OpenedFile, RecentFile, ShellApi, TableData } from '../../shell/contract';
@@ -426,6 +427,26 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     return ref;
   };
   useEffect(() => { shell.autoSave(() => quietSave.current()); return () => shell.autoSave(null); }, [shell]);
+  // Changing the language can translate the letter too: every run of text, keeping its bold, links and styles.
+  // Each part (body, header, footer) changes in one step, so Undo brings it back.
+  useEffect(() => {
+    shell.translator?.(async tr => {
+      let n = 0;
+      for (const ed of [body, header, footer]) {
+        if (!ed || ed.isDestroyed) continue;
+        const runs: { from: number; to: number; text: string; marks: readonly import('@tiptap/pm/model').Mark[] }[] = [];
+        ed.state.doc.descendants((node, pos) => { if (node.isText && /\p{L}{2,}/u.test(node.text ?? '')) runs.push({ from: pos, to: pos + node.nodeSize, text: node.text!, marks: node.marks }); });
+        if (!runs.length) continue;
+        const got = await tr(runs.map(r => r.text));
+        const t = ed.state.tr;
+        for (let i = runs.length - 1; i >= 0; i--) if (got[i] && got[i] !== runs[i].text) { t.replaceWith(runs[i].from, runs[i].to, ed.schema.text(got[i], runs[i].marks)); n++; }
+        // Its own Undo step, never merged with the last words typed.
+        if (t.docChanged) ed.view.dispatch(closeHistory(t));
+      }
+      return n;
+    });
+    return () => shell.translator?.(null);
+  }, [shell, body, header, footer]);
 
   const saveAs = (format: SaveFormat) => {
     if (!body) return;

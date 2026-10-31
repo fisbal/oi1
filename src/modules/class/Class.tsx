@@ -613,6 +613,24 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     return shell.saveFile(own ? fileName : `${baseName()}.xlsx`, () => writeXlsx({ ...bookRef.current, currency }, lang), XLSX_TYPE, { target: own ? fileRef : undefined, quiet: true });
   };
   useEffect(() => { shell.autoSave(() => quietSave.current()); return () => shell.autoSave(null); }, [shell]);
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
+  // Changing the language can translate the workbook's words too: typed texts only, never formulas or numbers.
+  useEffect(() => {
+    shell.translator?.(async tr => {
+      const b = bookRef.current;
+      const spots: { s: number; k: string; text: string }[] = [];
+      b.sheets.forEach((sh, si) => { for (const [k, c] of Object.entries(sh.cells)) if (!c.input.startsWith('=') && /\p{L}{2,}/u.test(c.input)) spots.push({ s: si, k, text: c.input }); });
+      if (!spots.length) return 0;
+      const got = await tr(spots.map(x => x.text));
+      let n = 0;
+      const sheets = b.sheets.map(sh => ({ ...sh, cells: { ...sh.cells } }));
+      spots.forEach((x, i) => { if (got[i] && got[i] !== x.text) { sheets[x.s].cells[x.k] = { ...sheets[x.s].cells[x.k], input: got[i] }; n++; } });
+      if (n) commitRef.current({ ...bookRef.current, sheets });
+      return n;
+    });
+    return () => shell.translator?.(null);
+  }, [shell]); // eslint-disable-line react-hooks/exhaustive-deps
   const saveCsv = () => {
     const u = usedRange(sheet);
     const rows = u.rows < 0 ? [] : tableOf({ c1: 0, r1: 0, c2: u.cols, r2: u.rows }).rows.map(r => r.map(c => c.text));
