@@ -104,6 +104,8 @@
   color: var(--ink); font: 13.5px var(--sans);
 }
 .copilot-field input:focus, .copilot-field select:focus { outline: none; border-color: rgba(212,168,67,.55); }
+.copilot-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.copilot-check input { accent-color: var(--gold); width: 16px; height: 16px; }
 .copilot-link { color: var(--gold-light); font-size: 12.5px; text-decoration: none; margin-top: -4px; }
 .copilot-link:hover { text-decoration: underline; }
 .copilot-fine { font-size: 11.5px; color: var(--faint) !important; }

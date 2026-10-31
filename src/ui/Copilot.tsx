@@ -7,6 +7,8 @@ import './copilot.css';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AiApi } from '../shell/contract';
 import { AI_MODELS, AiError, aiSettings, type AiModel } from '../shell/ai';
+import { modules } from '../shell/modules';
+import { PROVIDERS, aiChoice, provider, providerKey, setProviderKey, type Provider } from '../shell/providers';
 import { getLanguage, LANGUAGES, t, type MessageKey } from '../shell/i18n';
 import { useLanguage } from '../shell/useLanguage';
 import { Icon } from './kit';
@@ -103,33 +105,104 @@ function errorText(err: unknown): string {
   return t('ai.err.other', { msg: String((err as Error)?.message ?? err) });
 }
 
-function Setup({ onDone, canCancel }: { onDone: () => void; canCancel: boolean }) {
-  const [key, setKey] = useState(aiSettings.key());
-  const [model, setModel] = useState<AiModel>(aiSettings.model());
+/** Choosing the copilot's AI and giving its key: Claude by default, or any other the person prefers. */
+function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: boolean; appName: string }) {
+  const appId = modules.find(m => m.name === appName)?.id;
+  const choice = aiChoice.get();
+  const [pid, setPid] = useState(() => aiChoice.forApp(appId).id);
+  const p = provider(pid) ?? PROVIDERS[0];
+  const claude = p.kind === 'anthropic';
+  const [key, setKey] = useState(() => (claude ? aiSettings.key() : providerKey(pid)));
+  const [model, setModel] = useState<string>(() => (claude ? aiSettings.model() : choice.models[pid] ?? ''));
+  const [endpoint, setEndpoint] = useState(choice.azure.endpoint);
+  const [deployment, setDeployment] = useState(choice.azure.deployment);
+  const [onlyHere, setOnlyHere] = useState(() => !!(appId && choice.byApp[appId]));
+  const pick = (id: string) => {
+    const next = provider(id) ?? PROVIDERS[0];
+    setPid(id);
+    setKey(next.kind === 'anthropic' ? aiSettings.key() : providerKey(id));
+    setModel(next.kind === 'anthropic' ? aiSettings.model() : aiChoice.get().models[id] ?? '');
+  };
   const hint: Record<AiModel, MessageKey> = { 'claude-opus-5-5': 'ai.model.best', 'claude-sonnet-5-5': 'ai.model.fast', 'claude-haiku-5-5': 'ai.model.fastest' };
+  const complete = p.local || (!!key.trim() && (p.kind !== 'azure' || (!!endpoint.trim() && !!deployment.trim())));
+  const save = () => {
+    if (claude) aiSettings.set(key, model as AiModel);
+    else {
+      setProviderKey(pid, key);
+      const models = { ...aiChoice.get().models };
+      if (model.trim()) models[pid] = model.trim(); else delete models[pid];
+      aiChoice.set({ models, ...(p.kind === 'azure' ? { azure: { endpoint: endpoint.trim(), deployment: deployment.trim() } } : {}) });
+    }
+    const byApp = { ...aiChoice.get().byApp };
+    if (appId && onlyHere) byApp[appId] = pid;
+    else { if (appId) delete byApp[appId]; aiChoice.set({ main: pid }); }
+    aiChoice.set({ byApp });
+    onDone();
+  };
+  const groups: { label: MessageKey; list: Provider[] }[] = [
+    { label: 'ai.groupTop', list: PROVIDERS.filter(x => x.top) },
+    { label: 'ai.groupMore', list: PROVIDERS.filter(x => !x.top && !x.local) },
+    { label: 'ai.groupLocal', list: PROVIDERS.filter(x => x.local) },
+  ];
+  const site = (() => { try { return new URL(p.keyUrl).hostname.replace(/^www\./, ''); } catch { return p.keyUrl; } })();
   return (
-    <form className="copilot-setup" onSubmit={e => { e.preventDefault(); if (key.trim()) { aiSettings.set(key, model); onDone(); } }}>
+    <form className="copilot-setup" onSubmit={e => { e.preventDefault(); if (complete) save(); }}>
       <div className="copilot-orb" aria-hidden="true"><Icon name="sparkle" size={22} /></div>
-      <h3>{t('ai.setupTitle')}</h3>
-      <p>{t('ai.setupText')}</p>
+      <h3>{t('ai.chooseTitle')}</h3>
+      <p>{t('ai.chooseText')}</p>
       <label className="copilot-field">
-        <span>{t('ai.keyLabel')}</span>
-        <input type="password" value={key} onChange={e => setKey(e.target.value)} placeholder="sk-ant-…" autoComplete="off" spellCheck={false} autoFocus />
-      </label>
-      <a className="copilot-link" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">{t('ai.getKey')} ↗</a>
-      <label className="copilot-field">
-        <span>{t('ai.model')}</span>
-        <select value={model} onChange={e => setModel(e.target.value as AiModel)}>
-          {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} · {t(hint[m.id])}</option>)}
+        <span>{t('ai.provider')}</span>
+        <select value={pid} onChange={e => pick(e.target.value)} className="copilot-provider">
+          {groups.map(g => <optgroup key={g.label} label={t(g.label)}>{g.list.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>)}
         </select>
       </label>
-      <p className="copilot-fine">{t('ai.privacy')}</p>
+      {p.kind === 'azure' && <>
+        <label className="copilot-field">
+          <span>{t('ai.endpoint')}</span>
+          <input value={endpoint} onChange={e => setEndpoint(e.target.value)} placeholder="https://my-resource.openai.azure.com" autoComplete="off" spellCheck={false} />
+        </label>
+        <label className="copilot-field">
+          <span>{t('ai.deployment')}</span>
+          <input value={deployment} onChange={e => setDeployment(e.target.value)} placeholder="gpt-4o" autoComplete="off" spellCheck={false} />
+        </label>
+      </>}
+      {!p.local && <>
+        <label className="copilot-field">
+          <span>{t('ai.keyLabel')}</span>
+          <input type="password" value={key} onChange={e => setKey(e.target.value)} placeholder={p.keyHint ?? ''} autoComplete="off" spellCheck={false} />
+        </label>
+        <a className="copilot-link" href={p.keyUrl} target="_blank" rel="noreferrer">{t('ai.getKeyAt', { site })} ↗</a>
+      </>}
+      {p.local && <>
+        <p className="copilot-fine">{t('ai.localHint', { name: p.name.replace(/ \(.*\)$/, '') })}</p>
+        <a className="copilot-link" href={p.keyUrl} target="_blank" rel="noreferrer">{t('ai.install', { name: p.name.replace(/ \(.*\)$/, '') })} ↗</a>
+      </>}
+      {claude ? (
+        <label className="copilot-field">
+          <span>{t('ai.model')}</span>
+          <select value={model} onChange={e => setModel(e.target.value)}>
+            {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} · {t(hint[m.id])}</option>)}
+          </select>
+        </label>
+      ) : p.kind !== 'azure' && (
+        <label className="copilot-field">
+          <span>{t('ai.model')}</span>
+          <input value={model} onChange={e => setModel(e.target.value)} placeholder={p.model} autoComplete="off" spellCheck={false} />
+        </label>
+      )}
+      {appId && (
+        <label className="copilot-check">
+          <input type="checkbox" checked={onlyHere} onChange={e => setOnlyHere(e.target.checked)} />
+          <span>{t('ai.onlyApp', { app: appName })}</span>
+        </label>
+      )}
+      <p className="copilot-fine">{p.local ? t('ai.privacyLocal') : t('ai.privacyOf', { name: p.name })}</p>
       <div className="copilot-setup-buttons">
-        <button type="submit" className="primary" disabled={!key.trim()}>{t('ai.connect')}</button>
+        <button type="submit" className="primary" disabled={!complete}>{t('ai.connect')}</button>
         {canCancel && <button type="button" onClick={onDone}>{t('letter.cancel')}</button>}
       </div>
-      {canCancel && aiSettings.key() && (
-        <button type="button" className="copilot-forget" onClick={() => { aiSettings.forget(); setKey(''); }}>{t('ai.forget')}</button>
+      {canCancel && !p.local && key && (
+        <button type="button" className="copilot-forget" onClick={() => { if (claude) aiSettings.forget(); else setProviderKey(pid, ''); setKey(''); }}>{t('ai.forget')}</button>
       )}
     </form>
   );
@@ -144,6 +217,7 @@ export function Copilot({ host, ai, onClose, start }: {
   useLanguage();
   const [, setTick] = useState(0);
   useEffect(() => aiSettings.onChange(() => setTick(n => n + 1)), []);
+  useEffect(() => aiChoice.onChange(() => setTick(n => n + 1)), []);
   const [settings, setSettings] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
@@ -233,13 +307,13 @@ export function Copilot({ host, ai, onClose, start }: {
     <aside className="copilot" aria-label={t('ai.title')} onKeyDown={e => { if (e.key === 'Escape' && busy) { e.stopPropagation(); busy.abort(); } }}>
       <header className="copilot-head">
         <span className="copilot-mark"><Icon name="sparkle" size={15} /></span>
-        <div className="copilot-name"><b>{t('ai.copilot')}</b><span>Claude · {host.app}</span></div>
+        <div className="copilot-name"><b>{t('ai.copilot')}</b><span>{(ai.provider?.().name ?? 'Claude').replace(/ \(.*\)$/, '')} · {host.app}</span></div>
         {ready && !settings && <button type="button" title={t('ai.clear')} aria-label={t('ai.clear')} onClick={() => { busy?.abort(); setMsgs([]); }} disabled={!msgs.length}><Icon name="new" size={14} /></button>}
         {ready && <button type="button" title={t('ai.settings')} aria-label={t('ai.settings')} className={settings ? 'on' : ''} onClick={() => setSettings(s => !s)}><Icon name="gear" size={14} /></button>}
         <button type="button" title={t('letter.close')} aria-label={t('letter.close')} onClick={onClose}><Icon name="close" size={13} /></button>
       </header>
 
-      {!ready || settings ? <Setup canCancel={ready} onDone={() => setSettings(false)} /> : <>
+      {!ready || settings ? <Setup canCancel={ready} appName={host.app} onDone={() => setSettings(false)} /> : <>
         <div className="copilot-list" ref={list}>
           {!msgs.length && (
             <div className="copilot-hello">

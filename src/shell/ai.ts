@@ -5,6 +5,7 @@
 
 import type { AiApi, AiRequest } from './contract';
 import { store } from './storage';
+import { aiChoice, askProvider, ProviderError, providerReady } from './providers';
 
 export const AI_MODELS = [
   { id: 'claude-opus-5-5', name: 'Claude Opus 5.5' },
@@ -75,4 +76,29 @@ async function ask(req: AiRequest): Promise<string> {
   }
 }
 
-export const ai: AiApi = { ready: () => !!aiSettings.key(), ask };
+/** The AI an app uses: Claude, or the one the person chose for every app or for this app (see providers.ts). */
+export function aiFor(app?: string): AiApi {
+  return {
+    ready: () => providerReady(aiChoice.forApp(app), aiSettings.key()),
+    provider: () => { const p = aiChoice.forApp(app); return { id: p.id, name: p.name }; },
+    ask: async req => {
+      const p = aiChoice.forApp(app);
+      if (p.kind === 'anthropic') return ask(req);
+      if (!providerReady(p, aiSettings.key())) throw new AiError('key', 'No API key');
+      try {
+        return await askProvider(p, req);
+      } catch (err) {
+        if (req.signal?.aborted) throw err;
+        if (err instanceof ProviderError) {
+          if (err.status === 401 || err.status === 403) throw new AiError('key', `${p.name}: ${err.status}`);
+          if (err.status === 429) throw new AiError('limit', `${p.name}: ${err.status}`);
+          throw new AiError('other', `${p.name}: ${err.status} ${err.message.slice(0, 200)}`);
+        }
+        // fetch failing outright: offline, blocked, or a local model that is not running.
+        throw new AiError('network', `${p.name}: ${String((err as Error)?.message ?? err)}`);
+      }
+    },
+  };
+}
+
+export const ai: AiApi = aiFor();

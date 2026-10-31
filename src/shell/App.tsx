@@ -8,7 +8,7 @@ import { moduleForFile, modules } from './modules';
 import { addRecent, listRecent, onRecentChange, openRecent, removeRecent } from './recent';
 import { Backdrop, BrandMark, SceneArt, Wordmark, useTilt } from './Scene';
 import { store } from './storage';
-import { ai } from './ai';
+import { aiFor } from './ai';
 import { setTheme, useTheme } from './theme';
 import { useLanguage } from './useLanguage';
 
@@ -140,7 +140,7 @@ export default function App() {
       return () => { if (answerers.get(tabId) === fn) answerers.delete(tabId); };
     },
     notify,
-    ai,
+    ai: aiFor(moduleId),
   }), [openModule, notify]);
 
   // Drop a file anywhere on the window to open it.
