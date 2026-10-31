@@ -385,8 +385,8 @@ export function Dialog({ title, children, onClose, onOk }: { title: string; chil
 }
 
 /** A number box that applies its value on Enter or when it loses focus. */
-export function NumberBox({ value, onChange, step = 0.1, min, max, unit, label }: {
-  value: number; onChange: (v: number) => void; step?: number; min?: number; max?: number; unit: string; label: string;
+export function NumberBox({ value, onChange, step = 0.1, min, max, unit, label, help }: {
+  value: number; onChange: (v: number) => void; step?: number; min?: number; max?: number; unit: string; label: string; help?: string;
 }) {
   const [text, setText] = useState(String(value));
   useEffect(() => setText(String(value)), [value]);
@@ -398,7 +398,7 @@ export function NumberBox({ value, onChange, step = 0.1, min, max, unit, label }
   return (
     <label className="numbox" title={label}>
       <span>{label}</span>
-      <input type="number" inputMode="decimal" aria-label={`${label} (${unit})`} value={text} step={step} min={min} max={max}
+      <input type="number" inputMode="decimal" aria-label={`${label} (${unit})`} data-help={help} value={text} step={step} min={min} max={max}
         onChange={e => setText(e.target.value)} onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } }} />
       <span className="unit">{unit}</span>

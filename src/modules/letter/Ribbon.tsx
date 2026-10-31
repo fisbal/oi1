@@ -605,17 +605,17 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           </Group>
           <Group label="letter.group.indent">
             <div className="stack">
-              <NumberBox label={t('letter.indentLeft')} unit={unit} step={unit === 'in' ? 0.1 : 0.25} min={0}
+              <NumberBox help="tuto.indent" label={t('letter.indentLeft')} unit={unit} step={unit === 'in' ? 0.1 : 0.25} min={0}
                 value={fromPt(s.indentLeft || 0, unit)} onChange={v => run().setParagraphFormat({ indentLeft: toPt(v, unit) || null }).run()} />
-              <NumberBox label={t('letter.indentRight')} unit={unit} step={unit === 'in' ? 0.1 : 0.25} min={0}
+              <NumberBox help="tuto.indent" label={t('letter.indentRight')} unit={unit} step={unit === 'in' ? 0.1 : 0.25} min={0}
                 value={fromPt(s.indentRight || 0, unit)} onChange={v => run().setParagraphFormat({ indentRight: toPt(v, unit) || null }).run()} />
             </div>
           </Group>
           <Group label="letter.group.spacing">
             <div className="stack">
-              <NumberBox label={t('letter.spaceBefore')} unit="pt" step={6} min={0}
+              <NumberBox help="tuto.spacing" label={t('letter.spaceBefore')} unit="pt" step={6} min={0}
                 value={s.spaceBefore ?? def.before ?? 0} onChange={v => run().setParagraphFormat({ spaceBefore: v }).run()} />
-              <NumberBox label={t('letter.spaceAfter')} unit="pt" step={6} min={0}
+              <NumberBox help="tuto.spacing" label={t('letter.spaceAfter')} unit="pt" step={6} min={0}
                 value={s.spaceAfter ?? def.after ?? 0} onChange={v => run().setParagraphFormat({ spaceAfter: v }).run()} />
             </div>
           </Group>
@@ -883,8 +883,8 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           </Group>
           <Group label="letter.group.docLang">
             <div className="stack">
-              <Btn icon="language" title="Français" label="Français" text active={suite.docLang === 'fr'} onClick={() => actions.docLang('fr')} />
-              <Btn icon="language" title="English" label="English" text active={suite.docLang === 'en'} onClick={() => actions.docLang('en')} />
+              <Btn icon="language" title="Français" label="Français" help="tuto.templateLang" text active={suite.docLang === 'fr'} onClick={() => actions.docLang('fr')} />
+              <Btn icon="language" title="English" label="English" help="tuto.templateLang" text active={suite.docLang === 'en'} onClick={() => actions.docLang('en')} />
             </div>
           </Group>
         </>}

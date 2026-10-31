@@ -97,13 +97,13 @@ export function AnimTab(p: AnimTabProps) {
         </Drop>
       </div>
       <div className="stack">
-        <NumberBox label={t('stage.anim.dur')} unit="s" step={0.1} min={0.05} max={20} value={cur ? Math.round(durOf(cur) * 100) / 100 : 0.6} onChange={v => setOpt({ dur: v })} />
-        <NumberBox label={t('stage.anim.delay')} unit="s" step={0.1} min={0} max={60} value={cur?.delay ?? 0} onChange={v => setOpt({ delay: v || undefined })} />
+        <NumberBox label={t('stage.anim.dur')} unit="s" step={0.1} min={0.05} max={20} value={cur ? Math.round(durOf(cur) * 100) / 100 : 0.6} onChange={v => setOpt({ dur: v })} help="stage.anim.dur" />
+        <NumberBox label={t('stage.anim.delay')} unit="s" step={0.1} min={0} max={60} value={cur?.delay ?? 0} onChange={v => setOpt({ delay: v || undefined })} help="stage.anim.delay" />
       </div>
     </Group>
 
     <Group label="stage.group.animOrder">
-      <Drop big icon="numbers" title={t('stage.anim.order', { n: anims.length })} wide>
+      <Drop big icon="numbers" title={t('stage.anim.order', { n: anims.length })} help="stage.anim.order" wide>
         {() => anims.length ? (
           <div className="st-anim-list">
             {anims.map((a, i) => {
