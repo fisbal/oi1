@@ -281,4 +281,8 @@
   .fast-scroll-thumb { left: 3px; right: 3px; min-height: 44px; }
 }
 .status-zoom .fit { width: 24px; display: inline-grid; place-items: center; }
+/* PC with a mouse: one side bar, the browser's own, wider and in the app's colour. */
+@media (hover: hover) and (pointer: fine) {
+  .fast-scroll-host { scrollbar-width: auto; scrollbar-color: color-mix(in srgb, var(--app, var(--gold)) 70%, transparent) rgba(var(--fg-rgb), .05); }
+}
 @media print { .fast-scroll { display: none !important; } }
