@@ -12,6 +12,8 @@ import { addRecent, listRecent, onRecentChange, openRecent, removeRecent } from 
 import { Backdrop, BrandMark, SceneArt, Wordmark, useTilt } from './Scene';
 import { store } from './storage';
 import { aiFor } from './ai';
+import { aiTranslator, registerTranslator, rememberChoice, rememberedChoice, translatorFor, type LangChoice } from './translate';
+import { LangChoiceDialog } from './LangChoice';
 import { autoSaveOn, forgetTab, onSaveStatus, registerSaver, saveStatus, setAutoSave, trackedSave } from './saveStatus';
 import { setTheme, useTheme } from './theme';
 import { useLanguage } from './useLanguage';
@@ -92,6 +94,32 @@ export default function App() {
 
   const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
   const notify = useCallback((text: string) => setToast(cur => ({ text, n: (cur?.n ?? 0) + 1 })), []);
+
+  // Changing the language with a document open: the interface, the document, or both (remembered when asked).
+  const [langAsk, setLangAsk] = useState<LanguageCode | null>(null);
+  const translateDoc = useCallback(async (to: LanguageCode) => {
+    const tab = tabsRef.current.find(x => x.tabId === activeIdRef.current);
+    const fn = translatorFor(tab?.tabId ?? null);
+    if (!tab || !fn) return;
+    notify(t('lang.translating'));
+    try {
+      const n = await fn(aiTranslator(aiFor(tab.moduleId), to));
+      notify(n ? t('lang.translated', { n }) : t('lang.nothing'));
+    } catch (e) {
+      notify(t('lang.failed', { error: e instanceof Error ? e.message : String(e) }));
+    }
+  }, [notify]);
+  const applyLanguage = useCallback((to: LanguageCode, c: LangChoice) => {
+    if (c !== 'doc') setLanguage(to);
+    if (c !== 'ui') void translateDoc(to);
+  }, [translateDoc]);
+  const pickLanguage = (to: LanguageCode) => {
+    if ((to as string) === '__ask') { rememberChoice(null); notify(t('lang.ask')); return; }
+    if (to === getLanguage()) return;
+    if (!translatorFor(activeIdRef.current)) { setLanguage(to); return; }
+    const kept = rememberedChoice();
+    if (kept) applyLanguage(to, kept); else setLangAsk(to);
+  };
   useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(null), 3200);
@@ -100,6 +128,8 @@ export default function App() {
 
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
 
   const makeApi = useCallback((tabId: string, moduleId: string): ShellApi => ({
     tabId,
@@ -127,6 +157,7 @@ export default function App() {
       save: (key, value) => trackedSave(tabId, () => idb.set('kv', value, `${tabId}:${key}`)),
     },
     autoSave: fn => registerSaver(tabId, fn),
+    translator: fn => registerTranslator(tabId, fn),
     cloudOn,
     recent: {
       list: () => listRecent(moduleId),
@@ -242,10 +273,13 @@ export default function App() {
             : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" /></svg>}
         </button>
         <select className="lang" aria-label={t('shell.language')} title={t('shell.language')} value={lang}
-          onChange={e => setLanguage(e.target.value as LanguageCode)}>
+          onChange={e => pickLanguage(e.target.value as LanguageCode)}>
           {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.name}</option>)}
+          {rememberedChoice() && <option value="__ask">↺ {t('lang.ask')}</option>}
         </select>
       </header>
+      {langAsk && <LangChoiceDialog to={langAsk} onClose={() => setLangAsk(null)}
+        onPick={(c, remember) => { const to = langAsk; setLangAsk(null); if (remember) rememberChoice(c); applyLanguage(to, c); }} />}
       {launcher && (
         <div className="launcher" role="dialog" aria-label={t('shell.apps')}>
           <span className="kicker">{t('shell.apps')}</span>

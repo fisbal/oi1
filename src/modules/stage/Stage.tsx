@@ -18,6 +18,7 @@ import { Btn, ColorGrid, Combo, Dialog, Drop, Group, Icon, MenuItem, NumberBox, 
 import { qrDataUrl } from '../../ui/qr';
 import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
 import { usePinchZoom } from '../../ui/pinch';
+import { translateHtml } from '../../shell/translate';
 import { FastScroll } from '../../ui/FastScroll';
 import { FONT_GROUPS, FONT_SIZES, cssFont } from '../letter/model';
 import { readAsDataUrl } from '../letter/setup';
@@ -753,6 +754,25 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     return shell.saveFile(own ? fileName : `${baseName()}.pptx`, pptxBlob, PPTX_TYPE, { target: own ? fileRef : undefined, quiet: true });
   };
   useEffect(() => { shell.autoSave(() => quietSave.current()); return () => shell.autoSave(null); }, [shell]);
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
+  // Changing the language can translate the deck too: the words of every text box, table and note; looks stay.
+  useEffect(() => {
+    shell.translator?.(async tr => {
+      const d = deckRef.current;
+      const spots: { s: number; i: number }[] = [];
+      d.slides.forEach((sl, si) => sl.items.forEach((it, ii) => { if ('html' in it && typeof it.html === 'string' && /\p{L}{2,}/u.test(it.html.replace(/<[^>]*>/g, ' '))) spots.push({ s: si, i: ii }); }));
+      const htmls = spots.map(x => (d.slides[x.s].items[x.i] as { html: string }).html);
+      const [newHtml, newNotes] = await Promise.all([translateHtml(htmls, tr), tr(d.slides.map(sl => sl.notes))]);
+      let n = 0;
+      const slides = d.slides.map((sl, si) => ({ ...sl, items: [...sl.items], notes: newNotes[si] ?? sl.notes }));
+      d.slides.forEach((sl, si) => { if (slides[si].notes !== sl.notes) n++; });
+      spots.forEach((x, k) => { const it = slides[x.s].items[x.i] as { html: string }; if (newHtml[k] !== it.html) { slides[x.s].items[x.i] = { ...slides[x.s].items[x.i], html: newHtml[k] } as typeof slides[number]['items'][number]; n++; } });
+      if (n) commitRef.current({ ...deckRef.current, slides });
+      return n;
+    });
+    return () => shell.translator?.(null);
+  }, [shell]); // eslint-disable-line react-hooks/exhaustive-deps
   const share = async () => {
     const f = new File([await pptxBlob()], `${baseName()}.pptx`, { type: PPTX_TYPE });
     if (navigator.canShare?.({ files: [f] })) await navigator.share({ files: [f], title }).catch(() => {});
