@@ -3,6 +3,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { FileRef, Handoff, HandoffLink, OpenedFile, RecentFile, ShellApi, TableData } from '../../shell/contract';
 import { getLanguage, t } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
+import { isLiveId, liveStore, newLiveId } from '../../shell/live';
+import { useLiveTables } from './liveTables';
 import { FileMenu } from '../../ui/FileMenu';
 import { Icon } from '../../ui/kit';
 import { Copilot, useCopilotShortcut } from '../../ui/Copilot';
@@ -40,7 +42,6 @@ import {
 } from './review';
 
 type SaveFormat = 'docx' | 'html' | 'txt' | 'pdf';
-const newLinkId = () => `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const SHEET_EXTENSIONS = ['.xlsx', '.csv', '.tsv'];
 /** A full language tag for speech, like 'fr-FR', from the letter's proofing language or the interface. */
 const speechLang = (lang: string) => lang || ({ en: 'en-US', fr: 'fr-FR', es: 'es-ES', pt: 'pt-PT', de: 'de-DE' } as Record<string, string>)[getLanguage()] || navigator.language;
@@ -521,6 +522,8 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
   };
 
   // ---------- links with Office Class and the other apps ----------
+  // Linked tables are live parts: they follow every change made in Class (or any app) and send theirs back.
+  useLiveTables(body, title);
   const linkFor = (id: string): HandoffLink => ({ tabId: shell.tabId, id, moduleId: 'letter', title });
 
   /** Puts a table from a sheet into the letter: updates the linked copy when there is one, otherwise inserts it. */
@@ -586,7 +589,11 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     const at = ed && tableAt(ed);
     if (!ed || !at) { shell.notify(t('letter.clickInTable')); return; }
     const data = tableData(at.node);
-    const id = (at.node.attrs.link as string | null) ?? newLinkId();
+    const old = at.node.attrs.link as string | null;
+    // A live part, so the table stays in step with the sheet both ways (an older one-time link becomes one).
+    const id = isLiveId(old) ? old : newLiveId();
+    void liveStore().ensure(id, { kind: 'table', title, table: data }, 'letter', 'letter');
+    if (id !== old) ed.view.dispatch(ed.state.tr.setNodeMarkup(at.pos, undefined, { ...at.node.attrs, link: id }));
     const linkTab = at.node.attrs.linkTab as string | null;
     if (linkTab && shell.tabs('class').some(x => x.tabId === linkTab)) {
       void shell.send(linkTab, { kind: 'table', title, table: data, link: linkFor(id) });
@@ -594,7 +601,8 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       return;
     }
     const tabId = shell.openModule('class', undefined, { kind: 'table', title, table: data, link: linkFor(id) });
-    if (tabId) ed.view.dispatch(ed.state.tr.setNodeMarkup(at.pos, undefined, { ...at.node.attrs, link: id, linkTab: tabId }));
+    const now = findLinkedTable(ed.state.doc, id);
+    if (tabId && now) ed.view.dispatch(ed.state.tr.setNodeMarkup(now.pos, undefined, { ...now.node.attrs, link: id, linkTab: tabId }));
   };
 
   const insertFromSheet = async (tabId: string | null) => {
@@ -966,6 +974,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     '--mt': px(m.top * PX_PER_IN), '--mb': px(m.bottom * PX_PER_IN), '--ml': px(m.left * PX_PER_IN), '--mr': px(m.right * PX_PER_IN),
     '--hd': px(page.headerDistance * PX_PER_IN), '--fd': px(page.footerDistance * PX_PER_IN),
     '--pn': '"#"', '--pt': `"${layout.pages}"`, '--pb-label': JSON.stringify(t('letter.pageBreak')), '--link-label': JSON.stringify(t('letter.linkedToClass')),
+    '--live-synced': JSON.stringify(t('live.synced')), '--live-pending': JSON.stringify(t('live.pending')), '--live-different': JSON.stringify(t('live.different')),
     background: !isPrint ? page.color ?? undefined : undefined,
     transform: scale !== 1 ? `scale(${scale})` : undefined,
   } as CSSProperties;

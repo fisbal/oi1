@@ -52,6 +52,8 @@ jobs:
         run: npm run check:interactions
       - name: Play all 60 training exercises like a learner (Code+)
         run: npm run check:training
+      - name: Check shared tables stay in step between apps (Synchro)
+        run: npm run check:sync
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4
