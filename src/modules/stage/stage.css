@@ -13,7 +13,9 @@
 .st-v-top { justify-content: flex-start; }
 .st-v-middle { justify-content: center; }
 .st-v-bottom { justify-content: flex-end; }
-.st-fit { max-height: 100%; min-height: 0; overflow: hidden; }
+.st-fit { max-height: 100%; min-height: 0; }
+/* Letters taller than their line (script fonts) are never cut; text that cannot shrink enough overflows, like PowerPoint. */
+.st-fit, .st-editwrap { overflow: visible; }
 .st-role-title .st-fit { font-weight: 600; }
 .st-html, .st-edit .ProseMirror { outline: none; white-space: pre-wrap; }
 .st-html p, .st-edit p { margin: 0; }
