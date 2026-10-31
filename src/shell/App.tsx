@@ -12,7 +12,7 @@ import { addRecent, listRecent, onRecentChange, openRecent, removeRecent } from 
 import { Backdrop, BrandMark, SceneArt, Wordmark, useTilt } from './Scene';
 import { store } from './storage';
 import { aiFor } from './ai';
-import { aiTranslator, registerTranslator, rememberChoice, rememberedChoice, translatorFor, type LangChoice, bestTranslator } from './translate';
+import { aiTranslator, bestTranslator, originalOf, registerTranslator, rememberChoice, rememberedChoice, restoreOriginal, translateFromOriginal, translatorFor, type LangChoice } from './translate';
 import { LangChoiceDialog } from './LangChoice';
 import { autoSaveOn, forgetTab, onSaveStatus, registerSaver, saveStatus, setAutoSave, trackedSave } from './saveStatus';
 import { setTheme, useTheme } from './theme';
@@ -97,27 +97,43 @@ export default function App() {
 
   // Changing the language with a document open: the interface, the document, or both (remembered when asked).
   const [langAsk, setLangAsk] = useState<LanguageCode | null>(null);
-  const translateDoc = useCallback(async (to: LanguageCode) => {
+  const translateDoc = useCallback(async (to: LanguageCode, fromGuess: LanguageCode) => {
     const tab = tabsRef.current.find(x => x.tabId === activeIdRef.current);
-    const fn = translatorFor(tab?.tabId ?? null);
-    if (!tab || !fn) return;
+    const doc = translatorFor(tab?.tabId ?? null);
+    if (!tab || !doc) return;
     notify(t('lang.translating'));
     try {
-      // Chrome's own translator first (free, no account); otherwise the copilot's AI.
-      const n = await fn(await bestTranslator(to, () => aiTranslator(aiFor(tab.moduleId), to)));
-      notify(n ? t('lang.translated', { n }) : t('lang.nothing'));
+      // Always from the original (rule 13). Chrome's own translator first (free, no account); otherwise the copilot's AI.
+      const { n, restored } = await translateFromOriginal(tab.tabId, doc, to, fromGuess,
+        from => bestTranslator(to, from, () => aiTranslator(aiFor(tab.moduleId), to)));
+      notify(restored ? t('lang.restored') : n ? t('lang.translated', { n }) : t('lang.nothing'));
     } catch (e) {
       notify(t('lang.failed', { error: e instanceof Error ? e.message : String(e) }));
     }
+    setDocLangTick(x => x + 1);
   }, [notify]);
+  const [, setDocLangTick] = useState(0);
   const applyLanguage = useCallback((to: LanguageCode, c: LangChoice) => {
+    const before = getLanguage();
     if (c !== 'doc') setLanguage(to);
-    if (c !== 'ui') void translateDoc(to);
+    if (c !== 'ui') void translateDoc(to, before);
   }, [translateDoc]);
-  const pickLanguage = (to: LanguageCode) => {
+  const pickLanguage = async (to: LanguageCode) => {
     if ((to as string) === '__ask') { rememberChoice(null); notify(t('lang.ask')); return; }
-    if (to === getLanguage()) return;
-    if (!translatorFor(activeIdRef.current)) { setLanguage(to); return; }
+    const tabId = activeIdRef.current;
+    const doc = translatorFor(tabId);
+    if ((to as string) === '__orig') {
+      if (tabId && doc && await restoreOriginal(tabId, doc)) notify(t('lang.restored'));
+      setDocLangTick(x => x + 1);
+      return;
+    }
+    if (to === getLanguage()) {
+      // The menus are already in this language, but the document may be in another one ("Document only" before).
+      const o = tabId ? originalOf(tabId) : null;
+      if (doc && o && o.lastLang && o.lastLang !== to) void translateDoc(to, to);
+      return;
+    }
+    if (!doc) { setLanguage(to); return; }
     const kept = rememberedChoice();
     if (kept) applyLanguage(to, kept); else setLangAsk(to);
   };
@@ -277,6 +293,7 @@ export default function App() {
           onChange={e => pickLanguage(e.target.value as LanguageCode)}>
           {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.name}</option>)}
           {rememberedChoice() && <option value="__ask">↺ {t('lang.ask')}</option>}
+          {activeId && originalOf(activeId) && <option value="__orig">⟲ {t('lang.original')}</option>}
         </select>
       </header>
       {langAsk && <LangChoiceDialog to={langAsk} onClose={() => setLangAsk(null)}

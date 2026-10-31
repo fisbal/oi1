@@ -759,18 +759,37 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   commitRef.current = commit;
   // Changing the language can translate the deck too: the words of every text box, table and note; looks stay.
   useEffect(() => {
-    shell.translator?.(async tr => {
-      const d = deckRef.current;
-      const spots: { s: number; i: number }[] = [];
-      d.slides.forEach((sl, si) => sl.items.forEach((it, ii) => { if ('html' in it && typeof it.html === 'string' && /\p{L}{2,}/u.test(it.html.replace(/<[^>]*>/g, ' '))) spots.push({ s: si, i: ii }); }));
-      const htmls = spots.map(x => (d.slides[x.s].items[x.i] as { html: string }).html);
-      const [newHtml, newNotes] = await Promise.all([translateHtml(htmls, tr), tr(d.slides.map(sl => sl.notes))]);
-      let n = 0;
-      const slides = d.slides.map((sl, si) => ({ ...sl, items: [...sl.items], notes: newNotes[si] ?? sl.notes }));
-      d.slides.forEach((sl, si) => { if (slides[si].notes !== sl.notes) n++; });
-      spots.forEach((x, k) => { const it = slides[x.s].items[x.i] as { html: string }; if (newHtml[k] !== it.html) { slides[x.s].items[x.i] = { ...slides[x.s].items[x.i], html: newHtml[k] } as typeof slides[number]['items'][number]; n++; } });
-      if (n) commitRef.current({ ...deckRef.current, slides });
-      return n;
+    // A snapshot is each text box's HTML and each slide's notes, by slide and item id.
+    type Snap = { html: Record<string, string>; notes: Record<string, string> };
+    shell.translator?.({
+      snapshot: () => {
+        const out: Snap = { html: {}, notes: {} };
+        deckRef.current.slides.forEach(sl => {
+          sl.items.forEach(it => { if ('html' in it && typeof it.html === 'string' && /\p{L}{2,}/u.test(it.html.replace(/<[^>]*>/g, ' '))) out.html[`${sl.id}|${it.id}`] = it.html; });
+          if (sl.notes) out.notes[sl.id] = sl.notes;
+        });
+        return out;
+      },
+      words: base => [...Object.values((base as Snap).html).map(h => h.replace(/<[^>]*>/g, ' ')), ...Object.values((base as Snap).notes)],
+      apply: async (base, tr) => {
+        const { html, notes } = base as Snap;
+        const hk = Object.keys(html), nk = Object.keys(notes);
+        const [newHtml, newNotes] = tr
+          ? await Promise.all([translateHtml(hk.map(k => html[k]), tr), tr(nk.map(k => notes[k]))])
+          : [hk.map(k => html[k]), nk.map(k => notes[k])];
+        let n = 0;
+        const slides = deckRef.current.slides.map(sl => ({
+          ...sl,
+          notes: nk.includes(sl.id) ? (newNotes[nk.indexOf(sl.id)] || notes[sl.id]) : sl.notes,
+          items: sl.items.map(it => {
+            const at = hk.indexOf(`${sl.id}|${it.id}`);
+            return at >= 0 && 'html' in it && it.html !== newHtml[at] ? { ...it, html: newHtml[at] } : it;
+          }),
+        }));
+        slides.forEach((sl, si) => { const old = deckRef.current.slides[si]; if (sl.notes !== old.notes) n++; sl.items.forEach((it, ii) => { if (it !== old.items[ii]) n++; }); });
+        if (n) commitRef.current({ ...deckRef.current, slides: slides as typeof deckRef.current.slides });
+        return n;
+      },
     });
     return () => shell.translator?.(null);
   }, [shell]); // eslint-disable-line react-hooks/exhaustive-deps

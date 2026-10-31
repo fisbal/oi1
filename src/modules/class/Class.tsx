@@ -618,17 +618,30 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   commitRef.current = commit;
   // Changing the language can translate the workbook's words too: typed texts only, never formulas or numbers.
   useEffect(() => {
-    shell.translator?.(async tr => {
-      const b = bookRef.current;
-      const spots: { s: number; k: string; text: string }[] = [];
-      b.sheets.forEach((sh, si) => { for (const [k, c] of Object.entries(sh.cells)) if (!c.input.startsWith('=') && /\p{L}{2,}/u.test(c.input)) spots.push({ s: si, k, text: c.input }); });
-      if (!spots.length) return 0;
-      const got = await tr(spots.map(x => x.text));
-      let n = 0;
-      const sheets = b.sheets.map(sh => ({ ...sh, cells: { ...sh.cells } }));
-      spots.forEach((x, i) => { if (got[i] && got[i] !== x.text) { sheets[x.s].cells[x.k] = { ...sheets[x.s].cells[x.k], input: got[i] }; n++; } });
-      if (n) commitRef.current({ ...bookRef.current, sheets });
-      return n;
+    // A snapshot is the typed texts by sheet and cell; formulas and numbers are never part of it.
+    type Snap = Record<string, string>;
+    shell.translator?.({
+      snapshot: () => {
+        const out: Snap = {};
+        bookRef.current.sheets.forEach((sh, si) => { for (const [k, c] of Object.entries(sh.cells)) if (!c.input.startsWith('=') && /\p{L}{2,}/u.test(c.input)) out[`${si}|${k}`] = c.input; });
+        return out;
+      },
+      words: base => Object.values(base as Snap),
+      apply: async (base, tr) => {
+        const spots = Object.entries(base as Snap);
+        if (!spots.length) return 0;
+        const got = tr ? await tr(spots.map(([, v]) => v)) : spots.map(([, v]) => v);
+        let n = 0;
+        const sheets = bookRef.current.sheets.map(sh => ({ ...sh, cells: { ...sh.cells } }));
+        spots.forEach(([at, orig], i) => {
+          const [si, k] = [Number(at.split('|')[0]), at.slice(at.indexOf('|') + 1)];
+          const cell = sheets[si]?.cells[k];
+          const want = got[i] || orig;
+          if (cell && cell.input !== want) { sheets[si].cells[k] = { ...cell, input: want }; n++; }
+        });
+        if (n) commitRef.current({ ...bookRef.current, sheets });
+        return n;
+      },
     });
     return () => shell.translator?.(null);
   }, [shell]); // eslint-disable-line react-hooks/exhaustive-deps

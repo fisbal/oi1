@@ -62,7 +62,7 @@ export interface ShellApi {
    * same order) and applies them in one step that one Undo takes back; it resolves to how many texts changed.
    * Only words change: layout, styles, numbers, formulas and code stay. Pass null to stop.
    */
-  translator?(fn: ((tr: (texts: string[]) => Promise<string[]>) => Promise<number>) | null): void;
+  translator?(t: DocTranslator | null): void;
   /** Files this module opened or saved lately, newest first. */
   recent: {
     list(): Promise<RecentFile[]>;
@@ -183,4 +183,16 @@ export interface OI1Module {
    * `handoff` when another app opened it with something to work on.
    */
   mount(el: HTMLElement, shell: ShellApi, file?: OpenedFile, handoff?: Handoff): MountedModule;
+}
+
+/** How an app lets the shell translate its document (rule 13, Martin 2026-10-31: the original text is always kept;
+ *  every translation is made from the original, never from a translation, so going back gives the exact original). */
+export interface DocTranslator {
+  /** The document's words as they are now, in a form the app can put back exactly (JSON-safe). */
+  snapshot(): unknown;
+  /** The texts of a snapshot, to tell its language. */
+  words(base: unknown): string[];
+  /** Puts `base` back and, with `tr`, translates its words; with `tr` null, only puts `base` back. One Undo step.
+   *  Resolves to how many texts changed. */
+  apply(base: unknown, tr: ((texts: string[]) => Promise<string[]>) | null): Promise<number>;
 }
