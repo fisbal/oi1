@@ -64,7 +64,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1280, height: 800 }, fal
   // The "all open documents" list opens any document.
   await page.locator('.tabs-all').click();
   await page.waitForTimeout(300);
-  const items = page.locator('.tabs-menu [role=menuitem], .tabs-menu button');
+  const items = page.locator('.tabs-menu [role=menuitem]');
   check(await items.count() === 7, `${name}: the list of all open documents has the 7 documents (${await items.count()})`);
   const mb = await page.locator('.tabs-menu').boundingBox();
   check(!!mb && mb.x >= 0 && mb.x + mb.width <= viewport.width + 1 && mb.y + mb.height <= viewport.height + 1, `${name}: the list fits the screen`);
@@ -100,6 +100,23 @@ for (const [name, viewport, mobile] of [['PC', { width: 1280, height: 800 }, fal
     check(keys >= 9 && pics === keys && round, `${name}: ${app}: "Every app" has ${keys} capsule keys with their pictures`);
     await page.locator(`${H} .ribbon-tabs [role=tab]`).first().click().catch(() => {});
   }
+
+  // Each document in the list has its own × (Martin, 2026-10-31: "it's missing a cross to close a page").
+  await page.locator('.tabs-all').click();
+  await page.waitForTimeout(300);
+  const before = await tabs.count();
+  const closers = page.locator('.tabs-menu .tabs-menu-close');
+  check(await closers.count() === before, `${name}: every document in the list has a × (${await closers.count()} for ${before})`);
+  const cb0 = await closers.last().boundingBox();
+  check(!!cb0 && cb0.width >= 32 && cb0.height >= 32 && cb0.x + cb0.width <= viewport.width, `${name}: the × is big enough for a finger and on screen`);
+  page.once('dialog', d => d.accept());
+  await closers.last().click();
+  await page.waitForTimeout(400);
+  check(await tabs.count() === before - 1, `${name}: the × closes that document (${before} -> ${await tabs.count()})`);
+  check(await page.locator('.tabs-menu').isVisible(), `${name}: the list stays open to close another one`);
+  check(await page.locator('.tabs-menu-closeall').count() === 2, `${name}: the list offers "Close the others" and "Close all"`);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
 
   // The language bubble: three choices, fits the screen, no arrow through it.
   await page.locator('select.lang').selectOption({ label: 'Français' });
