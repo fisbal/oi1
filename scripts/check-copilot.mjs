@@ -35,7 +35,7 @@ async function run(name, viewport, mobile) {
     ai: { chat: async (prompt) => { window.__puterAsked(prompt); return (async function* () { yield { text: 'Bienvenue de ' }; yield { text: 'Claude gratuit' }; })(); } },
   };` }));
   // The public sites are not opened for real: their address is kept to check the request is in it.
-  await page.addInitScript(() => { window.__opened = []; window.open = u => { window.__opened.push(String(u)); return null; }; });
+  await page.addInitScript(() => { delete window.LanguageModel; window.__opened = []; window.open = u => { window.__opened.push(String(u)); return null; }; });
   await page.goto(url);
   await page.locator('.slab:has-text("Office Letter")').first().click();
   await page.waitForTimeout(1200);
@@ -43,28 +43,19 @@ async function run(name, viewport, mobile) {
   await page.keyboard.press('ControlOrMeta+Shift+Space');
   await page.waitForTimeout(600); // the panel slides in
 
-  // No key at all: the copilot works at once with Claude, free, through the person's Puter account.
-  check(!(await page.locator('.copilot-setup').count()), `${name}: the copilot opens ready, no key asked`);
-  check(await page.locator('.copilot-name:has-text("Claude")').isVisible().catch(() => false), `${name}: it uses Claude (free) by default`);
+  // No key and no account: the copilot works at once. With no AI built into the browser (as here), Claude.ai opens
+  // with the request written, and the answer is pasted back. (Puter's free account asked for a phone check that
+  // failed, so it is no longer the default.)
+  check(!(await page.locator('.copilot-setup').count()), `${name}: the copilot opens ready, no key and no account asked`);
+  check(await page.locator('.copilot-name:has-text("Claude")').isVisible().catch(() => false), `${name}: it uses Claude (Claude.ai) by default`);
   const input = page.locator('.copilot textarea').first();
-  await input.fill('Écris une phrase de bienvenue');
-  await input.press('Enter');
-  check(await page.locator('.copilot-msg:has-text("Bienvenue de Claude gratuit")').first().waitFor({ timeout: 8000 }).then(() => true, () => false), `${name}: the free answer is written right in the copilot, no key, no copy-paste`);
-  check(puterAsked.length === 1 && puterAsked[0].includes('Écris une phrase de bienvenue'), `${name}: the request (with the letter it is about) goes through Puter`);
-
-  // The public site: the AI's own page with the person's account, then "Paste the answer".
-  await page.locator('.copilot-head button[aria-label="Settings"]').click();
-  await page.locator('.copilot-modes button').nth(1).click();
-  const webOptions = await page.locator('.copilot-provider option').allInnerTexts();
-  check(webOptions.length >= 20, `${name}: ${webOptions.length} public AI sites to choose from (20+)`);
-  for (const want of ['Claude.ai', 'ChatGPT', 'Gemini', 'Microsoft Copilot', 'Le Chat', 'DeepSeek']) check(webOptions.some(o => o.includes(want)), `${name}: ${want} is in the list`);
-  await page.locator('.copilot-setup button[type=submit]').click();
   await input.fill('Écris une phrase de bienvenue');
   await input.press('Enter');
   const card = page.locator('.web-answer');
   check(await card.waitFor({ timeout: 4000 }).then(() => true, () => false), `${name}: a card says the request is open in Claude.ai and how to bring the answer back`);
   const opened = await page.evaluate(() => window.__opened);
   check(opened.length === 1 && opened[0].startsWith('https://claude.ai/new?q=') && decodeURIComponent(opened[0]).includes('Écris une phrase de bienvenue'), `${name}: Claude.ai opens with the request already written`);
+  check(!puterAsked.length, `${name}: Puter is not asked (no account needed)`);
   const cardBox = await card.boundingBox();
   check(!!cardBox && cardBox.x >= 0 && cardBox.x + cardBox.width <= viewport.width + 1 && cardBox.y + cardBox.height <= viewport.height + 1, `${name}: the card fits on the screen`);
   await card.locator('textarea').fill('Bienvenue à tous !');
@@ -72,16 +63,30 @@ async function run(name, viewport, mobile) {
   check(await page.locator('.copilot-msg:has-text("Bienvenue à tous !")').first().waitFor({ timeout: 4000 }).then(() => true, () => false), `${name}: the pasted answer shows in the copilot, ready to put in the letter`);
   check(!(await card.count()), `${name}: the card goes away once the answer is back`);
 
+  // The ways, in order: built into the browser, public site, Puter account, API key.
   await page.locator('.copilot-head button[aria-label="Settings"]').click();
   const setup = page.locator('.copilot-setup');
   check(await setup.isVisible().catch(() => false), `${name}: the settings show how to use the copilot`);
-  check(await page.locator('.copilot-modes button').count() === 4, `${name}: four ways: free, public site, built into the browser, API key`);
+  check(await page.locator('.copilot-modes button').count() === 4, `${name}: four ways: built into the browser, public site, Puter account, API key`);
   await page.locator('.copilot-modes button').nth(0).click();
-  const freeOptions = await page.locator('.copilot-provider option').allInnerTexts();
-  check(freeOptions.length >= 20, `${name}: ${freeOptions.length} free AIs answering in the app (20+)`);
-  check(await page.locator('.copilot-account').isVisible(), `${name}: free mode shows the Puter account (sign in / signed in)`);
-  await page.locator('.copilot-modes button').nth(2).click();
   check(await page.locator('.copilot-setup .copilot-fine').first().isVisible(), `${name}: the built-in browser AI says whether this browser has one`);
+  await page.locator('.copilot-modes button').nth(1).click();
+  const webOptions = await page.locator('.copilot-provider option').allInnerTexts();
+  check(webOptions.length >= 20, `${name}: ${webOptions.length} public AI sites to choose from (20+)`);
+  for (const want of ['Claude.ai', 'ChatGPT', 'Gemini', 'Microsoft Copilot', 'Le Chat', 'DeepSeek']) check(webOptions.some(o => o.includes(want)), `${name}: ${want} is in the list`);
+
+  // Puter stays for those who have an account: the answer is written right in the copilot.
+  await page.locator('.copilot-modes button').nth(2).click();
+  const freeOptions = await page.locator('.copilot-provider option').allInnerTexts();
+  check(freeOptions.length >= 20, `${name}: ${freeOptions.length} AIs through a Puter account (20+)`);
+  check(await page.locator('.copilot-account').isVisible(), `${name}: Puter mode shows the Puter account (sign in / signed in)`);
+  await page.locator('.copilot-setup button[type=submit]').click();
+  await input.fill('Écris une phrase de bienvenue');
+  await input.press('Enter');
+  check(await page.locator('.copilot-msg:has-text("Bienvenue de Claude gratuit")').first().waitFor({ timeout: 8000 }).then(() => true, () => false), `${name}: with Puter the answer is written right in the copilot`);
+  check(puterAsked.length === 1 && puterAsked[0].includes('Écris une phrase de bienvenue'), `${name}: the request (with the letter it is about) goes through Puter`);
+
+  await page.locator('.copilot-head button[aria-label="Settings"]').click();
   await page.locator('.copilot-modes button').nth(3).click();
 
   const select = page.locator('.copilot-provider');

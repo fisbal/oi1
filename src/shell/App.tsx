@@ -12,7 +12,7 @@ import { addRecent, listRecent, onRecentChange, openRecent, removeRecent } from 
 import { Backdrop, BrandMark, SceneArt, Wordmark, useTilt } from './Scene';
 import { store } from './storage';
 import { aiFor } from './ai';
-import { aiTranslator, registerTranslator, rememberChoice, rememberedChoice, translatorFor, type LangChoice } from './translate';
+import { aiTranslator, registerTranslator, rememberChoice, rememberedChoice, translatorFor, type LangChoice, bestTranslator } from './translate';
 import { LangChoiceDialog } from './LangChoice';
 import { autoSaveOn, forgetTab, onSaveStatus, registerSaver, saveStatus, setAutoSave, trackedSave } from './saveStatus';
 import { setTheme, useTheme } from './theme';
@@ -103,7 +103,8 @@ export default function App() {
     if (!tab || !fn) return;
     notify(t('lang.translating'));
     try {
-      const n = await fn(aiTranslator(aiFor(tab.moduleId), to));
+      // Chrome's own translator first (free, no account); otherwise the copilot's AI.
+      const n = await fn(await bestTranslator(to, () => aiTranslator(aiFor(tab.moduleId), to)));
       notify(n ? t('lang.translated', { n }) : t('lang.nothing'));
     } catch (e) {
       notify(t('lang.failed', { error: e instanceof Error ? e.message : String(e) }));

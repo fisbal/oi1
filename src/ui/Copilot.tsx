@@ -118,7 +118,7 @@ function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: 
   const appId = modules.find(m => m.name === appName)?.id;
   const choice = aiChoice.get();
   const [pid, setPid] = useState(() => aiChoice.forApp(appId).id);
-  const p = provider(pid) ?? inMode('free')[0];
+  const p = provider(pid) ?? inMode('web')[0];
   const mode = modeOf(p);
   const claude = p.kind === 'anthropic';
   const [key, setKey] = useState(() => (claude ? aiSettings.key() : providerKey(pid)));
@@ -132,7 +132,7 @@ function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: 
   const [puter, setPuter] = useState<{ state: 'loading' | 'out' | 'in' | 'offline'; user?: string }>({ state: 'loading' });
   useEffect(() => { if (mode === 'free') void puterUser().then(u => setPuter(u ? { state: 'in', user: u } : { state: 'out' }), () => setPuter({ state: 'offline' })); }, [mode]);
   const pick = (id: string) => {
-    const next = provider(id) ?? inMode('free')[0];
+    const next = provider(id) ?? inMode('web')[0];
     setPid(next.id);
     setKey(next.kind === 'anthropic' ? aiSettings.key() : providerKey(next.id));
     setModel(next.kind === 'anthropic' ? aiSettings.model() : aiChoice.get().models[next.id] ?? '');
@@ -174,7 +174,7 @@ function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: 
       <div className="copilot-orb" aria-hidden="true"><Icon name="sparkle" size={22} /></div>
       <h3>{t('ai.chooseTitle')}</h3>
       <div className="copilot-modes" role="tablist" aria-label={t('ai.howTitle')}>
-        {(['free', 'web', 'browser', 'key'] as Mode[]).map(m => (
+        {(['browser', 'web', 'free', 'key'] as Mode[]).map(m => (
           <button key={m} type="button" role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''} onClick={() => pickMode(m)}>
             <b>{t(`ai.mode.${m}` as MessageKey)}</b><span>{t(`ai.mode.${m}Sub` as MessageKey)}</span>
           </button>

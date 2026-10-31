@@ -125,20 +125,34 @@ export interface AiChoice {
   /** Microsoft Azure OpenAI: the resource's address and the deployment's name. */
   azure: { endpoint: string; deployment: string };
 }
-// No key needed by default: Claude through a free Puter account. Someone who already gave a Claude key keeps it.
+// No key and no account by default (Martin, 2026-10-31: the free Puter account asked for a phone check that failed):
+// the browser's own AI when it has one (Chrome, Edge), otherwise Claude.ai opened with the question ready and the
+// answer pasted back. Puter stays in the list for those who want it. Someone who already gave a Claude key keeps it.
 const hadClaudeKey = () => { try { return !!localStorage.getItem('oi1:ai:key'); } catch { return false; } };
-const EMPTY: AiChoice = { main: 'free-claude', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' } };
+const EMPTY: AiChoice = { main: 'web-claude', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' } };
+const noAccountDefault = () => (browserAiHere() ? 'browser' : 'web-claude');
+/** Settings saved before 2026-10-31 had Puter as the default: those move to the no-account default once. */
+const VERSION = 2;
+function load(): AiChoice {
+  const saved = read<AiChoice & { v?: number }>(SETTINGS, { ...EMPTY, main: '' });
+  if ((saved.v ?? 1) < VERSION) {
+    if (!saved.main || saved.main === 'free-claude') saved.main = '';
+    saved.byApp = Object.fromEntries(Object.entries(saved.byApp ?? {}).filter(([, id]) => id !== 'free-claude'));
+  }
+  if (!saved.main) saved.main = hadClaudeKey() ? 'claude' : noAccountDefault();
+  return saved;
+}
 let cache: AiChoice | null = null;
 const listeners = new Set<() => void>();
 
 export const aiChoice = {
-  get: (): AiChoice => (cache ??= read(SETTINGS, { ...EMPTY, main: hadClaudeKey() ? 'claude' : EMPTY.main })),
-  set(patch: Partial<AiChoice>) { cache = { ...aiChoice.get(), ...patch }; write(SETTINGS, cache); for (const fn of listeners) fn(); },
+  get: (): AiChoice => (cache ??= load()),
+  set(patch: Partial<AiChoice>) { cache = { ...aiChoice.get(), ...patch }; write(SETTINGS, { ...cache, v: VERSION }); for (const fn of listeners) fn(); },
   onChange(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
   /** The provider an app uses. */
   forApp(app?: string): Provider {
     const c = aiChoice.get();
-    return provider((app && c.byApp[app]) || c.main) ?? provider('free-claude')!;
+    return provider((app && c.byApp[app]) || c.main) ?? provider(noAccountDefault())!;
   },
   model: (p: Provider) => aiChoice.get().models[p.id]?.trim() || (p.kind === 'azure' ? aiChoice.get().azure.deployment : p.model),
 };
