@@ -25,6 +25,13 @@ export const FEATURED: Record<ProCat, { id: string; short: Tx }[]> = {
     { id: 'balance', short: ['Balance sheet', 'Bilan', 'Balance', 'Balanço', 'Bilanz'] },
     { id: 'income', short: ['Income', 'Résultat', 'Resultados', 'Resultados', 'GuV'] },
   ],
+  economie: [
+    { id: 'inflation', short: ['Inflation', 'Inflation', 'Inflación', 'Inflação', 'Inflation'] },
+    { id: 'gdp', short: ['GDP', 'PIB', 'PIB', 'PIB', 'BIP'] },
+    { id: 'elasticity', short: ['Elasticity', 'Élasticité', 'Elasticidad', 'Elasticidade', 'Elastizität'] },
+    { id: 'equilibrium', short: ['Equilibrium', 'Équilibre', 'Equilibrio', 'Equilíbrio', 'Gleichgewicht'] },
+    { id: 'regression', short: ['Regression', 'Régression', 'Regresión', 'Regressão', 'Regression'] },
+  ],
   all: [
     { id: 'loan', short: ['Loan', 'Prêt', 'Préstamo', 'Empréstimo', 'Kredit'] },
     { id: 'budget', short: ['Budget', 'Budget', 'Presupuesto', 'Orçamento', 'Budget'] },

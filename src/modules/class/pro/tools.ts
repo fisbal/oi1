@@ -1,16 +1,18 @@
-// The "Métiers" tab's catalogue: ready professional sheets grouped by trade. Économie and Audit join in the next step.
+// The "Métiers" tab's catalogue: ready professional sheets grouped by trade. Audit tools work on the person's own data (audit.ts).
 
 import type { SheetData } from '../../../formats/sheet';
 import { buildSheet, tx, type Lang, type Model, type Tx } from './build';
 import { FINANCE } from './finance';
 import { COMPTA } from './compta';
+import { ECONOMIE } from './economie';
 
 export interface ProTool { id: string; icon: string; model: Model; name: Tx; desc: Tx }
-export interface ProCategory { id: 'finance' | 'compta'; icon: string; name: Tx; tools: ProTool[] }
+export interface ProCategory { id: 'finance' | 'compta' | 'economie'; icon: string; name: Tx; tools: ProTool[] }
 
 export const PRO_CATEGORIES: ProCategory[] = [
   { id: 'finance', icon: 'currency', name: ['Finance', 'Finance', 'Finanzas', 'Finanças', 'Finanzen'], tools: FINANCE },
   { id: 'compta', icon: 'book', name: ['Accounting', 'Comptabilité', 'Contabilidad', 'Contabilidade', 'Buchhaltung'], tools: COMPTA },
+  { id: 'economie', icon: 'linechart', name: ['Economics', 'Économie', 'Economía', 'Economia', 'Volkswirtschaft'], tools: ECONOMIE },
 ];
 export const ALL_TOOLS: ProTool[] = PRO_CATEGORIES.flatMap(c => c.tools);
 
