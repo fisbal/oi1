@@ -21,6 +21,7 @@ import {
 import { sheetToTable, tableFromHtml, tableFromText, tableToCells, tableToHtml, tableToText, type Range } from '../../formats/table';
 import { FileMenu } from '../../ui/FileMenu';
 import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, RibbonToggle, type ComboGroup, appIcon } from '../../ui/kit';
+import { TutoTab } from '../../ui/tuto/Tuto';
 import { FONT_GROUPS, FONT_SIZES, cssFont } from '../letter/model';
 import { CHART_TYPES, ChartSvg, DARK, LIGHT, PALETTES, chartData, svgToPng } from './chart';
 import { condLooks, type CondLook } from './cond';
@@ -1627,6 +1628,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
           {tabs.map(x => <button key={x.id} type="button" role="tab" aria-selected={shownTab === x.id} className={shownTab === x.id ? 'on' : ''} onClick={() => setTab(x.id)}>{t(x.label)}</button>)}
           <button type="button" role="tab" aria-selected={shownTab === 'oi1'} className={`ribbon-special${shownTab === 'oi1' ? ' on' : ''}`} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
+        <TutoTab />
         <RibbonToggle />
           {chart && <button type="button" role="tab" aria-selected={shownTab === 'chart'} className={shownTab === 'chart' ? 'on' : ''} onClick={() => setTab('chart')}>{t('class.tab.chart')}</button>}
           <span className="ribbon-quick">
@@ -1655,9 +1657,9 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             <Group label="letter.group.font">
               <div className="rows">
                 <div className="row">
-                  <Combo className="font-box" label={t('letter.font')} value={fontShown} groups={fontGroups}
+                  <Combo className="font-box" help="letter.font" label={t('letter.font')} value={fontShown} groups={fontGroups}
                     itemStyle={f => ({ fontFamily: cssFont(f) })} onPick={f => styleRange(st => ({ ...st, font: f === 'Calibri' ? undefined : f }))} />
-                  <Combo className="size-box" label={t('letter.fontSize')} value={String(sizeShown)} numeric inputMode="decimal"
+                  <Combo className="size-box" help="letter.fontSize" label={t('letter.fontSize')} value={String(sizeShown)} numeric inputMode="decimal"
                     groups={[{ items: FONT_SIZES.map(String) }]} onPick={v => setSize(parseFloat(v.replace(',', '.')))} />
                   <Btn icon="grow" title="letter.grow" onClick={() => stepSize(1)} />
                   <Btn icon="shrink" title="letter.shrink" onClick={() => stepSize(-1)} />
@@ -1786,7 +1788,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           {shownTab === 'formulas' && <>
             <Group label="class.group.functions">
               <Btn big icon="sum" title="class.autoSum" onClick={() => autoSum()} />
-              {(['AVERAGE', 'MIN', 'MAX', 'COUNT'] as const).map(fn => <Btn key={fn} big icon="fx" title={fn} onClick={() => autoSum(fn)} />)}
+              {(['AVERAGE', 'MIN', 'MAX', 'COUNT'] as const).map(fn => <Btn key={fn} big icon="fx" title={fn} help={`tuto.fn.${fn}`} onClick={() => autoSum(fn)} />)}
               <Btn big icon="fx" title="class.fn.insert" onClick={() => setFnDialog('all')} />
             </Group>
             <Group label="class.group.library">
@@ -1831,18 +1833,18 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           {shownTab === 'metiers' && <>
             <Group label="class.pro.group.category">
               <div className="pro-catbtns">
-                {PRO_CATEGORIES.map(c => <Btn key={c.id} text icon={c.icon} title={tx(c.name, proLang)} active={proCat === c.id} onClick={() => pickProCat(c.id)} />)}
+                {PRO_CATEGORIES.map(c => <Btn key={c.id} text icon={c.icon} title={tx(c.name, proLang)} help={`tuto.proCat.${c.id}`} active={proCat === c.id} onClick={() => pickProCat(c.id)} />)}
                 <Btn text icon="columns" title="class.pro.cat.all" active={proCat === 'all'} onClick={() => pickProCat('all')} />
               </div>
             </Group>
             <Group label="class.pro.group.tools">
               {FEATURED[proCat].map(f => { const tool = toolById(f.id)!; return (
-                <Btn key={f.id} big icon={tool.icon} title={tx(tool.name, proLang)} label={<span className="rb-label">{tx(f.short, proLang)}</span>} onClick={() => addProSheet(tool)} />
+                <Btn key={f.id} big icon={tool.icon} title={tx(tool.name, proLang)} help={tx(tool.desc, proLang)} label={<span className="rb-label">{tx(f.short, proLang)}</span>} onClick={() => addProSheet(tool)} />
               ); })}
               <Btn big icon="index" title="class.pro.gallery" onClick={() => setProDialog('gallery')} />
             </Group>
             <Group label="class.pro.group.audit">
-              {AUDITS.map(x => <Btn key={x.id} big icon={x.icon} title={`${tx(x.name, proLang)}: ${tx(x.desc, proLang)}`} label={<span className="rb-label">{tx(AUDIT_SHORT[x.id], proLang)}</span>} onClick={() => runAuditTool(x.id)} />)}
+              {AUDITS.map(x => <Btn key={x.id} big icon={x.icon} title={`${tx(x.name, proLang)}: ${tx(x.desc, proLang)}`} help={tx(x.desc, proLang)} label={<span className="rb-label">{tx(AUDIT_SHORT[x.id], proLang)}</span>} onClick={() => runAuditTool(x.id)} />)}
             </Group>
             <Group label="class.pro.group.money">
               <Btn big icon="currency" title="class.pro.converter" onClick={() => setProDialog('converter')} />
@@ -1918,7 +1920,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             </Group>
             <Group label="class.group.apps">
               {shell.apps().filter(a => a.id !== 'class').map(a => (
-                <Btn key={a.id} big icon={appIcon(a.id)} title={a.name.replace('Office ', '')}
+                <Btn key={a.id} big icon={appIcon(a.id)} title={a.name.replace('Office ', '')} help={`tuto.app.${a.id}`}
                   onClick={() => shell.openModule(a.id)} disabled={!a.ready} />
               ))}
             </Group>
