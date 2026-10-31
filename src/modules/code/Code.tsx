@@ -601,6 +601,10 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
       if (!project.name) update(p => ({ ...p, name: ref.name.replace(/\.zip$/i, '') }));
     }
   };
+  // AutoSave: once the project has a .zip file, the shell writes it there after each pause in the work.
+  const quietSave = useRef<() => Promise<FileRef | null>>(async () => null);
+  quietSave.current = async () => (fileRef?.handle ? shell.saveFile(fileRef.name, () => writeZip(projectRef.current.files), ZIP_TYPE, { target: fileRef, quiet: true }) : null);
+  useEffect(() => { shell.autoSave(() => quietSave.current()); return () => shell.autoSave(null); }, [shell]);
   const saveSite = async () => {
     const site = await buildSite(projectRef.current.files);
     if (site.errors.length) shell.notify(t('code.buildErrors', { n: site.errors.length }));

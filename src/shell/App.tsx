@@ -10,6 +10,7 @@ import { addRecent, listRecent, onRecentChange, openRecent, removeRecent } from 
 import { Backdrop, BrandMark, SceneArt, Wordmark, useTilt } from './Scene';
 import { store } from './storage';
 import { aiFor } from './ai';
+import { autoSaveOn, forgetTab, onSaveStatus, registerSaver, saveStatus, setAutoSave, trackedSave } from './saveStatus';
 import { setTheme, useTheme } from './theme';
 import { useLanguage } from './useLanguage';
 
@@ -70,6 +71,7 @@ export default function App() {
   }, [openModule]);
 
   const closeTab = useCallback((tabId: string) => {
+    forgetTab(tabId);
     if (!confirm(t('tab.confirmClose'))) return;
     store.removePrefix(`${tabId}:`);
     receivers.delete(tabId);
@@ -110,8 +112,9 @@ export default function App() {
       get: key => store.get(`${tabId}:${key}`),
       set: (key, value) => store.set(`${tabId}:${key}`, value),
       load: key => idb.get<string>('kv', `${tabId}:${key}`).then(v => v ?? null, () => null),
-      save: (key, value) => idb.set('kv', value, `${tabId}:${key}`).catch(() => {}),
+      save: (key, value) => trackedSave(tabId, () => idb.set('kv', value, `${tabId}:${key}`)),
     },
+    autoSave: fn => registerSaver(tabId, fn),
     recent: {
       list: () => listRecent(moduleId),
       open: id => openRecent(id),
@@ -358,6 +361,7 @@ function TabHost({ tab, hidden, makeApi }: { tab: Tab; hidden: boolean; makeApi:
         <span className="app-badge" aria-hidden="true">{entry.badge}</span>
         <span className="app-name">{entry.name}</span>
         <span className="app-doc" title={tab.title}>{tab.title}</span>
+        <SaveBadge tabId={tab.tabId} />
       </div>
       <div ref={ref} className="module-host" hidden={hidden} />
     </div>
@@ -384,5 +388,30 @@ function UpdateBanner() {
         onClick={() => { setBusy(true); void update.run().catch(() => setBusy(false)); }}>{t('update.now')}</button>
       <button type="button" onClick={() => setLater(true)}>{t('update.later')}</button>
     </div>
+  );
+}
+
+/** "Saved" in the app bar, and the AutoSave switch (Martin: "enregistrement auto"). */
+function SaveBadge({ tabId }: { tabId: string }) {
+  const [, redraw] = useState(0);
+  useEffect(() => onSaveStatus(id => { if (id === tabId || id === '*') redraw(n => n + 1); }), [tabId]);
+  // "Saved 2 min ago" stays true while the tab is open.
+  useEffect(() => { const id = window.setInterval(() => redraw(n => n + 1), 30_000); return () => window.clearInterval(id); }, []);
+  const s = saveStatus(tabId);
+  const auto = autoSaveOn();
+  const text = s.state === 'saving' ? t('save.saving')
+    : s.state === 'error' ? t('save.error')
+    : s.state === 'saved' ? (s.where === 'file' ? t('save.file', { name: s.name ?? '' }) : t('save.device'))
+    : '';
+  const hint = s.where === 'file' ? t('save.fileHint') : t('save.deviceHint');
+  return (
+    <span className="save-area">
+      {text && <span className={`save-badge save-${s.state}`} role="status" title={s.at ? `${hint} (${timeAgo(s.at)})` : hint}>{text}</span>}
+      <label className="autosave" title={t('save.autoHint')}>
+        <input type="checkbox" role="switch" checked={auto} onChange={e => setAutoSave(e.target.checked)} />
+        <span className="autosave-track" aria-hidden="true" />
+        <span className="autosave-label">{t('save.auto')}</span>
+      </label>
+    </span>
   );
 }

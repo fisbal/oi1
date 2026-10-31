@@ -21,6 +21,7 @@
     "check:proof": "node scripts/check-proof.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:audience": "node scripts/check-audience.mjs",
+    "check:autosave": "node scripts/check-autosave.mjs",
     "check:copilot": "node scripts/check-copilot.mjs"
   },
   "dependencies": {
