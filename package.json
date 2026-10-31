@@ -26,6 +26,7 @@
     "check:zoom": "node scripts/check-zoom.mjs",
     "check:translate": "node scripts/check-translate.mjs",
     "check:refs": "node scripts/check-refs.mjs",
+    "check:arrows": "node scripts/check-arrows.mjs",
     "check:tuto": "node scripts/check-tuto.mjs",
     "check:autosave": "node scripts/check-autosave.mjs",
     "check:cloud": "node scripts/check-cloud.mjs",

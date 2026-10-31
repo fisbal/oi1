@@ -319,3 +319,13 @@
   .tuto-intro { display: none; }
 }
 @media print { .tuto-panel { display: none !important; } }
+
+/* ‹ › arrows on strips that scroll sideways (scrollArrows.ts) */
+.scroll-arrow {
+  position: fixed; z-index: 75; display: grid; place-items: center; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--gold, #d4a843) 55%, transparent); color: var(--gold-light, #e9c46a);
+  background: color-mix(in srgb, var(--panel, #1b1b22) 88%, transparent); backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(var(--shade-rgb, 0,0,0), calc(.35 * var(--shade-k, 1))); transition: transform .15s, background .15s;
+}
+.scroll-arrow:hover { transform: scale(1.08); background: color-mix(in srgb, var(--gold, #d4a843) 22%, var(--panel, #1b1b22)); }
+.scroll-arrow[hidden] { display: none; }

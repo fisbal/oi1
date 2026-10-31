@@ -15,6 +15,7 @@ import { store } from './storage';
 import { aiFor } from './ai';
 import { aiTranslator, bestTranslator, originalOf, registerTranslator, rememberChoice, rememberedChoice, restoreOriginal, translateFromOriginal, translatorFor, type LangChoice } from './translate';
 import { LangChoiceDialog } from './LangChoice';
+import { installScrollArrows, schedule as scheduleScrollArrows } from '../ui/scrollArrows';
 import { autoSaveOn, forgetTab, onSaveStatus, registerSaver, saveStatus, setAutoSave, trackedSave } from './saveStatus';
 import { setTheme, useTheme } from './theme';
 import { useLanguage } from './useLanguage';
@@ -58,6 +59,20 @@ export default function App() {
     store.set('tabs', JSON.stringify(tabs.map(({ tabId, moduleId, title }) => ({ tabId, moduleId, title }))));
     store.set('active', activeId ?? '');
   }, [tabs, activeId]);
+
+  // Little ‹ › arrows on every strip that scrolls sideways, and the open document always in sight in the tab bar.
+  useEffect(() => { installScrollArrows(); }, []);
+  useEffect(() => {
+    const tab = document.querySelector<HTMLElement>('.tabs .tab.active');
+    const strip = tab?.parentElement;
+    if (tab && strip) {
+      // Wider than the strip (a phone): show its start, with the name; otherwise just slide it fully into view.
+      const left = tab.offsetLeft - strip.offsetLeft, right = left + tab.offsetWidth;
+      if (tab.offsetWidth >= strip.clientWidth || left < strip.scrollLeft) strip.scrollLeft = left;
+      else if (right > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = right - strip.clientWidth;
+    }
+    scheduleScrollArrows();
+  }, [activeId, tabs.length]);
 
   const openModule = useCallback((moduleId: string, file?: OpenedFile, handoff?: Handoff) => {
     const entry = modules.find(m => m.id === moduleId);
@@ -255,6 +270,17 @@ export default function App() {
   };
 
   const [launcher, setLauncher] = useState(false);
+  // Every open document in one list, for when the tab bar is too short to show them all (phones above all).
+  const [allTabs, setAllTabs] = useState(false);
+  useEffect(() => {
+    if (!allTabs) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !(e.target as HTMLElement).closest('.tabs-all, .tabs-menu')) setAllTabs(false);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', close); };
+  }, [allTabs]);
   useEffect(() => {
     if (!launcher) return;
     const close = (e: MouseEvent | KeyboardEvent) => {
@@ -295,6 +321,31 @@ export default function App() {
           })}
           <button className="tab-new" title={t('tab.new')} aria-label={t('tab.new')} onClick={() => setActiveId(null)}>+</button>
         </nav>
+        {tabs.length > 1 && (
+          <div className="tabs-all-wrap">
+            <button className="tabs-all" aria-haspopup="menu" aria-expanded={allTabs} title={t('tab.all', { n: tabs.length })} aria-label={t('tab.all', { n: tabs.length })}
+              onClick={() => setAllTabs(o => !o)}>
+              <span>{tabs.length}</span>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+            </button>
+            {allTabs && (
+              <div className="tabs-menu" role="menu">
+                <p>{t('tab.all', { n: tabs.length })}</p>
+                {tabs.map(tab => {
+                  const entry = modules.find(m => m.id === tab.moduleId)!;
+                  return (
+                    <button key={tab.tabId} role="menuitem" className={tab.tabId === activeId ? 'on' : ''} style={{ '--app': entry.code } as CSSProperties}
+                      onClick={() => { setActiveId(tab.tabId); setAllTabs(false); }}>
+                      <span className="app-badge" aria-hidden="true">{entry.badge}</span>
+                      <span className="tabs-menu-label">{tab.title}</span>
+                      <small>{entry.name}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
         <button className="theme-btn" aria-label={theme === 'dark' ? t('shell.themeLight') : t('shell.themeDark')}
           title={theme === 'dark' ? t('shell.themeLight') : t('shell.themeDark')} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
           {theme === 'dark'
