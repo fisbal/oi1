@@ -23,8 +23,8 @@ const problems = [];
 const passed = [];
 const check = (ok, what) => (ok ? passed : problems).push(what);
 
-async function open(app, viewport = { width: 1440, height: 900 }) {
-  const ctx = await browser.newContext({ viewport, locale: 'en-US', permissions: ['clipboard-read', 'clipboard-write'] });
+async function open(app, viewport = { width: 1440, height: 900 }, mobile = false) {
+  const ctx = await browser.newContext({ viewport, locale: 'en-US', isMobile: mobile, hasTouch: mobile, permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await ctx.newPage();
   page.on('dialog', d => d.accept('Caption'));
   page.on('pageerror', e => problems.push(`${app}: script error: ${e.message}`));
@@ -176,6 +176,52 @@ try {
     await page.waitForTimeout(200);
     check(!(await page.locator('.cells-area').innerText()).includes('42'), 'Class: undo takes the number back');
     await ribbonSpeed('Class', page, host);
+
+    // Sheet tabs: rename in place (double-click), a formula follows the new name, and the right-click menu works.
+    await page.mouse.click(area.x + 140, area.y + 50);
+    await page.keyboard.type('=Sheet1!A1+1');
+    await page.keyboard.press('Enter');
+    const tabs = host.locator('.sheet-tabs .sheet-tab');
+    await tabs.first().dblclick();
+    await page.waitForTimeout(150);
+    check(await host.locator('.sheet-rename').count() === 1, 'Class: double-clicking a sheet tab lets you type its name');
+    await page.keyboard.type('Budget');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(300);
+    check((await tabs.first().innerText()).trim() === 'Budget', `Class: the sheet is renamed (${(await tabs.first().innerText()).trim()})`);
+    await page.mouse.click(area.x + 140, area.y + 50);
+    await page.waitForTimeout(100);
+    const formula = await page.evaluate(() => document.querySelector('.module-host:not([hidden]) .formula-bar .bar-input')?.value ?? '');
+    check(/Budget!A1/.test(formula), `Class: formulas follow the new sheet name (${formula})`);
+    await tabs.first().click({ button: 'right' });
+    check(await page.locator('.sheet-menu').isVisible(), 'Class: right-clicking a sheet tab opens its menu');
+    await page.locator('.sheet-menu button', { hasText: 'Duplicate' }).click();
+    await page.waitForTimeout(200);
+    check(await tabs.count() === 2 && (await tabs.nth(1).innerText()).includes('Budget (2)'), 'Class: Duplicate copies the sheet');
+    await tabs.nth(1).click({ button: 'right' });
+    await page.locator('.sheet-menu button', { hasText: 'Delete sheet' }).click();
+    check(await tabs.count() === 2, 'Class: Delete asks once more before deleting');
+    await page.locator('.sheet-menu button', { hasText: 'Click again to delete' }).click();
+    await page.waitForTimeout(200);
+    check(await tabs.count() === 1, 'Class: the second click deletes the sheet');
+    await ctx.close();
+  }
+  // On a phone, a long press on a sheet tab opens the same menu.
+  {
+    const { ctx, page, host } = await open('Class', { width: 390, height: 844 }, true);
+    const tab = await host.locator('.sheet-tabs .sheet-tab').first().boundingBox();
+    await page.touchscreen.tap(tab.x + tab.width / 2, tab.y + tab.height / 2);
+    await page.dispatchEvent('.module-host:not([hidden]) .sheet-tabs .sheet-tab', 'pointerdown', { pointerType: 'touch', clientX: tab.x + 10, clientY: tab.y + 10 });
+    await page.waitForTimeout(700);
+    check(await page.locator('.sheet-menu').isVisible(), 'Class (phone): a long press on a sheet tab opens its menu');
+    const menu = await page.locator('.sheet-menu').boundingBox();
+    check(!!menu && menu.x >= 0 && menu.y >= 0 && menu.x + menu.width <= 391 && menu.y + menu.height <= 845, 'Class (phone): the sheet menu is fully on screen');
+    await page.locator('.sheet-menu button', { hasText: 'Rename sheet' }).click();
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.type('Mobile');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(300);
+    check((await host.locator('.sheet-tabs .sheet-tab').first().innerText()).trim() === 'Mobile', 'Class (phone): renaming from the menu works');
     await ctx.close();
   }
 

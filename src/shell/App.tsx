@@ -206,9 +206,10 @@ export default function App() {
           {tabs.map(tab => {
             const entry = modules.find(m => m.id === tab.moduleId)!;
             return (
-              <div key={tab.tabId} className={`tab ${tab.tabId === activeId ? 'active' : ''}`}
-                style={{ '--accent': entry.color } as CSSProperties} title={`${entry.name}: ${tab.title}`}
+              <div key={tab.tabId} className={`tab ${tab.tabId === activeId ? 'active' : ''}`} data-app={tab.moduleId}
+                style={{ '--accent': entry.color, '--app': entry.code } as CSSProperties} title={`${entry.name}: ${tab.title}`}
                 onClick={() => setActiveId(tab.tabId)}>
+                <span className="app-badge" aria-hidden="true">{entry.badge}</span>
                 <span className="tab-label">{tab.title}</span>
                 <button className="tab-close" title={t('tab.close')} aria-label={t('tab.close')}
                   onClick={e => { e.stopPropagation(); closeTab(tab.tabId); }}>×</button>
@@ -347,7 +348,18 @@ function TabHost({ tab, hidden, makeApi }: { tab: Tab; hidden: boolean; makeApi:
     };
   }, [tab.tabId, tab.moduleId]);
 
-  return <div ref={ref} className="module-host" hidden={hidden} />;
+  const entry = modules.find(m => m.id === tab.moduleId)!;
+  // The app bar says which app this is, in its color, above its ribbon (Martin: "sur quel office je suis").
+  return (
+    <div className="app-frame" hidden={hidden} data-app={tab.moduleId} style={{ '--app': entry.code } as CSSProperties}>
+      <div className="app-bar">
+        <span className="app-badge" aria-hidden="true">{entry.badge}</span>
+        <span className="app-name">{entry.name}</span>
+        <span className="app-doc" title={tab.title}>{tab.title}</span>
+      </div>
+      <div ref={ref} className="module-host" hidden={hidden} />
+    </div>
+  );
 }
 
 /** Tells the installed app (Windows, Android) that a new version is out, and installs it on a tap. */

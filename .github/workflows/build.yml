@@ -56,6 +56,8 @@ jobs:
         run: npm run check:sync
       - name: Check spelling, grammar and style underlines and the fix bubble
         run: npm run check:proof
+      - name: Check every word is readable on its page, highlight and theme (contrast)
+        run: npm run check:contrast
       - name: Choosing the copilot (Claude, ChatGPT, Gemini, Microsoft …) works on PC and phone
         run: npm run check:copilot
       - name: Keep the screenshots
