@@ -2,7 +2,9 @@ import { WebAnswer } from '../ui/WebAnswer';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Handoff, MountedModule, OpenedFile, RecentFile, ShellApi } from './contract';
 import { idb } from './db';
-import { pickFile, saveFile, wrapFile } from './files';
+import { blobOf, pickFile, saveFile, wrapFile } from './files';
+import { cloudOn, cloudSave, forgetCloudTab } from './cloud';
+import { CloudPanel, useCloud } from './CloudPanel';
 import { LANGUAGES, getLanguage, setLanguage, t, type LanguageCode } from './i18n';
 import { findUpdate, type AppUpdate } from './update';
 import { moduleForFile, modules } from './modules';
@@ -63,6 +65,8 @@ export default function App() {
     return tab.tabId;
   }, []);
 
+  const cloudAcc = useCloud();
+  const [homeCloud, setHomeCloud] = useState(false);
   const openAnyFile = useCallback((file: OpenedFile | null) => {
     if (!file) return;
     const entry = moduleForFile(file.name);
@@ -72,6 +76,7 @@ export default function App() {
 
   const closeTab = useCallback((tabId: string) => {
     forgetTab(tabId);
+    forgetCloudTab(tabId);
     if (!confirm(t('tab.confirmClose'))) return;
     store.removePrefix(`${tabId}:`);
     receivers.delete(tabId);
@@ -104,6 +109,13 @@ export default function App() {
       return f;
     },
     saveFile: async (name, content, mimeType, options) => {
+      if (options?.quiet && cloudOn()) {
+        // AutoSave with the cloud on: the document's own file when there is one, and the cloud copy.
+        let blob: Blob | null = null;
+        const local = await saveFile(name, async () => (blob = await blobOf(content, mimeType)), mimeType, options);
+        const path = await cloudSave(tabId, local?.ref.name ?? name, blob ?? await blobOf(content, mimeType));
+        return { name: path, handle: local?.ref.handle, cloud: path };
+      }
       const saved = await saveFile(name, content, mimeType, options);
       if (saved) void addRecent(moduleId, saved.ref.name, saved.ref.handle, saved.ref.handle ? undefined : saved.blob);
       return saved?.ref ?? null;
@@ -115,6 +127,7 @@ export default function App() {
       save: (key, value) => trackedSave(tabId, () => idb.set('kv', value, `${tabId}:${key}`)),
     },
     autoSave: fn => registerSaver(tabId, fn),
+    cloudOn,
     recent: {
       list: () => listRecent(moduleId),
       open: id => openRecent(id),
@@ -260,6 +273,10 @@ export default function App() {
               <div className="hero-actions reveal" style={{ '--i': 2 } as CSSProperties}>
                 <button className="gold-pill" onClick={() => void openModule('letter')}>{t('home.newLetter')}</button>
                 <button className="glass-pill" onClick={() => pickFile(readyExtensions).then(openAnyFile)}>{t('home.openFile')}</button>
+                <span className="home-cloud">
+                  <button className="glass-pill" onClick={() => setHomeCloud(o => !o)}>☁ {cloudAcc ? t('cloud.openTitle') : t('cloud.title')}</button>
+                  {homeCloud && <CloudPanel onOpen={openAnyFile} onClose={() => setHomeCloud(false)} />}
+                </span>
               </div>
             </div>
             {recent.length > 0 && (
@@ -291,7 +308,7 @@ export default function App() {
           </div>
         </section>
         {tabs.map(tab => (
-          <TabHost key={tab.tabId} tab={tab} hidden={tab.tabId !== activeId} makeApi={makeApi} />
+          <TabHost key={tab.tabId} tab={tab} hidden={tab.tabId !== activeId} makeApi={makeApi} onOpen={openAnyFile} />
         ))}
       </main>
       <WebAnswer />
@@ -334,7 +351,7 @@ function timeAgo(time: number): string {
 }
 
 /** Mounts one module into its own element and keeps it alive while the tab is open. */
-function TabHost({ tab, hidden, makeApi }: { tab: Tab; hidden: boolean; makeApi: (tabId: string, moduleId: string) => ShellApi }) {
+function TabHost({ tab, hidden, makeApi, onOpen }: { tab: Tab; hidden: boolean; makeApi: (tabId: string, moduleId: string) => ShellApi; onOpen: (f: OpenedFile) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const first = useRef({ makeApi, file: tab.file, handoff: tab.handoff });
 
@@ -361,7 +378,7 @@ function TabHost({ tab, hidden, makeApi }: { tab: Tab; hidden: boolean; makeApi:
         <span className="app-badge" aria-hidden="true">{entry.badge}</span>
         <span className="app-name">{entry.name}</span>
         <span className="app-doc" title={tab.title}>{tab.title}</span>
-        <SaveBadge tabId={tab.tabId} />
+        <SaveBadge tabId={tab.tabId} onOpen={onOpen} />
       </div>
       <div ref={ref} className="module-host" hidden={hidden} />
     </div>
@@ -392,7 +409,9 @@ function UpdateBanner() {
 }
 
 /** "Saved" in the app bar, and the AutoSave switch (Martin: "enregistrement auto"). */
-function SaveBadge({ tabId }: { tabId: string }) {
+function SaveBadge({ tabId, onOpen }: { tabId: string; onOpen: (f: OpenedFile) => void }) {
+  const cloud = useCloud();
+  const [panel, setPanel] = useState(false);
   const [, redraw] = useState(0);
   useEffect(() => onSaveStatus(id => { if (id === tabId || id === '*') redraw(n => n + 1); }), [tabId]);
   // "Saved 2 min ago" stays true while the tab is open.
@@ -401,9 +420,9 @@ function SaveBadge({ tabId }: { tabId: string }) {
   const auto = autoSaveOn();
   const text = s.state === 'saving' ? t('save.saving')
     : s.state === 'error' ? t('save.error')
-    : s.state === 'saved' ? (s.where === 'file' ? t('save.file', { name: s.name ?? '' }) : t('save.device'))
+    : s.state === 'saved' ? (s.where === 'cloud' ? t('save.cloud', { where: 'GitHub' }) : s.where === 'file' ? t('save.file', { name: s.name ?? '' }) : t('save.device'))
     : '';
-  const hint = s.where === 'file' ? t('save.fileHint') : t('save.deviceHint');
+  const hint = s.where === 'cloud' ? t('save.cloudHint', { name: s.name ?? '' }) : s.where === 'file' ? t('save.fileHint') : t('save.deviceHint');
   return (
     <span className="save-area">
       {text && <span className={`save-badge save-${s.state}`} role="status" title={s.at ? `${hint} (${timeAgo(s.at)})` : hint}>{text}</span>}
@@ -412,6 +431,8 @@ function SaveBadge({ tabId }: { tabId: string }) {
         <span className="autosave-track" aria-hidden="true" />
         <span className="autosave-label">{t('save.auto')}</span>
       </label>
+      <button type="button" className={`cloud-btn${cloud ? ' on' : ''}`} title={t('cloud.title')} aria-label={t('cloud.title')} aria-expanded={panel} onClick={() => setPanel(o => !o)}>☁<span className="cloud-btn-label">{cloud ? 'GitHub' : t('cloud.short')}</span></button>
+      {panel && <CloudPanel onOpen={onOpen} onClose={() => setPanel(false)} />}
     </span>
   );
 }

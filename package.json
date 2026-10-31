@@ -22,6 +22,7 @@
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:audience": "node scripts/check-audience.mjs",
     "check:autosave": "node scripts/check-autosave.mjs",
+    "check:cloud": "node scripts/check-cloud.mjs",
     "check:copilot": "node scripts/check-copilot.mjs"
   },
   "dependencies": {
