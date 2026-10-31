@@ -14,6 +14,7 @@ export interface Control {
   active?: boolean;   // already on (the picked choice of a gallery)
 }
 
+/** `words`: the request's telling words this button matches (to tell next steps from alternatives). */
 export interface Hit { c: Control; score: number; words: number[] }
 
 /** Lowercase, no accents, no punctuation. */
@@ -84,6 +85,17 @@ for (const g of SYNONYMS) {
   }
 }
 
+/** A word's group of synonyms, also for a word typed with one letter wrong ("itallique"). */
+const synCache = new Map<string, Set<string>>();
+function synonymsOf(q: string): Set<string> {
+  const known = SYN.get(q) ?? synCache.get(q);
+  if (known) return known;
+  let found = new Set<string>();
+  if (q.length >= 5) for (const [w, g] of SYN) if (Math.abs(w.length - q.length) <= 1 && distance(w, q) <= 1) { found = g; break; }
+  synCache.set(q, found);
+  return found;
+}
+
 // Little words that say nothing about the button.
 const STOP = new Set(norm('i want to a an the my this that please how do je veux voudrais vouloir faire mettre un une des le la les mon ma mes ce cette du de d l en pour comment quiero hacer el los las un una mi como quero fazer o os as meu minha ich will mochte ein eine der die das mein wie zu im in et and y e und ou or').split(' '));
 
@@ -131,23 +143,27 @@ export function searchControls(controls: Control[], query: string, lang: string,
   const raw = text.split(' ').filter(w => w && !STOP.has(w));
   if (!raw.length) return [];
   // First how well each word matches each button.
+  const own: boolean[][] = [];
   const table = controls.map(c => {
     const name = norm(c.name).split(' ');
     const where = norm(`${c.group} ${c.tab}`).split(' ');
     const help = norm(c.text ?? helpOf(c.key, c.name, lang === 'fr' ? 'fr' : 'en') ?? '').split(' ');
     return raw.map(q => {
-      const alts = [q, ...(SYN.get(q) ?? [])];
-      let s = 0;
+      const alts = [q, ...synonymsOf(q)];
+      let s = 0, own = false;
       for (const a of alts) {
         const k = a === q ? 1 : 0.95;
-        s = Math.max(s, wordScore(a, name) * 3 * k, wordScore(a, where) * 1.5 * k, wordScore(a, help) * k);
+        const n = wordScore(a, name), h = wordScore(a, help);
+        if (n || h) own = true;
+        s = Math.max(s, n * 3 * k, wordScore(a, where) * 1.5 * k, h * k);
       }
-      return s;
+      return { s, own };
     });
-  });
+  }).map(row => { own.push(row.map(x => x.own)); return row.map(x => x.s); });
   // A word found on most buttons ("code" in Code+) says little: it counts less.
   const weight = raw.map((_, i) => {
-    const share = table.filter(row => row[i] > 0).length / Math.max(1, controls.length);
+    // (counted on the buttons' own names and explanations: a tab's name is on all its buttons)
+    const share = own.filter(row => row[i]).length / Math.max(1, controls.length);
     // So does the app's own name ("code" in Code+, "slide" is fine but "stage" is not).
     return (share > 0.15 || appWords.has(raw[i]) ? 0.3 : 1) * (WEAK.has(raw[i]) ? 0.35 : 1);
   });
@@ -157,10 +173,13 @@ export function searchControls(controls: Control[], query: string, lang: string,
     const matched = row.filter(s => s > 0).length;
     if (!matched) return;
     // Every word of the request found counts much more than one word found many times.
-    const score = row.reduce((n, s, i) => n + s * weight[i], 0) * (matched / raw.length);
+    // (a word that says little counts little here too).
+    const total = weight.reduce((n, w) => n + w, 0);
+    const found = row.reduce((n, s, i) => n + (s > 0 ? weight[i] : 0), 0);
+    const score = row.reduce((n, s, i) => n + s * weight[i], 0) * (found / total);
     // A short name that matches is a better match than a long one ("Insert table" before "Table of contents").
     const bonus = 0.3 / Math.max(1, norm(c.name).split(' ').length);
-    hits.push({ c, score: score + bonus, words: row.flatMap((v, i) => (v > 0 ? [i] : [])) });
+    hits.push({ c, score: score + bonus, words: row.flatMap((v, i) => (v > 0 && weight[i] >= 0.9 ? [i] : [])) });
   });
   return hits.sort((a, b) => b.score - a.score || Number(!!a.c.active) - Number(!!b.c.active));
 }
