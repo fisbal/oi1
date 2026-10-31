@@ -3,20 +3,91 @@
 // a translator for its document; the shell asks the person, then the app swaps the words in one step that one Undo
 // takes back. Only words change: layout, styles, numbers, formulas and code stay as they are.
 
-import type { AiApi } from './contract';
+import type { AiApi, DocTranslator } from './contract';
 import { LANGUAGES, type LanguageCode } from './i18n';
 
 /** Translates a list of texts; the result has the same length and order. */
 export type TranslateTexts = (texts: string[]) => Promise<string[]>;
-/** An app's translator: collects its document's texts, translates them with `tr`, applies them in one undo step.
- *  Resolves to how many texts changed. */
-export type Translator = (tr: TranslateTexts) => Promise<number>;
-
-const translators = new Map<string, Translator>();
-export function registerTranslator(tabId: string, fn: Translator | null) {
-  if (fn) translators.set(tabId, fn); else translators.delete(tabId);
+const translators = new Map<string, DocTranslator>();
+export function registerTranslator(tabId: string, t: DocTranslator | null) {
+  if (t) translators.set(tabId, t); else translators.delete(tabId);
 }
 export const translatorFor = (tabId: string | null) => (tabId ? translators.get(tabId) ?? null : null);
+
+// ---------- the original is always kept (rule 13) ----------
+// Martin, 2026-10-31: going from one language to another changed the text a little each time, until the original
+// was lost. Now the first translation keeps the document as it was; every later translation starts again from that
+// original, never from a translation, and going back to the original's language puts the exact original back.
+// If the person edits a translation, the edited text becomes the base for the next one, but the first original
+// stays kept for reference and can always be put back.
+
+export interface Original {
+  /** The original's language. */
+  lang: string;
+  /** The original document, as the app's snapshot. */
+  data: unknown;
+  /** The document right after our last translation, to see whether the person changed it since. */
+  last?: string;
+  lastLang?: string;
+  /** The person edited a translation: their edited text and its language become the base of the next translation. */
+  edited?: { lang: string; data: unknown };
+}
+const originals = new Map<string, Original>();
+const KEY_ORIG = (tabId: string) => `oi1.lang.original.${tabId}`;
+export function originalOf(tabId: string): Original | null {
+  if (originals.has(tabId)) return originals.get(tabId)!;
+  try { const v = localStorage.getItem(KEY_ORIG(tabId)); if (v) { const o = JSON.parse(v) as Original; originals.set(tabId, o); return o; } } catch { /* none */ }
+  return null;
+}
+function keepOriginal(tabId: string, o: Original) {
+  originals.set(tabId, o);
+  try { localStorage.setItem(KEY_ORIG(tabId), JSON.stringify(o)); } catch { /* too big or blocked: kept while the tab is open */ }
+}
+export function forgetOriginal(tabId: string) {
+  originals.delete(tabId);
+  try { localStorage.removeItem(KEY_ORIG(tabId)); } catch { /* blocked */ }
+}
+
+/** Translates the tab's document into `to`, always from the original. `make` gives the translator for a source
+ *  language; `fromGuess` is the menus' language before the change, used when the browser cannot tell the document's.
+ *  Resolves to how many texts changed, and whether the exact original was put back. */
+export async function translateFromOriginal(tabId: string, doc: DocTranslator, to: string, fromGuess: string,
+  make: (from: string) => Promise<TranslateTexts>): Promise<{ n: number; restored: boolean }> {
+  const now = JSON.stringify(doc.snapshot());
+  let o = originalOf(tabId);
+  if (o && now === JSON.stringify(o.data)) {
+    // The document is the original again (Undo, or put back): translate from it.
+    o = { ...o, edited: undefined };
+  } else if (o && o.last !== undefined && o.last !== now) {
+    // Changed since our translation: the person's text is the new base; the first original stays kept.
+    o = { ...o, edited: { lang: o.lastLang ?? fromGuess, data: JSON.parse(now) } };
+  }
+  if (!o) {
+    // The first time: the original's language, told by the browser from its words, else the menus' language.
+    const data = JSON.parse(now);
+    o = { lang: (await detectLanguage(doc.words(data))) ?? fromGuess, data };
+  }
+  const base = o.edited ?? { lang: o.lang, data: o.data };
+  if (to === base.lang) {
+    // Back to the base's own language: its exact words, no translation at all.
+    const n = await doc.apply(base.data, null);
+    keepOriginal(tabId, { ...o, last: JSON.stringify(doc.snapshot()), lastLang: to });
+    return { n, restored: true };
+  }
+  const n = await doc.apply(base.data, await make(base.lang));
+  keepOriginal(tabId, { ...o, last: JSON.stringify(doc.snapshot()), lastLang: to });
+  return { n, restored: false };
+}
+
+/** Puts the first original back (the "original text" choice), whatever happened since. */
+export async function restoreOriginal(tabId: string, doc: DocTranslator): Promise<boolean> {
+  const o = originalOf(tabId);
+  if (!o) return false;
+  await doc.apply(o.data, null);
+  // Still kept: the document is the original again, in its own language.
+  keepOriginal(tabId, { lang: o.lang, data: o.data, last: JSON.stringify(doc.snapshot()), lastLang: o.lang });
+  return true;
+}
 
 export type LangChoice = 'all' | 'ui' | 'doc';
 const KEY = 'oi1.lang.choice';
@@ -47,7 +118,7 @@ export function aiTranslator(ai: AiApi, to: LanguageCode, signal?: AbortSignal):
     for (const batch of batches) {
       if (signal?.aborted) break;
       const answer = await ai.ask({
-        system: `You translate the texts of a document into ${langName(to)}. Translate each item on its own, keeping its meaning, tone and register. Keep names, numbers, dates, e-mail addresses, web links, formulas, code and placeholders in brackets (like [Name]) exactly as they are. Keep line breaks. If an item is already in ${langName(to)}, give it back unchanged. Answer only with JSON {"items": [...]} holding exactly ${batch.length} strings, in the same order.`,
+        system: `You translate the texts of a document into ${langName(to)}, faithfully. Translate each item on its own: same meaning, same tone and register, same sentence structure where the language allows. Never reword, paraphrase, summarize, add or leave out anything, and never \"improve\" the text. Use the standard, accepted translation of set phrases, prayers, quotations, titles and technical terms. Keep names, numbers, dates, e-mail addresses, web links, formulas, code and placeholders in brackets (like [Name]) exactly as they are. Keep line breaks. If an item is already in ${langName(to)}, give it back unchanged. Answer only with JSON {"items": [...]} holding exactly ${batch.length} strings, in the same order.`,
         messages: [{ role: 'user', content: JSON.stringify({ items: batch }) }],
         schema: { type: 'object', properties: { items: { type: 'array', items: { type: 'string' } } }, required: ['items'] },
         effort: 'low',
@@ -96,50 +167,62 @@ const g = globalThis as { Translator?: TranslatorApi; LanguageDetector?: Detecto
 /** Whether this browser can translate by itself. */
 export const browserTranslatorHere = () => !!g.Translator && !!g.LanguageDetector;
 
-/** Chrome's translator for `texts` into `to`, or null when the browser has none. Each text's language is detected,
- *  so a letter mixing French and English is translated piece by piece. A text it cannot do is left as it was. */
-export async function browserTranslator(to: LanguageCode): Promise<TranslateTexts | null> {
-  if (!browserTranslatorHere()) return null;
-  let detector: Awaited<ReturnType<DetectorApi['create']>>;
-  try { detector = await g.LanguageDetector!.create(); } catch { return null; }
-  const made = new Map<string, Promise<BrowserTranslator | null>>();
-  const forSource = (from: string) => {
-    if (!made.has(from)) made.set(from, (async () => {
-      try {
-        if ((await g.Translator!.availability({ sourceLanguage: from, targetLanguage: to })) === 'unavailable') return null;
-        return await g.Translator!.create({ sourceLanguage: from, targetLanguage: to });
-      } catch { return null; }
-    })());
-    return made.get(from)!;
-  };
+/** The language of a whole document, told by the browser from all its words together (one word alone misleads:
+ *  "Saint-Père" was once taken for German), or null when the browser cannot tell. */
+/** `p`, or null after `ms`: the browser's AI can wait for a model download that never comes (offline, blocked). */
+const within = <T,>(p: Promise<T>, ms: number): Promise<T | null> =>
+  Promise.race([p, new Promise<null>(r => setTimeout(() => r(null), ms))]);
+
+export async function detectLanguage(texts: string[]): Promise<string | null> {
+  if (!g.LanguageDetector) return null;
+  try {
+    const sample = texts.filter(hasWords).join('\n').slice(0, 6000);
+    if (!sample) return null;
+    const d = await within(g.LanguageDetector.create(), 8000);
+    if (!d) return null;
+    const top = (await within(d.detect(sample), 5000))?.[0];
+    const lang = top?.detectedLanguage?.split('-')[0];
+    return lang && lang !== 'und' && top.confidence >= 0.5 ? lang : null;
+  } catch { return null; }
+}
+
+/** Chrome's translator from `from` into `to`, or null when the browser cannot do that pair. One source language for
+ *  the whole document. Texts it fails on are listed so the AI can do them. */
+export async function browserTranslator(to: string, from: string): Promise<((texts: string[]) => Promise<{ out: string[]; failed: number[] }>) | null> {
+  if (!g.Translator || from === to) return null;
+  let t: BrowserTranslator;
+  try {
+    const can = await within(g.Translator.availability({ sourceLanguage: from, targetLanguage: to }), 5000);
+    if (!can || can === 'unavailable') return null;
+    // A language not yet on this device is downloaded once (a few seconds); past 30 s the AI translates instead.
+    const made = await within(g.Translator.create({ sourceLanguage: from, targetLanguage: to }), 30000);
+    if (!made) return null;
+    t = made;
+  } catch { return null; }
   return async texts => {
-    const out = [...texts];
+    const out = [...texts], failed: number[] = [];
     for (let i = 0; i < texts.length; i++) {
       const s = texts[i], core = s.trim();
       if (!hasWords(core)) continue;
       try {
-        const from = (await detector.detect(core))[0]?.detectedLanguage?.split('-')[0];
-        if (!from || from === 'und' || from === to) continue;
-        const tr = await forSource(from);
-        if (!tr) continue;
-        const t = await tr.translate(core);
-        if (t) out[i] = /^\s*/.exec(s)![0] + t + /\s*$/.exec(s)![0];
-      } catch { /* left as it was */ }
+        const r = await within(t.translate(core), 15000);
+        if (r) out[i] = /^\s*/.exec(s)![0] + r + /\s*$/.exec(s)![0]; else failed.push(i);
+      } catch { failed.push(i); }
     }
-    return out;
+    return { out, failed };
   };
 }
 
-/** Chrome's translator first; whatever it could not do (no translator, a language it lacks) goes to the AI. */
-export async function bestTranslator(to: LanguageCode, ai: () => TranslateTexts): Promise<TranslateTexts> {
-  const browser = await browserTranslator(to);
+/** Chrome's translator first (free, no account); the copilot's AI when the browser cannot do the pair, and for the
+ *  few texts it fails on. */
+export async function bestTranslator(to: LanguageCode, from: string, ai: () => TranslateTexts): Promise<TranslateTexts> {
+  const browser = await browserTranslator(to, from);
   if (!browser) return ai();
   return async texts => {
-    const out = await browser(texts);
-    const left = texts.map((s, i) => (out[i] === s && hasWords(s) ? i : -1)).filter(i => i >= 0);
-    if (left.length) {
-      const got = await ai()(left.map(i => texts[i]));
-      left.forEach((i, k) => { out[i] = got[k]; });
+    const { out, failed } = await browser(texts);
+    if (failed.length) {
+      const got = await ai()(failed.map(i => texts[i]));
+      failed.forEach((i, k) => { out[i] = got[k]; });
     }
     return out;
   };

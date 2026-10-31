@@ -20,7 +20,7 @@ const H = '.module-host:not([hidden])';
 /** The AI's streamed answer: each item comes back marked with the language asked for. */
 function answer(body) {
   const req = JSON.parse(body);
-  const lang = /into ([^\s.]+)/.exec(req.system)?.[1] ?? '?';
+  const lang = /into ([^\s.,]+)/.exec(req.system)?.[1] ?? '?';
   const items = JSON.parse(req.messages[0].content).items.map(s => `[${lang}] ${s}`);
   const json = JSON.stringify({ items });
   const ev = (type, data) => `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
@@ -38,6 +38,8 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   const ctx = await browser.newContext({ viewport, locale: 'fr-FR', isMobile: mobile, hasTouch: mobile });
   const page = await ctx.newPage();
   page.on('pageerror', e => problems.push(`${name}: script error: ${e.message}`));
+  // The browser's own AI is turned off here: its models cannot download in the test machine; the AI path is tested.
+  await page.addInitScript(() => { delete window.Translator; delete window.LanguageDetector; });
   await page.addInitScript(() => { if (!sessionStorage.getItem('set')) { localStorage.setItem('oi1:ai:key', 'sk-ant-test'); localStorage.setItem('oi1:language', 'fr'); sessionStorage.setItem('set', '1'); } });
   await page.route('https://api.anthropic.com/**', route => route.fulfill({ status: 200, contentType: 'text/event-stream', body: answer(route.request().postData()) }));
   await page.goto(url);
@@ -48,6 +50,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   await page.locator(`${H} .sheet .ProseMirror:not(.header-text):not(.footer-text)`).first().click();
   await page.keyboard.type('Bonjour le monde');
   await page.waitForTimeout(300);
+  const original = (await page.locator(`${H} .sheet .ProseMirror:not(.header-text):not(.footer-text)`).first().innerText()).trim();
   await pickLang(page, 'English');
   check(await dialog(page).isVisible(), `${name}: changing the language with a letter open asks what to translate`);
   const opts = await dialog(page).locator('.lang-choice-option b').allInnerTexts();
@@ -74,6 +77,28 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   await pickLang(page, 'Deutsch');
   await page.waitForTimeout(800);
   check(!(await dialog(page).isVisible().catch(() => false)) && await page.locator('select.lang').inputValue() === 'de', `${name}: a remembered choice no longer asks`);
+  // Rule 13: every translation is made from the original, never from the last translation…
+  text = await page.locator(`${H} .sheet .ProseMirror:not(.header-text):not(.footer-text)`).first().innerText();
+  check(text.includes('[Deutsch]') && text.includes('Bonjour le monde') && !text.includes('[Español]'), `${name}: German is translated from the original, not from the Spanish (${text.trim().slice(0, 50)})`);
+  // …and going back to the original's language gives the exact original, word for word.
+  await pickLang(page, 'Français');
+  await page.waitForTimeout(800);
+  text = (await page.locator(`${H} .sheet .ProseMirror:not(.header-text):not(.footer-text)`).first().innerText()).trim();
+  check(text === original, `${name}: back to French, the exact original text is back (${text.slice(0, 50)})`);
+  // After several round trips, still the exact original.
+  for (const l of ['English', 'Português', 'Français']) { await pickLang(page, l); await page.waitForTimeout(700); }
+  text = (await page.locator(`${H} .sheet .ProseMirror:not(.header-text):not(.footer-text)`).first().innerText()).trim();
+  check(text === original, `${name}: after English → Português → Français, still the exact original (${text.slice(0, 50)})`);
+  // The kept original can be put back from the language menu at any time.
+  await pickLang(page, 'English');
+  await page.waitForTimeout(700);
+  check(await page.locator('select.lang option[value="__orig"]').count() === 1, `${name}: the language menu offers "Original text" (${(await page.locator('select.lang option').allInnerTexts()).join('/')})`);
+  if (await page.locator('select.lang option[value="__orig"]').count()) await page.locator('select.lang').selectOption({ value: '__orig' });
+  await page.waitForTimeout(600);
+  text = (await page.locator(`${H} .sheet .ProseMirror:not(.header-text):not(.footer-text)`).first().innerText()).trim();
+  check(text === original, `${name}: "Original text" puts the exact original back (${text.slice(0, 50)})`);
+  await pickLang(page, 'Français');
+  await page.waitForTimeout(500);
   await page.locator('select.lang').selectOption({ value: '__ask' });
   await page.waitForTimeout(200);
 

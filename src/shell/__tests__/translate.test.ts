@@ -40,22 +40,68 @@ describe('translateHtml', () => {
 describe('bestTranslator', () => {
   it('uses the copilot AI when the browser cannot translate', async () => {
     const { bestTranslator } = await import('../translate');
-    const tr = await bestTranslator('en', () => async t => t.map(s => `AI ${s}`));
-    expect(await tr(['Bonjour', '42'])).toEqual(['AI Bonjour', 'AI 42']);
+    const tr = await bestTranslator('en', 'fr', () => async t => t.map(s => `AI ${s}`));
+    expect(await tr(['Bonjour'])).toEqual(['AI Bonjour']);
   });
-  it("uses Chrome's translator first and sends only what it missed to the AI", async () => {
+  it("uses Chrome's translator for the whole document's language, the AI only for what it fails on", async () => {
     const g = globalThis as Record<string, unknown>;
-    g.LanguageDetector = { create: async () => ({ detect: async (s: string) => [{ detectedLanguage: s.startsWith('Hola') ? 'es' : 'fr', confidence: 0.9 }] }) };
     g.Translator = {
-      availability: async ({ sourceLanguage }: { sourceLanguage: string }) => (sourceLanguage === 'fr' ? 'available' : 'unavailable'),
-      create: async () => ({ translate: async (s: string) => `CH ${s}` }),
+      availability: async () => 'available',
+      create: async () => ({ translate: async (s: string) => { if (s === 'Échec') throw new Error('no'); return `CH ${s}`; } }),
     };
     try {
       const { bestTranslator } = await import('../translate');
       const asked: string[][] = [];
-      const tr = await bestTranslator('en', () => async t => { asked.push(t); return t.map(s => `AI ${s}`); });
-      expect(await tr([' Bonjour ', 'Hola amigo', '12'])).toEqual([' CH Bonjour ', 'AI Hola amigo', '12']);
-      expect(asked).toEqual([['Hola amigo']]);
-    } finally { delete g.LanguageDetector; delete g.Translator; }
+      const tr = await bestTranslator('en', 'fr', () => async t => { asked.push(t); return t.map(s => `AI ${s}`); });
+      expect(await tr([' Bonjour ', 'Échec', '12'])).toEqual([' CH Bonjour ', 'AI Échec', '12']);
+      expect(asked).toEqual([['Échec']]);
+    } finally { delete g.Translator; }
+  });
+});
+
+describe('translateFromOriginal (rule 13: the original is always kept)', () => {
+  // A tiny document: a list of texts. The "translator" changes words in a lossy way, like a real one can.
+  function makeDoc(texts: string[]) {
+    let cur = [...texts];
+    const doc = {
+      snapshot: () => [...cur],
+      words: (b: unknown) => b as string[],
+      apply: async (b: unknown, tr: ((t: string[]) => Promise<string[]>) | null) => { const base = b as string[]; cur = tr ? await tr(base) : [...base]; return base.length; },
+      get: () => cur,
+      edit: (i: number, v: string) => { cur[i] = v; },
+    };
+    return doc;
+  }
+  const lossy = (to: string) => async (from: string) => async (t: string[]) => t.map(s => `${to}<${from}>(${s})`);
+
+  it('translates every time from the original and gives the exact original back', async () => {
+    localStorage.clear();
+    const { translateFromOriginal, originalOf } = await import('../translate');
+    const doc = makeDoc(['Holy Father,', 'Your Name is holy.']);
+    await translateFromOriginal('t1', doc, 'fr', 'en', lossy('fr'));
+    expect(doc.get()).toEqual(['fr<en>(Holy Father,)', 'fr<en>(Your Name is holy.)']);
+    await translateFromOriginal('t1', doc, 'de', 'fr', lossy('de'));
+    // From the original English, never from the French.
+    expect(doc.get()).toEqual(['de<en>(Holy Father,)', 'de<en>(Your Name is holy.)']);
+    const back = await translateFromOriginal('t1', doc, 'en', 'de', lossy('en'));
+    expect(back.restored).toBe(true);
+    expect(doc.get()).toEqual(['Holy Father,', 'Your Name is holy.']);
+    expect(originalOf('t1')?.lang).toBe('en');
+  });
+
+  it('keeps the first original for reference after the person edits a translation', async () => {
+    localStorage.clear();
+    const { translateFromOriginal, restoreOriginal } = await import('../translate');
+    const doc = makeDoc(['Bonjour']);
+    await translateFromOriginal('t2', doc, 'en', 'fr', lossy('en'));
+    doc.edit(0, 'Hello friend');
+    await translateFromOriginal('t2', doc, 'es', 'en', lossy('es'));
+    expect(doc.get()).toEqual(['es<en>(Hello friend)']);
+    expect(await restoreOriginal('t2', doc)).toBe(true);
+    expect(doc.get()).toEqual(['Bonjour']);
+    // Still known as French: asking for French changes nothing, English is made from it again.
+    expect((await translateFromOriginal('t2', doc, 'fr', 'en', lossy('fr'))).restored).toBe(true);
+    await translateFromOriginal('t2', doc, 'en', 'fr', lossy('en'));
+    expect(doc.get()).toEqual(['en<fr>(Bonjour)']);
   });
 });

@@ -430,20 +430,35 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
   // Changing the language can translate the letter too: every run of text, keeping its bold, links and styles.
   // Each part (body, header, footer) changes in one step, so Undo brings it back.
   useEffect(() => {
-    shell.translator?.(async tr => {
-      let n = 0;
-      for (const ed of [body, header, footer]) {
-        if (!ed || ed.isDestroyed) continue;
-        const runs: { from: number; to: number; text: string; marks: readonly import('@tiptap/pm/model').Mark[] }[] = [];
-        ed.state.doc.descendants((node, pos) => { if (node.isText && /\p{L}{2,}/u.test(node.text ?? '')) runs.push({ from: pos, to: pos + node.nodeSize, text: node.text!, marks: node.marks }); });
-        if (!runs.length) continue;
-        const got = await tr(runs.map(r => r.text));
-        const t = ed.state.tr;
-        for (let i = runs.length - 1; i >= 0; i--) if (got[i] && got[i] !== runs[i].text) { t.replaceWith(runs[i].from, runs[i].to, ed.schema.text(got[i], runs[i].marks)); n++; }
-        // Its own Undo step, never merged with the last words typed.
-        if (t.docChanged) ed.view.dispatch(closeHistory(t));
-      }
-      return n;
+    const parts = { body, header, footer };
+    const textsOf = (doc: import('@tiptap/pm/model').Node) => {
+      const runs: { from: number; to: number; text: string; marks: readonly import('@tiptap/pm/model').Mark[] }[] = [];
+      doc.descendants((node, pos) => { if (node.isText && /\p{L}{2,}/u.test(node.text ?? '')) runs.push({ from: pos, to: pos + node.nodeSize, text: node.text!, marks: node.marks }); });
+      return runs;
+    };
+    type Snap = Partial<Record<keyof typeof parts, unknown>>;
+    shell.translator?.({
+      snapshot: () => Object.fromEntries(Object.entries(parts).filter(([, ed]) => ed && !ed.isDestroyed).map(([k, ed]) => [k, ed!.getJSON()])),
+      words: base => Object.entries(base as Snap).flatMap(([k, json]) => {
+        const ed = parts[k as keyof typeof parts];
+        return ed && json ? textsOf(ed.schema.nodeFromJSON(json)).map(r => r.text) : [];
+      }),
+      apply: async (base, tr) => {
+        let n = 0;
+        for (const [k, json] of Object.entries(base as Snap)) {
+          const ed = parts[k as keyof typeof parts];
+          if (!ed || ed.isDestroyed || !json) continue;
+          const doc = ed.schema.nodeFromJSON(json);
+          const runs = textsOf(doc);
+          const got = tr ? await tr(runs.map(r => r.text)) : runs.map(r => r.text);
+          // The original first, then its words translated: the result never builds on an earlier translation.
+          const t = ed.state.tr.replaceWith(0, ed.state.doc.content.size, doc.content);
+          for (let i = runs.length - 1; i >= 0; i--) if (got[i] && got[i] !== runs[i].text) { t.replaceWith(runs[i].from, runs[i].to, ed.schema.text(got[i], runs[i].marks)); n++; }
+          // Its own Undo step, never merged with the last words typed.
+          if (!t.doc.eq(ed.state.doc)) { ed.view.dispatch(closeHistory(t)); if (!tr) n++; }
+        }
+        return n;
+      },
     });
     return () => shell.translator?.(null);
   }, [shell, body, header, footer]);
