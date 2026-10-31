@@ -62,6 +62,8 @@ jobs:
         run: npm run check:contrast
       - name: Adapting a Stage deck to its audience works on PC and phone
         run: npm run check:audience
+      - name: Office Class knows Excel's functions (440+, Insert function, DEVISE) on PC and phone
+        run: npm run check:formulas
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4

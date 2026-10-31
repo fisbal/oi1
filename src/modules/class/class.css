@@ -187,3 +187,26 @@ textarea.cell-editor { padding: 4px 6px; resize: none; line-height: 1.3; overflo
 /* The grid with the copilot beside it. */
 .class-body { flex: 1; min-height: 0; display: flex; }
 .class-body > .grid { flex: 1; min-width: 0; }
+
+/* Function library: "More functions" in sections, and the Insert function window. */
+.fn-more { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow: auto; }
+.fn-more h4 { margin: 4px 8px 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.fn-more .fn-list { max-height: none; }
+.fn-dialog { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(220px, 1.4fr); grid-template-areas: "search search" "cat cat" "names about"; gap: 10px; width: min(640px, calc(100vw - 64px)); }
+.fn-search { grid-area: search; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); font: inherit; }
+.fn-cat { grid-area: cat; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.fn-cat select { flex: 1; height: 30px; font: inherit; color: var(--ink); background: var(--bg, transparent); border: 1px solid var(--line); border-radius: 6px; }
+.fn-names { grid-area: names; display: flex; flex-direction: column; max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 4px; }
+.fn-names button { text-align: left; border: 0; background: none; color: var(--ink); font: 13px/1.3 ui-monospace, monospace; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
+.fn-names button.on { background: color-mix(in srgb, var(--app, var(--gold)) 22%, transparent); }
+.fn-none { margin: 8px; color: var(--muted); font-size: 13px; }
+.fn-about { grid-area: about; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; max-height: 300px; overflow: auto; }
+.fn-about code { display: block; font-weight: 600; margin-bottom: 6px; }
+.fn-about p { margin: 0 0 8px; }
+.fn-about dl { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.fn-about dt { font-weight: 600; font-family: ui-monospace, monospace; }
+.fn-about dd { margin: 0; color: var(--muted); }
+@media (max-width: 560px) {
+  .fn-dialog { grid-template-columns: 1fr; grid-template-areas: "search" "cat" "names" "about"; width: calc(100vw - 48px); }
+  .fn-names { max-height: 32vh; }
+}

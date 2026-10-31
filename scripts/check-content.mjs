@@ -33,6 +33,7 @@ const SHORT_BY_NATURE = {
   'Bibliography': 'a few titles for the same list, like Word',
   'Line numbers': 'none, every paragraph, every 5 or every 10, like Word',
   'Text direction': 'left to right or right to left',
+  'Logical': 'every logical function Excel has (IF, AND, OR, XOR, SWITCH…), like Excel\'s own Logical list',
 };
 // Lists still being brought to MIN_CHOICES, one app per pull request. This list only shrinks.
 const TODO = {

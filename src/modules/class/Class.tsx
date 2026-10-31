@@ -9,10 +9,11 @@ import { flushSync } from 'react-dom';
 import type { FileRef, Handoff, HandoffLink, OpenedFile, RecentFile, ShellApi, TableData } from '../../shell/contract';
 import { t, type MessageKey } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
+import { onRatesChange } from '../../shell/rates';
 import { isLiveId, liveStore, newLiveId, tableText, type SyncState } from '../../shell/live';
 import { useTheme } from '../../shell/theme';
 import { parseCsv, toCsv } from '../../formats/csv';
-import { FUNCTION_NAMES, cellName, colName, isError, moveRefs, parseCell, type Scalar } from '../../formats/formula';
+import { cellName, colName, isError, moveRefs, parseCell, type Scalar } from '../../formats/formula';
 import {
   computeBook, currencyFor, defaultDecimals, display, emptySheet, key, naturalAlign, readEntry, unkey, usedRange,
   type BorderLine, type Cell, type CellStyle, type Chart, type CondRule, type Merge, type NumberFormat, type SheetData, type WorkbookData,
@@ -24,8 +25,13 @@ import { FONT_GROUPS, FONT_SIZES, cssFont } from '../letter/model';
 import { CHART_TYPES, ChartSvg, DARK, LIGHT, PALETTES, chartData, svgToPng } from './chart';
 import { condLooks, type CondLook } from './cond';
 import { autofill, type Box } from './fill';
+import { InsertFunction, functionsIn, type FnCategory } from './functions';
 import { CondDialog, FilterMenu, FindPanel, HIGHLIGHT_KINDS, TOP_KINDS, type CondKind, type FindOptions } from './panels';
 import { borderCss, printHtml, sheetHtml } from './print';
+
+const FN_ICON: Record<'financial' | 'logical' | 'text' | 'date' | 'lookup' | 'math', string> = {
+  financial: 'currency', logical: 'check', text: 'case', date: 'date', lookup: 'search', math: 'sum',
+};
 import { classCopilot, type ClassBridge } from './copilot';
 import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
 
@@ -131,6 +137,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const [findStatus, setFindStatus] = useState('');
   const [filterMenu, setFilterMenu] = useState<null | { c: number; left: number; top: number }>(null);
   const [condDialog, setCondDialog] = useState<CondKind | null>(null);
+  const [fnDialog, setFnDialog] = useState<FnCategory | 'all' | null>(null);
   const [chartSel, setChartSel] = useState<string | null>(null);
   const [fillTo, setFillTo] = useState<Box | null>(null);
   const undo = useRef<WorkbookData[]>([]);
@@ -139,7 +146,10 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const editorRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
   const sheet = book.sheets[active] ?? book.sheets[0];
-  const allValues = useMemo(() => computeBook(book), [book]);
+  const [ratesTick, setRatesTick] = useState(0);
+  useEffect(() => onRatesChange(() => setRatesTick(n => n + 1)), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const allValues = useMemo(() => computeBook(book), [book, ratesTick]);
   const values = allValues[active] ?? allValues[0];
   const currency = currencyFor(lang, book);
   const used = useMemo(() => usedRange(sheet), [sheet]);
@@ -1678,11 +1688,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               </Drop>
             </Group>
             <Group label="class.group.functions">
-              <Drop big icon="fx" title="class.allFunctions">
-                {close => <div className="fn-list">{FUNCTION_NAMES.map(fn => (
-                  <MenuItem key={fn} label={fn} onClick={() => { close(); startEdit(`=${fn}(`, 'edit'); }} />
-                ))}</div>}
-              </Drop>
+              <Btn big icon="fx" title="class.fn.insert" onClick={() => setFnDialog('all')} />
             </Group>
             <Group label="class.group.filters">
               <Btn big icon="filter" title="class.filter" active={!!sheet.filter} onClick={toggleFilter} />
@@ -1692,9 +1698,21 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             <Group label="class.group.functions">
               <Btn big icon="sum" title="class.autoSum" onClick={() => autoSum()} />
               {(['AVERAGE', 'MIN', 'MAX', 'COUNT'] as const).map(fn => <Btn key={fn} big icon="fx" title={fn} onClick={() => autoSum(fn)} />)}
-              <Drop big icon="fx" title="class.allFunctions">
-                {close => <div className="fn-list">{FUNCTION_NAMES.map(fn => (
-                  <MenuItem key={fn} label={fn} onClick={() => { close(); startEdit(`=${fn}(`, 'edit'); }} />
+              <Btn big icon="fx" title="class.fn.insert" onClick={() => setFnDialog('all')} />
+            </Group>
+            <Group label="class.group.library">
+              {(['financial', 'logical', 'text', 'date', 'lookup', 'math'] as const).map(c => (
+                <Drop key={c} text icon={FN_ICON[c]} title={`class.fn.cat.${c}`}>
+                  {close => <div className="fn-list">{functionsIn(c).map(fn => (
+                    <MenuItem key={fn} label={fn} onClick={() => { close(); startEdit(`=${fn}(`, 'edit'); }} />
+                  ))}</div>}
+                </Drop>
+              ))}
+              <Drop text icon="fx" title="class.fn.more">
+                {close => <div className="fn-more">{(['statistical', 'engineering', 'information', 'database'] as const).map(c => (
+                  <section key={c}><h4>{t(`class.fn.cat.${c}` as MessageKey)}</h4><div className="fn-list">{functionsIn(c).map(fn => (
+                    <MenuItem key={fn} label={fn} onClick={() => { close(); startEdit(`=${fn}(`, 'edit'); }} />
+                  ))}</div></section>
                 ))}</div>}
               </Drop>
             </Group>
@@ -1928,6 +1946,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           onApply={off => changeSheet(s => { if (!s.filter) return; const hidden = { ...s.filter.hidden }; if (off.length) hidden[filterMenu.c] = off; else delete hidden[filterMenu.c]; s.filter = { ...s.filter, hidden }; })}
           onClose={() => setFilterMenu(null)} />
       )}
+      {fnDialog && <InsertFunction start={fnDialog} onClose={() => setFnDialog(null)} onPick={fn => startEdit(`=${fn}(`, 'edit')} />}
       {condDialog && <CondDialog kind={condDialog} range={single ? currentRegion(sel.a) : range} onClose={() => setCondDialog(null)} onOk={rule => addRule(rule)} />}
 
       {panel === 'file' && (
