@@ -12,7 +12,8 @@ const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--stric
 const url = `http://localhost:${PORT}/`;
 for (let i = 0; i < 60; i++) { try { if ((await fetch(url)).ok) break; } catch { /* not up yet */ } await new Promise(r => setTimeout(r, 500)); }
 
-const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
+const launchOpts = { ignoreDefaultArgs: ['--hide-scrollbars'] }; // PC checks need the browser's real scroll bar
+const browser = await chromium.launch(process.env.PW_CHROMIUM ? { ...launchOpts, executablePath: process.env.PW_CHROMIUM } : launchOpts);
 const problems = [], passed = [];
 const check = (ok, what) => (ok ? passed : problems).push(what);
 const H = '.module-host:not([hidden])';
@@ -48,17 +49,27 @@ for (const [device, viewport, mobile] of [['PC', { width: 1440, height: 900 }, f
     const pageScale = await page.evaluate(() => window.visualViewport?.scale ?? 1);
     check(pageScale < 1.05, `${name}: the app itself stays put while the document zooms (page scale ${pageScale.toFixed(2)})`);
 
-    // 2. The side scroll bar is there once zoomed in, and dragging it moves through the document.
+    // 2. One side scroll bar once zoomed in, and dragging it moves through the document. Phones get the app's own
+    //    bar (theirs hide); a PC with a mouse keeps the browser's bar, wider and coloured, and never two side by side.
     const bar = page.locator(`${H} .fast-scroll`).first();
     const hasBar = await bar.isVisible().catch(() => false);
     const tall = await area.evaluate(el => el.scrollHeight > el.clientHeight + 4);
-    check(hasBar === tall, `${name}: a side scroll bar is shown whenever there is something to scroll (${tall ? 'taller than the screen' : 'fits in height'})`);
-    if (hasBar) {
-      const b = await bar.boundingBox();
+    const nativeW = await area.evaluate(el => el.offsetWidth - el.clientWidth - parseFloat(getComputedStyle(el).borderLeftWidth) - parseFloat(getComputedStyle(el).borderRightWidth));
+    if (mobile) check(hasBar === tall, `${name}: a side scroll bar is shown whenever there is something to scroll (${tall ? 'taller than the screen' : 'fits in height'})`);
+    else {
+      check(!hasBar, `${name}: only one side bar on PC (no second bar beside the browser's)`);
+      if (tall) check(nativeW >= 12, `${name}: the PC side bar is wide enough to grab (${nativeW} px)`);
+    }
+    if (tall) {
+      const a = await area.boundingBox();
+      const b = hasBar ? await bar.boundingBox() : { x: a.x + a.width - nativeW, y: a.y + 20, width: nativeW, height: a.height - 40 };
       const top0 = await area.evaluate(el => el.scrollTop);
-      await page.mouse.move(b.x + b.width / 2, b.y + 10);
+      // Grab the handle: the app's bar at its top, the browser's bar where its thumb is now.
+      const m = await area.evaluate(el => ({ st: el.scrollTop, sh: el.scrollHeight, ch: el.clientHeight }));
+      const grabY = hasBar ? b.y + 10 : a.y + 16 + ((a.height - 32) * (m.st + m.ch / 2)) / m.sh;
+      await page.mouse.move(b.x + b.width / 2, grabY);
       await page.mouse.down();
-      await page.mouse.move(b.x + b.width / 2, b.y + b.height * 0.8, { steps: 6 });
+      await page.mouse.move(b.x + b.width / 2, hasBar ? b.y + b.height * 0.8 : Math.min(a.y + a.height - 20, grabY + a.height * 0.3), { steps: 6 });
       await page.mouse.up();
       await page.waitForTimeout(250);
       const top1 = await area.evaluate(el => el.scrollTop);
