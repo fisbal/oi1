@@ -145,7 +145,7 @@
 .findbar input:not([type]) , .findbar input[type="text"] { width: 200px; }
 .findbar input { height: 30px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; background: rgba(var(--shade-rgb), calc(.35 * var(--shade-k))); color: var(--ink); font: inherit; }
 .findbar input:focus { outline: none; border-color: rgba(212,168,67,.55); }
-.findbar button { height: 30px; min-width: 30px; border: 1px solid var(--line); border-radius: 8px; background: rgba(var(--fg-rgb), .05); color: var(--ink); padding: 0 9px; font: inherit; }
+.findbar button { height: 30px; min-width: 30px; border: 1px solid var(--line); border-radius: 999px; background: rgba(var(--fg-rgb), .05); color: var(--ink); padding: 0 9px; font: inherit; }
 .findbar button:hover { border-color: var(--hair); }
 .findbar button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-light); }
 .find-count { min-width: 64px; color: var(--muted); font-size: 12px; text-align: center; }
@@ -194,7 +194,7 @@
   animation: oi-slide-in .35s var(--ease);
 }
 .outline-pane header { display: flex; align-items: center; justify-content: space-between; padding: 0 6px 10px; }
-.outline-pane header button { border: 0; background: none; color: var(--muted); font-size: 18px; width: 26px; height: 26px; border-radius: 8px; }
+.outline-pane header button { border: 0; background: none; color: var(--muted); font-size: 18px; width: 26px; height: 26px; border-radius: 999px; }
 .outline-pane header button:hover { color: var(--ink); background: rgba(var(--fg-rgb), .06); }
 .outline-pane ol { list-style: none; margin: 0; padding: 0; }
 .outline-pane li button {
@@ -227,7 +227,7 @@
 .palette-list { list-style: none; margin: 0; padding: 6px; overflow: auto; }
 .palette-list button {
   display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; color: var(--ink); font: 14px var(--sans);
-  padding: 8px 10px; border-radius: 10px; text-align: left;
+  padding: 8px 10px; border-radius: 999px; text-align: left;
 }
 .palette-list button.on { background: rgba(212,168,67,.12); box-shadow: inset 2px 0 0 var(--gold); }
 .palette-icon { width: 22px; display: grid; place-items: center; color: var(--gold); flex: none; }
@@ -266,17 +266,6 @@
   position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 4px; font: 600 9.5px var(--sans); color: var(--ink); text-align: center;
   background: rgba(var(--bg-rgb), .78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-
-/* Office In 1 tab: one key per app, in its color. */
-.app-keys { display: grid; grid-template-columns: repeat(3, auto); gap: 4px 6px; }
-.app-key {
-  display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px 0 8px; border-radius: 8px; font: 600 11.5px var(--sans);
-  color: var(--ink); border: 1px solid var(--line); background: rgba(var(--fg-rgb), .03); white-space: nowrap;
-}
-.app-key i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-.app-key:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
-.app-key:disabled { opacity: .4; }
-.app-key:disabled i { box-shadow: none; }
 
 .callout-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; }
 
@@ -352,7 +341,7 @@
   animation: oi-slide-in .35s var(--ease); display: flex; flex-direction: column; gap: 10px;
 }
 .comments-pane header { display: flex; align-items: center; justify-content: space-between; padding: 0 6px; }
-.comments-pane header button { border: 0; background: none; color: var(--muted); font-size: 18px; width: 26px; height: 26px; border-radius: 8px; }
+.comments-pane header button { border: 0; background: none; color: var(--muted); font-size: 18px; width: 26px; height: 26px; border-radius: 999px; }
 .comments-pane header button:hover { color: var(--ink); background: rgba(var(--fg-rgb), .06); }
 .comments-pane > .muted { padding: 0 8px; font-size: 12.5px; }
 .cmt-card {
@@ -372,7 +361,7 @@
 .cmt-who small { font-size: 11px; color: var(--muted); }
 .cmt-tools { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
 .cmt-card:hover .cmt-tools, .cmt-card.on .cmt-tools, .cmt-tools:focus-within { opacity: 1; }
-.cmt-tools button { border: 0; background: none; color: var(--muted); width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; }
+.cmt-tools button { border: 0; background: none; color: var(--muted); width: 26px; height: 26px; border-radius: 999px; display: grid; place-items: center; }
 .cmt-tools button:hover { color: var(--gold-light); background: rgba(212,168,67,.12); }
 .cmt-text { margin: 8px 0 0; font-size: 13px; line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .cmt-reply { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }

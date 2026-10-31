@@ -15,6 +15,7 @@ import {
 } from '../../formats/slides';
 import { FileMenu } from '../../ui/FileMenu';
 import { Btn, ColorGrid, Combo, Dialog, Drop, Group, Icon, MenuItem, NumberBox, RibbonToggle, type ComboGroup } from '../../ui/kit';
+import { AppKeys, appColor } from '../../ui/AppKeys';
 import { TutoTab } from '../../ui/tuto/Tuto';
 import { qrDataUrl } from '../../ui/qr';
 import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
@@ -1406,7 +1407,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
         </>}
 
         {shownTab === 'oi1' && <>
-          <Group label="stage.group.withLetter">
+          <Group label="stage.group.withLetter" accent={appColor('letter')}>
             <Drop big icon="letter" title="stage.toLetter">
               {close => <>
                 {letters.map(x => <MenuItem key={x.tabId} label={x.title} onClick={() => { close(); void outlineToLetter(x.tabId); }} />)}
@@ -1415,7 +1416,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               </>}
             </Drop>
           </Group>
-          <Group label="stage.group.withClass">
+          <Group label="stage.group.withClass" accent={appColor('class')}>
             <Drop big icon="sheet" title="stage.fromClass">
               {close => <>
                 {sheets.map(x => <MenuItem key={x.tabId} label={x.title} onClick={() => { close(); void tableFromClass(x.tabId); }} />)}
@@ -1424,18 +1425,11 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             </Drop>
             <Btn big icon="sync" title="stage.tableToClass" onClick={tableToClass} disabled={!tableSel} />
           </Group>
-          <Group label="letter.group.withProdfos">
+          <Group label="letter.group.withProdfos" accent={appColor('prodfos')}>
             <Btn big icon="pdf" title="letter.savePdf" onClick={print} />
           </Group>
           <Group label="letter.group.apps">
-            <div className="app-keys">
-              {shell.apps().filter(a => a.id !== 'stage').map(a => (
-                <button key={a.id} type="button" className="app-key" disabled={!a.ready} onClick={() => shell.openModule(a.id)}
-                  style={{ '--accent': a.color } as CSSProperties} title={a.ready ? a.name : `${a.name} (${t('home.soon')})`}>
-                  <i />{a.name.replace('Office ', '')}
-                </button>
-              ))}
-            </div>
+            <AppKeys apps={shell.apps()} self="stage" onOpen={id => shell.openModule(id)} />
           </Group>
           <Group label="letter.group.share">
             <Btn big icon="share" title="letter.share" onClick={() => void share()} />
@@ -1509,7 +1503,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               </div>
             </div>
           </Group>
-          <Group label="stage.group.withClass">
+          <Group label="stage.group.withClass" accent={appColor('class')}>
             <Btn big icon="sheet" title={tableSel.link ? 'stage.openLinkedSheet' : 'stage.tableToClass'} onClick={tableToClass} />
             <Btn big icon="trash" title="letter.deleteTable" onClick={deleteSelected} />
           </Group>

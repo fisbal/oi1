@@ -85,6 +85,22 @@ for (const [name, viewport, mobile] of [['PC', { width: 1280, height: 800 }, fal
   const tb = await page.locator('.tabs').boundingBox();
   check(!!ab && !!tb && Math.abs(ab.x - tb.x) <= 40 || (ab.x >= tb.x - 1 && ab.x + ab.width <= tb.x + tb.width + 1), `${name}: the opened document's tab slides into view (${ab?.x}..${ab && ab.x + ab.width} in ${tb?.x}..${tb && tb.x + tb.width})`);
 
+  // Every app has the same "Every app" group in its Office In 1 tab: soft capsules with the launcher's pictures.
+  for (const i of [0, 1, 2]) {
+    await tabs.nth(i).click();
+    await page.waitForTimeout(500);
+    const H = '.module-host:not([hidden])';
+    await page.locator(`${H} .ribbon-tabs [role=tab]`).filter({ hasText: 'Office In 1' }).first().click();
+    await page.waitForTimeout(400);
+    const g = page.locator(`${H} .rgroup[aria-label="Every app"]`);
+    const keys = await g.locator('.app-key').count();
+    const pics = await g.locator('.app-key .scene-art').count();
+    const round = await g.locator('.app-key').first().evaluate(el => parseFloat(getComputedStyle(el).borderTopLeftRadius) >= el.offsetHeight / 2 - 1).catch(() => false);
+    const app = (await tabs.nth(i).locator('.tab-label').textContent() ?? '').trim();
+    check(keys >= 9 && pics === keys && round, `${name}: ${app}: "Every app" has ${keys} capsule keys with their pictures`);
+    await page.locator(`${H} .ribbon-tabs [role=tab]`).first().click().catch(() => {});
+  }
+
   // The language bubble: three choices, fits the screen, no arrow through it.
   await page.locator('select.lang').selectOption({ label: 'Français' });
   await page.waitForTimeout(500);

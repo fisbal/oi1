@@ -331,7 +331,7 @@
 .st-anim-list { display: flex; flex-direction: column; gap: 2px; padding: 4px; width: min(360px, 86vw); max-height: 340px; overflow-y: auto; }
 .st-anim-row { display: flex; align-items: center; gap: 4px; border-radius: 7px; padding: 2px 4px; }
 .st-anim-row.on { background: rgba(212,168,67,.12); }
-.st-anim-row button { border: 0; background: none; color: var(--ink); font: inherit; font-size: 12px; padding: 4px; border-radius: 6px; cursor: pointer; }
+.st-anim-row button { border: 0; background: none; color: var(--ink); font: inherit; font-size: 12px; padding: 4px; border-radius: 999px; cursor: pointer; }
 .st-anim-row button:hover:not(:disabled) { background: rgba(var(--fg-rgb), .07); }
 .st-anim-row button:disabled { opacity: .3; cursor: default; }
 .st-anim-row .grow { flex: 1; min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -376,13 +376,13 @@
   background: rgba(var(--bg-rgb), .85); color: var(--ink); font-size: 13px; line-height: 1.35;
 }
 .st-aud-bar .st-aud-text { flex: 1 1 220px; min-width: 0; }
-.st-aud-bar button { height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: rgba(var(--bg-rgb), .9); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; }
+.st-aud-bar button { height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(var(--bg-rgb), .9); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; }
 .st-aud-bar button.primary { background: color-mix(in srgb, var(--app, #D2601A) 80%, #000); border-color: transparent; color: #fff; }
 .st-aud-bar.busy .st-aud-text::after { content: ''; display: inline-block; width: 10px; height: 10px; margin-left: 8px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: -1px; animation: st-aud-spin .8s linear infinite; }
 @keyframes st-aud-spin { to { transform: rotate(360deg); } }
 .st-aud-seg { display: inline-flex; }
 .st-aud-seg button { border-radius: 0; }
-.st-aud-seg button:first-child { border-radius: 8px 0 0 8px; }
-.st-aud-seg button:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
+.st-aud-seg button:first-child { border-radius: 999px 0 0 999px; }
+.st-aud-seg button:last-child { border-radius: 0 999px 999px 0; border-left: 0; }
 .st-aud-seg button.on { background: rgba(var(--fg-rgb), .12); font-weight: 600; }
 .st-stage-wrap { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }

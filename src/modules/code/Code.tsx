@@ -11,7 +11,8 @@ import { t } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import { parseCsv } from '../../formats/csv';
 import { FileMenu } from '../../ui/FileMenu';
-import { Btn, Drop, Group, Icon, MenuItem, RibbonToggle, appIcon } from '../../ui/kit';
+import { Btn, Drop, Group, Icon, MenuItem, RibbonToggle } from '../../ui/kit';
+import { AppKeys, appColor } from '../../ui/AppKeys';
 import { TutoTab } from '../../ui/tuto/Tuto';
 import { qrDataUrl } from '../../ui/qr';
 import { buildPreview, buildSite, dirname, extOf, isBinary, normalize, resolvePath, type BuildError, type Files } from './build';
@@ -938,7 +939,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
             </Group>
           </>}
           {tab === 'oi1' && <>
-            <Group label="code.group.toLetter">
+            <Group label="code.group.toLetter" accent={appColor('letter')}>
               <Drop big icon="send" title="code.sendToLetter" disabled={!active}>
                 {close => <>
                   <span className="kicker">{t('code.sendHint')}</span>
@@ -948,7 +949,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
                 </>}
               </Drop>
             </Group>
-            <Group label="code.group.fromClass">
+            <Group label="code.group.fromClass" accent={appColor('class')}>
               <Drop big icon="sheet" title="code.tableFromClass">
                 {close => <>
                   <span className="kicker">{t('code.tableHint')}</span>
@@ -959,11 +960,8 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
                 </>}
               </Drop>
             </Group>
-            <Group label="class.group.apps">
-              {shell.apps().filter(a => a.id !== 'code').map(a => (
-                <Btn key={a.id} big icon={appIcon(a.id)} title={a.name.replace('Office ', '')}
-                  onClick={() => shell.openModule(a.id)} disabled={!a.ready} />
-              ))}
+            <Group label="letter.group.apps">
+              <AppKeys apps={shell.apps()} self="code" onOpen={id => shell.openModule(id)} />
             </Group>
           </>}
         </div>

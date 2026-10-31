@@ -237,9 +237,9 @@ export function Btn({ icon, label, title, onClick, active, disabled, big, style,
 }
 
 /** A labeled group of ribbon buttons, like "Font" or "Paragraph". */
-export function Group({ label, children }: { label: MessageKey | string; children: ReactNode }) {
+export function Group({ label, children, accent }: { label: MessageKey | string; children: ReactNode; accent?: string }) {
   return (
-    <div className="rgroup" role="group" aria-label={tr(label)}>
+    <div className={accent ? 'rgroup tinted' : 'rgroup'} role="group" aria-label={tr(label)} style={accent ? { '--accent': accent } as CSSProperties : undefined}>
       <div className="rgroup-body">{children}</div>
       <div className="rgroup-label">{tr(label)}</div>
     </div>

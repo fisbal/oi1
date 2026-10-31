@@ -26,7 +26,7 @@
 .copilot-name b { font-size: 14px; }
 .copilot-name span { font-size: 11px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .copilot-head button {
-  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer;
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer;
 }
 .copilot-head button:hover:not(:disabled), .copilot-head button.on { color: var(--gold-light); border-color: var(--line); background: rgba(var(--fg-rgb), .05); }
 .copilot-head button:disabled { opacity: .3; cursor: default; }
@@ -133,7 +133,7 @@
 /* Free with my account / Built-in / API key */
 .copilot-modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; width: 100%; margin: 4px 0 10px; }
 .copilot-modes button {
-  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 4px; border: 1px solid var(--line); border-radius: 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 4px; border: 1px solid var(--line); border-radius: 14px;
   background: rgba(var(--bg-rgb), .6); color: var(--ink); font: inherit; font-size: 12.5px; line-height: 1.25; cursor: pointer; text-align: center;
 }
 .copilot-modes button span { font-size: 11px; color: var(--muted); }
@@ -150,10 +150,10 @@
 .web-answer p { margin: 0; color: var(--muted); }
 .web-answer-x { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 4px; }
 .web-answer-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
-.web-answer-buttons button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: rgba(var(--bg-rgb), .9); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; }
+.web-answer-buttons button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(var(--bg-rgb), .9); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; }
 .web-answer-buttons button.primary { background: var(--gold); border-color: transparent; color: #1b1407; font-weight: 600; }
 .web-answer textarea { width: 100%; box-sizing: border-box; resize: vertical; padding: 7px 9px; border: 1px dashed var(--line); border-radius: 9px; background: rgba(var(--bg-rgb), .7); color: var(--ink); font: inherit; font-size: 12.5px; }
 .copilot-account { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; font-size: 12.5px; }
 .copilot-account span { flex: 1; min-width: 0; }
-.copilot-account button { height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: rgba(var(--bg-rgb), .9); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; }
+.copilot-account button { height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(var(--bg-rgb), .9); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; }
 .copilot-account button.primary { background: var(--gold); border-color: transparent; color: #1b1407; font-weight: 600; }
