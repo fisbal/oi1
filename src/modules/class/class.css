@@ -161,6 +161,21 @@ textarea.cell-editor { padding: 4px 6px; resize: none; line-height: 1.3; overflo
 }
 .sheet-tab:hover { color: var(--ink); background: rgba(var(--fg-rgb), .05); }
 .sheet-tab.on { color: var(--gold-light); background: rgba(212,168,67,.12); border-color: var(--hair); font-weight: 650; }
+.sheet-rename { color: var(--ink); background: var(--panel); border-color: var(--gold); font: inherit; font-size: 12.5px; outline: none; min-width: 80px; }
+.sheet-rename.bad { border-color: #c62828; box-shadow: 0 0 0 2px rgba(198, 40, 40, .25); }
+.sheet-menu {
+  position: fixed; z-index: 2500; min-width: 210px; padding: 6px; border-radius: 10px; background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(var(--shade-rgb, 0, 0, 0), .35); display: flex; flex-direction: column;
+}
+.sheet-menu > button { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px; border: 0; border-radius: 7px; background: none; color: inherit; font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
+.sheet-menu > button:hover:not(:disabled) { background: rgba(var(--fg-rgb), .07); }
+.sheet-menu > button:disabled { opacity: .4; cursor: default; }
+.sheet-menu > .danger { color: #e05252; }
+.sheet-menu > .danger.sure { background: #c62828; color: #fff; }
+.sheet-menu-colors { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px; border-block: 1px solid var(--line); margin: 4px 0; }
+.sheet-menu-colors button { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.sheet-menu-colors button.on { border-color: var(--ink); }
+.sheet-menu-colors .none { background: none; border: 1px solid var(--line); color: var(--muted); font-size: 11px; }
 .sheet-add { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 16px; line-height: 1; }
 .sheet-add:hover { color: var(--gold-light); border-color: var(--hair); }
 
