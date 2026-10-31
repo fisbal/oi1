@@ -11,6 +11,7 @@ import { LINE_NUMBERS, MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, WATERMARKS, isDark
 import type { AppInfo, TabInfo } from '../../shell/contract';
 import { PROOF_TAGS } from '../../ui/proof/proof';
 import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, NumberBox, RibbonToggle, type ComboGroup } from '../../ui/kit';
+import { TutoTab } from '../../ui/tuto/Tuto';
 import { CopilotButton } from '../../ui/Copilot';
 import { CALLOUTS, CALLOUT_KINDS, CLEAN_UPS, TABLE_STYLES, applyTableStyle, type CalloutKind, type CleanUp, type TableStyleId } from './smart';
 import { LETTER_PARTS, type LetterPart } from './templates/parts';
@@ -295,6 +296,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
         ))}
         <button type="button" role="tab" aria-selected={shownTab === 'oi1'} className={`ribbon-special${shownTab === 'oi1' ? ' on' : ''}`}
           onMouseDown={e => e.preventDefault()} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
+        <TutoTab />
         <RibbonToggle />
         {s.inTable && (
           <button type="button" role="tab" aria-selected={shownTab === 'table'} className={shownTab === 'table' ? 'on' : ''}
@@ -334,9 +336,9 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           <Group label="letter.group.font">
             <div className="rows">
               <div className="row">
-                <Combo className="font-box" label={t('letter.font')} value={fontShown} groups={fontGroups}
+                <Combo className="font-box" help="letter.font" label={t('letter.font')} value={fontShown} groups={fontGroups}
                   itemStyle={f => ({ fontFamily: cssFont(f) })} onPick={f => { rememberFont(f); run().setFontFamily(f).run(); }} />
-                <Combo className="size-box" label={t('letter.fontSize')} value={String(sizeShown)} numeric inputMode="decimal"
+                <Combo className="size-box" help="letter.fontSize" label={t('letter.fontSize')} value={String(sizeShown)} numeric inputMode="decimal"
                   groups={[{ items: FONT_SIZES.map(String) }]} onPick={v => setSize(parseFloat(v.replace(',', '.')))} />
                 <Btn icon="grow" title="letter.grow" onClick={() => step(1)} />
                 <Btn icon="shrink" title="letter.shrink" onClick={() => step(-1)} />

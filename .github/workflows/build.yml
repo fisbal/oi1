@@ -72,6 +72,8 @@ jobs:
         run: npm run check:zoom
       - name: Changing the language asks what to translate (everything, menus only, document only) on PC and phone
         run: npm run check:translate
+      - name: The Tuto tab explains every button (all of Office Class) on PC and phone
+        run: npm run check:tuto
       - name: Choosing the copilot (Claude, ChatGPT, Gemini, Microsoft …) works on PC and phone
         run: npm run check:copilot
       - name: Keep the screenshots
