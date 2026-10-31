@@ -315,6 +315,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .app-name { font-weight: 750; color: color-mix(in srgb, var(--app) 60%, var(--ink)); white-space: nowrap; }
 .app-doc { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .app-doc::before { content: '·'; margin-right: 8px; opacity: .6; }
+.save-area { margin-left: auto; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.save-badge { font-size: 12px; color: var(--muted); white-space: nowrap; max-width: 34vw; overflow: hidden; text-overflow: ellipsis; }
+.save-badge.save-saved { color: color-mix(in srgb, #2e9d5b 75%, var(--ink)); }
+.save-badge.save-error { color: #d14343; font-weight: 650; }
+.autosave { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.autosave input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.autosave-track { position: relative; width: 26px; height: 14px; border-radius: 99px; background: rgba(var(--fg-rgb), .2); transition: background .2s; }
+.autosave-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.autosave input:checked + .autosave-track { background: var(--app); }
+.autosave input:checked + .autosave-track::after { transform: translateX(12px); }
+.autosave input:focus-visible + .autosave-track { outline: 2px solid var(--app); outline-offset: 2px; }
 .app-frame .ribbon-tabs > button.on:not(.ribbon-file) { color: color-mix(in srgb, var(--app) 55%, var(--ink)); }
 .app-frame .ribbon-tabs > button.on:not(.ribbon-file)::after { background: var(--app); box-shadow: 0 0 10px color-mix(in srgb, var(--app) 70%, transparent); }
 .embed-bar {
@@ -358,4 +369,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (max-width: 640px) {
   .app-bar { height: 22px; padding: 0 10px; font-size: 12px; gap: 6px; }
   .app-bar .app-badge { min-width: 17px; height: 17px; font-size: 10px; }
+  .app-bar .autosave-label, .app-bar .app-doc { display: none; }
+  .save-badge { font-size: 11px; max-width: 46vw; }
 }

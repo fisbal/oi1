@@ -20,7 +20,8 @@
     "check:sync": "node scripts/check-sync.mjs",
     "check:proof": "node scripts/check-proof.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
-    "check:audience": "node scripts/check-audience.mjs"
+    "check:audience": "node scripts/check-audience.mjs",
+    "check:autosave": "node scripts/check-autosave.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
