@@ -56,6 +56,8 @@ jobs:
         run: npm run check:sync
       - name: Check spelling, grammar and style underlines and the fix bubble
         run: npm run check:proof
+      - name: Adapting a Stage deck to its audience works on PC and phone
+        run: npm run check:audience
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4
