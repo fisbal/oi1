@@ -99,21 +99,28 @@ export default function App() {
     setActiveId(cur => (cur === tabId ? null : cur));
   }, []);
 
-  const closeTab = useCallback((tabId: string) => {
-    forgetTab(tabId);
-    forgetCloudTab(tabId);
-    if (!confirm(t('tab.confirmClose'))) return;
-    store.removePrefix(`${tabId}:`);
-    receivers.delete(tabId);
-    answerers.delete(tabId);
-    void idb.deletePrefix('kv', `${tabId}:`).catch(() => {});
+  const closeTabs = useCallback((ids: string[], ask = true) => {
+    if (!ids.length || (ask && !confirm(t(ids.length > 1 ? 'tab.confirmCloseAll' : 'tab.confirmClose', { n: ids.length })))) return;
+    for (const tabId of ids) {
+      forgetTab(tabId);
+      forgetCloudTab(tabId);
+      store.removePrefix(`${tabId}:`);
+      receivers.delete(tabId);
+      answerers.delete(tabId);
+      void idb.deletePrefix('kv', `${tabId}:`).catch(() => {});
+    }
     setTabs(ts => {
-      const i = ts.findIndex(t => t.tabId === tabId);
-      const rest = ts.filter(t => t.tabId !== tabId);
-      setActiveId(cur => (cur === tabId ? (rest[i] ?? rest[i - 1])?.tabId ?? null : cur));
+      const gone = new Set(ids);
+      const rest = ts.filter(t => !gone.has(t.tabId));
+      setActiveId(cur => {
+        if (!cur || !gone.has(cur)) return cur;
+        const i = ts.findIndex(t => t.tabId === cur);
+        return (ts.slice(i + 1).find(t => !gone.has(t.tabId)) ?? ts.slice(0, i).reverse().find(t => !gone.has(t.tabId)))?.tabId ?? null;
+      });
       return rest;
     });
   }, []);
+  const closeTab = useCallback((tabId: string) => closeTabs([tabId]), [closeTabs]);
 
   const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
   const notify = useCallback((text: string) => setToast(cur => ({ text, n: (cur?.n ?? 0) + 1 })), []);
@@ -334,14 +341,24 @@ export default function App() {
                 {tabs.map(tab => {
                   const entry = modules.find(m => m.id === tab.moduleId)!;
                   return (
-                    <button key={tab.tabId} role="menuitem" className={tab.tabId === activeId ? 'on' : ''} style={{ '--app': entry.code } as CSSProperties}
-                      onClick={() => { setActiveId(tab.tabId); setAllTabs(false); }}>
-                      <span className="app-badge" aria-hidden="true">{entry.badge}</span>
-                      <span className="tabs-menu-label">{tab.title}</span>
-                      <small>{entry.name}</small>
-                    </button>
+                    <div key={tab.tabId} className={`tabs-menu-row${tab.tabId === activeId ? ' on' : ''}`} role="none" style={{ '--app': entry.code } as CSSProperties}>
+                      <button role="menuitem" className="tabs-menu-open" onClick={() => { setActiveId(tab.tabId); setAllTabs(false); }}>
+                        <span className="app-badge" aria-hidden="true">{entry.badge}</span>
+                        <span className="tabs-menu-label">{tab.title}</span>
+                        <small>{entry.name}</small>
+                      </button>
+                      <button className="tabs-menu-close" title={t('tab.close')} aria-label={`${t('tab.close')} : ${tab.title}`}
+                        onClick={e => { e.stopPropagation(); closeTab(tab.tabId); }}>
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+                      </button>
+                    </div>
                   );
                 })}
+                <div className="tabs-menu-foot">
+                  <button className="tabs-menu-closeall" onClick={() => { closeTabs(tabs.filter(x => x.tabId !== activeId).map(x => x.tabId)); }}
+                    disabled={tabs.length < 2}>{t('tab.closeOthers')}</button>
+                  <button className="tabs-menu-closeall" onClick={() => { closeTabs(tabs.map(x => x.tabId)); setAllTabs(false); }}>{t('tab.closeAll')}</button>
+                </div>
               </div>
             )}
           </div>
@@ -487,8 +504,10 @@ function TabHost({ tab, hidden, makeApi, onOpen, onDrop }: { tab: Tab; hidden: b
     });
     return () => {
       cancelled = true;
-      mounted?.unmount?.();
-      el.innerHTML = '';
+      // An app is its own React root: unmounting it while this tree is committing makes React put it off, and
+      // emptying the element before that made it fail ("removeChild … not a child"). So both wait a tick.
+      const m = mounted;
+      setTimeout(() => { m?.unmount?.(); el.innerHTML = ''; }, 0);
     };
   }, [tab.tabId, tab.moduleId]);
 
