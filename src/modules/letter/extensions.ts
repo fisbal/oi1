@@ -95,6 +95,11 @@ export const ParagraphFormat = Extension.create({
           parseHTML: el => el.style.lineHeight || null,
           renderHTML: attrs => (attrs.lineHeight ? { style: `line-height: ${attrs.lineHeight}` } : {}),
         },
+        tabStops: {
+          default: null,
+          parseHTML: el => el.getAttribute('data-tabs') || null,
+          renderHTML: attrs => (attrs.tabStops ? { 'data-tabs': attrs.tabStops } : {}),
+        },
         spaceBefore: ptAttr('spaceBefore', 'margin-top'),
         spaceAfter: ptAttr('spaceAfter', 'margin-bottom'),
         indentLeft: ptAttr('indentLeft', 'margin-left'),

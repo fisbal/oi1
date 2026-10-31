@@ -13,6 +13,7 @@ import FileHandler from '@tiptap/extension-file-handler';
 import { CharacterCount, Placeholder } from '@tiptap/extensions';
 import { t } from '../../shell/i18n';
 import { CellBackground, ListStyle, PageBreak, PageNumber, ParagraphFormat, TextStyleExtras } from './extensions';
+import { TabStops } from './tabStops';
 import { Pagination } from './pagination';
 import { Citation, IndexTerm } from './references';
 import { Comment, Deletion, Footnote, Insertion, Modification, TrackChanges } from './review';
@@ -58,6 +59,7 @@ export function letterExtensions(part: 'body' | 'header' | 'footer', proof?: Pro
     Subscript,
     Superscript,
     ParagraphFormat,
+    TabStops,
     TextStyleExtras,
     CellBackground,
     ListStyle,

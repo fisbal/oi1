@@ -225,3 +225,39 @@ describe('Word files written by other programs', () => {
     expect(find(doc.body, n => n.type === 'image')).toBeTruthy();
   });
 });
+
+describe('the conversion fidelity test (Martin, Document A)', () => {
+  const all = (node: JSONContent | null | undefined, pred: (n: JSONContent) => boolean, out: JSONContent[] = []): JSONContent[] => {
+    if (!node) return out;
+    if (pred(node)) out.push(node);
+    for (const c of node.content ?? []) all(c, pred, out);
+    return out;
+  };
+  const textIn = (n: JSONContent): string => n.text ?? (n.content ?? []).map(textIn).join('');
+  it('keeps tab stops, lists, the footnote, the link and the table through open and save', async () => {
+    const { readFileSync } = await import('node:fs');
+    const buf = readFileSync(`${process.cwd()}/src/modules/letter/__tests__/fixtures/conversion-test-a.docx`);
+    const doc = await readDocx(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+    const check = (d: LetterDoc) => {
+      const tabsPara = find(d.body, n => n.type === 'paragraph' && textIn(n).startsWith('[P2-09]'));
+      expect(tabsPara?.attrs?.tabStops).toBe('l144,c288,r468');
+      expect(all(d.body, n => n.type === 'footnote')).toHaveLength(1);
+      expect(all(d.body, n => !!n.marks?.some(m => m.type === 'link'))).not.toHaveLength(0);
+      const table = find(d.body, n => n.type === 'table');
+      expect(table?.content).toHaveLength(5);
+      expect(table?.content?.[0].content).toHaveLength(4);
+      // The numbered list keeps its sub-steps one level down.
+      const ol = find(d.body, n => n.type === 'orderedList' && textIn(n).includes('First step'));
+      expect(find(ol, n => n.type === 'orderedList' && n !== ol && textIn(n).includes('Sub-step a'))).toBeTruthy();
+      expect(textIn(d.body)).toContain('END-OF-DOCUMENT-CHECK-7Q4X');
+    };
+    check(doc);
+    const bytes = await letterToDocx(doc, 'Conversion Test A');
+    const JSZip = (await import('jszip')).default;
+    const xml = await (await JSZip.loadAsync(bytes)).file('word/document.xml')!.async('string');
+    expect(xml).toContain('<w:tab w:val="left" w:pos="2880"/>');
+    expect(xml).toContain('<w:tab w:val="right" w:pos="9360"/>');
+    expect(xml).toMatch(/<w:tblCellMar>/);
+    check(await readDocx(bytes));
+  });
+});
