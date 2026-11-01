@@ -335,6 +335,10 @@ function WantPanel({ anchor, moduleId, ribbon, onClose }: { anchor: HTMLElement;
             <span className="want-num">✦</span>
             <span className="want-main">{busy ? t('want.asking') : t('want.ask')}</span>
           </button>
+          <button type="button" className="want-row want-assistant" onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('oi1-assistant', { detail: q.trim() })); }}>
+            <span className="want-num">A</span>
+            <span className="want-main">{t('want.assistant')}</span>
+          </button>
           {aiError && <p className="want-note want-error">{aiError}</p>}
         </div>
       )}

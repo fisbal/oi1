@@ -38,6 +38,7 @@
     "check:autosave": "node scripts/check-autosave.mjs",
     "check:cloud": "node scripts/check-cloud.mjs",
     "check:copilot": "node scripts/check-copilot.mjs",
+    "check:assistant": "node scripts/check-assistant.mjs",
     "check:shield": "node scripts/check-shield.mjs"
   },
   "dependencies": {

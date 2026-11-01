@@ -98,6 +98,8 @@ jobs:
         run: npm run check:tuto
       - name: Choosing the copilot (Claude, ChatGPT, Gemini, Microsoft …) works on PC and phone
         run: npm run check:copilot
+      - name: Office Assistant makes linked documents in the Offices from plain words, with and without AI (PC + phone)
+        run: npm run check:assistant
       - name: The shield checks files, links and pasted scams, makes vaccines (PC + phone)
         run: npm run check:shield
       - name: Keep the screenshots
