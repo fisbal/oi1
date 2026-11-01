@@ -7,19 +7,22 @@ name: Build and release OI1
 #   mac      the Mac app (.dmg, Apple silicon and Intel), made with Tauri
 #   android  the Android app (.apk), made with Tauri and signed
 #   release  on main, a GitHub Release with all of them plus the source code
-# Cost-aware (the repo is private: Actions minutes are counted, Mac x10, Windows x2):
-#   pull request  every check of the web job on phone, tablet, PC and Mac sizes (rule 16), no native builds
-#   push to main  build + publish the web app (Pages, MS Store) at once; the checks already passed on the PR
-#   every night   if main changed since the last release: Windows, Mac, Android + the GitHub Release,
+# Cost-aware (the repo is private: Pro includes 3,000 Actions minutes a month, Mac counts x10, Windows x2;
+# Martin's budget for going over is $5/month, so the whole plan is sized to stay under 3,000):
+#   pull request  nothing runs while a PR is being worked on. When it is ready, Claude adds the label
+#                 "verifier": every check of the web job runs on phone, tablet, PC and Mac sizes, both
+#                 orientations (rule 16), and again on each later push while the label is on. Merge only on green.
+#   push to main  build + publish the web app (Pages, MS Store) at once; the checks passed on the PR
+#   every Monday  if main changed since the last release: Windows, Mac, Android + the GitHub Release,
 #                 copied within 30 minutes to the public update channel on the hub (fisbal.github.io/updates/oi1)
 #   by hand       (Run workflow) everything: all checks, all apps, a release
 on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
   schedule:
-    - cron: '23 6 * * *'
+    - cron: '23 6 * * 1'
   workflow_dispatch:
 
 # Least privilege (OpenSSF Scorecard "Token-Permissions"): every job reads only; the two jobs that
@@ -27,8 +30,9 @@ on:
 permissions:
   contents: read
 
+# A PR event that runs nothing (no "verifier" label) gets its own group, so it never cancels a running check.
 concurrency:
-  group: build-${{ github.ref }}
+  group: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'verifier') && format('idle-{0}', github.run_id) || format('build-{0}', github.ref) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -38,7 +42,7 @@ env:
 
 jobs:
   changed:
-    # Nightly: build the apps only if main moved since the newest release.
+    # Weekly: build the apps only if main moved since the newest release.
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     outputs:
@@ -55,7 +59,12 @@ jobs:
 
   web:
     needs: changed
-    if: ${{ !cancelled() && (github.event_name != 'schedule' || needs.changed.outputs.go == 'true') && !(github.event_name == 'pull_request' && github.event.pull_request.draft) }}
+    if: >-
+      ${{ !cancelled() && (
+        (github.event_name == 'pull_request' && !github.event.pull_request.draft && contains(github.event.pull_request.labels.*.name, 'verifier')
+          && (github.event.action != 'labeled' || github.event.label.name == 'verifier'))
+        || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        || (github.event_name == 'schedule' && needs.changed.outputs.go == 'true')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
