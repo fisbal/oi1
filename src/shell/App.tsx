@@ -183,6 +183,20 @@ export default function App() {
   const activeIdRef = useRef(activeId);
   activeIdRef.current = activeId;
 
+  // "Je veux…" hands a task to Office Assistant: its open tab takes it, or a new one opens with it.
+  useEffect(() => {
+    const on = (e: Event) => {
+      const words = String((e as CustomEvent).detail ?? '');
+      const html = `<p>${words.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`;
+      const have = tabsRef.current.find(x => x.moduleId === 'assistant');
+      if (!have) { openModule('assistant', undefined, { kind: 'html', title: '', html }); return; }
+      setActiveId(have.tabId);
+      for (const fn of receivers.get(have.tabId) ?? []) void fn({ kind: 'html', title: '', html }, have.tabId);
+    };
+    window.addEventListener('oi1-assistant', on);
+    return () => window.removeEventListener('oi1-assistant', on);
+  }, [openModule]);
+
   const makeApi = useCallback((tabId: string, moduleId: string): ShellApi => ({
     tabId,
     openFile: async extensions => {
@@ -520,7 +534,7 @@ function TabHost({ tab, hidden, makeApi, onOpen, onDrop }: { tab: Tab; hidden: b
         <span className="app-badge" aria-hidden="true">{entry.badge}</span>
         <span className="app-name">{entry.name}</span>
         <span className="app-doc" title={tab.title}>{tab.title}</span>
-        <WantBar moduleId={tab.moduleId} />
+        {tab.moduleId !== 'assistant' && <WantBar moduleId={tab.moduleId} />}
         <SaveBadge tabId={tab.tabId} onOpen={onOpen} />
       </div>
       <div ref={ref} className="module-host" hidden={hidden} />

@@ -94,6 +94,8 @@ jobs:
         run: npm run check:tuto
       - name: Choosing the copilot (Claude, ChatGPT, Gemini, Microsoft …) works on PC and phone
         run: npm run check:copilot
+      - name: Office Assistant makes linked documents in the Offices from plain words, with and without AI (PC + phone)
+        run: npm run check:assistant
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4

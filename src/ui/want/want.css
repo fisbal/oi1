@@ -93,3 +93,4 @@
 .tip-close { grid-column: 3; grid-row: 1; width: 28px; height: 28px; }
 @media (prefers-reduced-motion: reduce) { .want-glow, .want-panel, .want-guide, .want-step, .tip-bubble { animation: none; } }
 @media print { .want-pill, .want-panel, .want-guide, .want-layer, .tip-bubble { display: none !important; } }
+.want-assistant .want-num { background: #7B4FD0; color: #fff; border-color: transparent; }
