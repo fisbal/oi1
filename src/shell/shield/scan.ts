@@ -62,7 +62,7 @@ async function scanZip(bytes: Uint8Array, name: string, out: Finding[]) {
     if (p.startsWith('/') || p.split('/').includes('..')) out.push({ level: 'danger', code: 'traversal', detail: p });
     const low = p.toLowerCase();
     if (/vbaproject\.bin$|vbadata\.xml$/.test(low)) out.push({ level: 'warn', code: 'macro', detail: p });
-    else if (/(^|\/)(embeddings|activex)\/|oleobject\d*\.bin$/.test(low)) out.push({ level: 'warn', code: 'ole', detail: p });
+    else if (/(^|\/)(embeddings|activex)\//.test(low) || /oleobject\d*\.bin$/.test(low)) out.push({ level: 'warn', code: 'ole', detail: p });
     else if (RUNNABLE_EXT.includes(ext(low))) out.push({ level: OFFICE_ZIP.includes(ext(name)) ? 'danger' : 'warn', code: 'program', detail: p });
     if (/\.rels$/.test(low) && !f.dir) {
       const xml = await f.async('string');

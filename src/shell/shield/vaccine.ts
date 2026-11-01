@@ -4,7 +4,8 @@
 // like Microsoft's "Protected View" + "Content Disarm and Reconstruction" (CDR) gateways do.
 import JSZip from 'jszip';
 
-const DROP = /(^|\/)(vbaProject\.bin|vbaData\.xml|vbaProjectSignature\.bin|vbaProjectSignatureAgile\.bin)$|(^|\/)(embeddings|activeX)\/|oleObject\d*\.bin$/i;
+const DROP_RES = [/(^|\/)(vbaProject\.bin|vbaData\.xml|vbaProjectSignature\.bin|vbaProjectSignatureAgile\.bin)$/i, /(^|\/)(embeddings|activeX)\//i, /oleObject\d*\.bin$/i];
+const dropped = (path: string) => DROP_RES.some(re => re.test(path));
 
 /** A copy of an Office file without macros, embedded objects or outside links. Null when nothing needed cleaning. */
 export async function disinfect(name: string, data: ArrayBuffer): Promise<{ name: string; data: ArrayBuffer; removed: string[] } | null> {
@@ -12,7 +13,7 @@ export async function disinfect(name: string, data: ArrayBuffer): Promise<{ name
   try { zip = await JSZip.loadAsync(data); } catch { return null; }
   const removed: string[] = [];
   for (const path of Object.keys(zip.files)) {
-    if (DROP.test(path) || path.split('/').includes('..')) { zip.remove(path); removed.push(path); }
+    if (dropped(path) || path.split('/').includes('..')) { zip.remove(path); removed.push(path); }
   }
   for (const path of Object.keys(zip.files).filter(p => p.endsWith('.rels'))) {
     const xml = await zip.file(path)!.async('string');
