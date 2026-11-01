@@ -18,10 +18,10 @@ const problems = [], passed = [];
 const check = (ok, what) => (ok ? passed : problems).push(what);
 const H = '.module-host:not([hidden])';
 const pct = async page => Number(((await page.locator(`${H} .status-zoom .pct`).first().textContent()) ?? '').replace(/\D/g, ''));
-const AREA = { Class: '.cells-scroll', Letter: '.canvas', Stage: '.st-stage', Draw: '.dr-scroll' };
+const AREA = { Class: '.cells-scroll', Letter: '.canvas', Stage: '.st-stage', Draw: '.dr-scroll', Notes: '.nt-scroll' };
 
 for (const [device, viewport, mobile] of [['PC', { width: 1440, height: 900 }, false], ['Phone', { width: 390, height: 844 }, true]]) {
-  for (const app of ['Class', 'Letter', 'Stage', 'Draw']) {
+  for (const app of ['Class', 'Letter', 'Stage', 'Draw', 'Notes']) {
     const ctx = await browser.newContext({ viewport, locale: 'en-US', isMobile: mobile, hasTouch: mobile });
     const page = await ctx.newPage();
     page.on('pageerror', e => problems.push(`${device} ${app}: script error: ${e.message}`));
@@ -86,10 +86,11 @@ for (const [device, viewport, mobile] of [['PC', { width: 1440, height: 900 }, f
       const r = el => el?.getBoundingClientRect();
       if (app === 'Class') { const area = r(document.querySelector(`${h} .cells-area`)); const hh = [...document.querySelectorAll(`${h} .col-head, ${h} .col-heads [class*=col]`)].find(e => e.textContent.trim() === 'H'); const b = r(hh); return !!b && b.right <= area.right + 2; }
       if (app === 'Letter') { const c = r(document.querySelector(`${h} .canvas`)); const p = r(document.querySelector(`${h} .sheet`)); return !!p && p.width <= c.width + 2 && p.left >= c.left - 2; }
+      if (app === 'Notes') { const c = r(document.querySelector(`${h} .nt-scroll`)); const p = r(document.querySelector(`${h} .nt-page`)); return !!p && p.width <= c.width + 2 && p.left >= c.left - 2; }
       if (app === 'Draw') { const c = r(document.querySelector(`${h} .dr-scroll`)); const p = r(document.querySelector(`${h} .dr-page`)); return !!p && p.right <= c.right + 2 && p.bottom <= c.bottom + 2 && p.left >= c.left - 2 && p.top >= c.top - 2; }
       const s = r(document.querySelector(`${h} .st-stage`)); const k = r(document.querySelector(`${h} .st-canvas`)); return !!k && k.right <= s.right + 2 && k.bottom <= s.bottom + 2 && k.left >= s.left - 2;
     }, [H, app]);
-    check(whole, `${name}: after "See it all" the whole ${app === 'Class' ? 'sheet (A to H at least)' : app === 'Letter' || app === 'Draw' ? 'page' : 'slide'} is in view`);
+    check(whole, `${name}: after "See it all" the whole ${app === 'Class' ? 'sheet (A to H at least)' : app === 'Letter' || app === 'Draw' || app === 'Notes' ? 'page' : 'slide'} is in view`);
     await ctx.close();
   }
 }

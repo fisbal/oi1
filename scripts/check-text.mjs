@@ -12,7 +12,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const PORT = Number(process.env.PORT) || 4185;
-const APPS = ['Letter', 'Class', 'Stage', 'Code+', 'Draw'];
+const APPS = ['Letter', 'Class', 'Stage', 'Code+', 'Draw', 'Notes'];
 const LOCALES = ['en-US', 'fr-FR', 'es-ES', 'pt-BR', 'de-DE'];
 const SCREENS = [
   { name: 'pc', viewport: { width: 1440, height: 900 } },

@@ -27,7 +27,7 @@ export const modules: ModuleEntry[] = [
   { id: 'code', name: 'In 1 Code+', kind: 'kind.code', color: '#B8E05F', code: '#6E9A12', badge: 'C+', extensions: ['.zip', '.js', '.mjs', '.jsx', '.ts', '.tsx', '.css', '.scss', '.json', '.md', '.py', '.sql', '.dart'], load: () => import('../modules/code') },
   { id: 'prodfos', name: 'In 1 ProDFos', kind: 'kind.prodfos', color: '#E25C5C', code: '#C62828', badge: 'P', extensions: [], load: () => import('../modules/prodfos') },
   { id: 'assistant', name: 'In 1 Assistant', kind: 'kind.assistant', color: '#B48CF0', code: '#7B4FD0', badge: 'A', extensions: [], load: () => import('../modules/assistant') },
-  { id: 'notes', name: 'In 1 Notes', kind: 'kind.notes', color: '#E8C35F', code: '#B98A00', badge: 'N', extensions: [], load: null },
+  { id: 'notes', name: 'In 1 Notes', kind: 'kind.notes', color: '#E8C35F', code: '#B98A00', badge: 'N', extensions: [], load: () => import('../modules/notes') },
   { id: 'plan', name: 'In 1 Plan', kind: 'kind.plan', color: '#5FB8E8', code: '#0E7FB8', badge: 'P', extensions: [], load: null },
   { id: 'mail', name: 'In 1 Mail', kind: 'kind.mail', color: '#8C9CF0', code: '#4F5FD0', badge: 'M', extensions: [], load: null },
   { id: 'draw', name: 'In 1 Draw', kind: 'kind.draw', color: '#E26FC2', code: '#B8379A', badge: 'D', extensions: ['.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif'], load: () => import('../modules/draw') },
