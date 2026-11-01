@@ -5,6 +5,8 @@
 // offline, dictation types what you say, and the AI summarizes, makes to-do lists, explains, and answers from your
 // own notes. Everything stays on the device (IndexedDB) and every Notes tab shows the same notebooks.
 
+import { useDictation } from '../../ui/useDictation';
+import { insertDictation } from '../../ui/dictation';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -98,13 +100,11 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
   const [dialog, setDialog] = useState<'tags' | 'study' | 'sketch' | 'link' | null>(null);
   const [ask, setAsk] = useState<Ask>(null);
   const [note, setNote] = useState('');
-  const [dictating, setDictating] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const searchBox = useRef<HTMLInputElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
   const importInput = useRef<HTMLInputElement>(null);
-  const speech = useRef<{ stop(): void } | null>(null);
   const untitled = t('notes.untitled');
   // On a phone the folded ribbon opened for a button steps aside once a window opens.
   useEffect(() => { if (dialog || ask) closeRibbonPeek(); }, [dialog, ask]);
@@ -305,24 +305,17 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
     for (const f of files) if (IMAGE_TYPES.includes(f.type)) { const src = await readDataUrl(f); run(c => c.insertContent({ type: 'image', attrs: { src } })); }
   };
 
-  // ---------- dictation (the browser's speech recognition) ----------
-  const dictate = () => {
-    if (speech.current) { speech.current.stop(); speech.current = null; setDictating(false); return; }
-    const W = window as unknown as { SpeechRecognition?: new () => SpeechRec; webkitSpeechRecognition?: new () => SpeechRec };
-    const Rec = W.SpeechRecognition ?? W.webkitSpeechRecognition;
-    if (!Rec) { setNote(t('notes.noDictation')); return; }
-    const r = new Rec();
-    r.lang = lang;
-    r.continuous = true;
-    r.interimResults = false;
-    r.onresult = e => {
-      for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) { const words = e.results[i][0].transcript.trim(); if (words) run(c => c.insertContent(`${words} `)); }
-    };
-    r.onend = () => { speech.current = null; setDictating(false); };
-    r.onerror = () => { setNote(t('notes.noDictation')); };
-    try { r.start(); speech.current = r; setDictating(true); setNote(t('notes.listening')); } catch { setNote(t('notes.noDictation')); }
-  };
-  useEffect(() => () => speech.current?.stop(), []);
+  // ---------- dictation (shared engine: Web Speech when it works, Whisper on the device otherwise) ----------
+  const dict = useDictation(lang, text => insertDictation(ed, text));
+  const dictating = dict.active;
+  const dictate = dict.toggle;
+  const dictNote = useRef('');
+  useEffect(() => {
+    const last = dictNote.current;
+    dictNote.current = dict.message;
+    if (dict.message) setNote(dict.message);
+    else if (last) setNote(n => (n === last ? '' : n));
+  }, [dict.message]);
 
   // ---------- files ----------
   const baseName = (s = title) => s.replace(/[\\/:*?"<>|]+/g, '').trim() || 'notes';
@@ -768,12 +761,6 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
   );
 }
 
-interface SpeechRec {
-  lang: string; continuous: boolean; interimResults: boolean;
-  onresult: ((e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
-  onend: (() => void) | null; onerror: (() => void) | null;
-  start(): void; stop(): void;
-}
 
 function TagDialog({ lib, untitled, onGo, onClose }: { lib: Library; untitled: string; onGo: (at: Library['at']) => void; onClose: () => void }) {
   const lines = useMemo(() => tagSummary(lib), [lib]);

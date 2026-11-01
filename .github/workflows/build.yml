@@ -187,6 +187,12 @@ jobs:
       - name: In 1 Form works on phone, tablet, PC and Mac, both ways, with and without AI (check:form)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:form
+      - name: Dictation works in Letter, Notes and Assistant on phone and PC, also in the Windows app, plus a real spoken sentence through Whisper (check:dictation)
+        if: env.FULL_CHECKS == 'true'
+        run: |
+          sudo apt-get install -y --no-install-recommends espeak-ng >/dev/null 2>&1 || true
+          if command -v espeak-ng >/dev/null; then espeak-ng -v fr -s 140 -w "$RUNNER_TEMP/fr.wav" "Bonjour tout le monde. Bonjour tout le monde." && export SPEECH_WAV="$RUNNER_TEMP/fr.wav"; fi
+          npm run check:dictation
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4
