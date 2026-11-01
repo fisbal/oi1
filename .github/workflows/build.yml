@@ -77,8 +77,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -215,14 +215,14 @@ jobs:
           node scripts/promo.mjs
       - name: Keep the promo kit
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: promo-kit
           path: dist/promo/
           if-no-files-found: ignore
       - name: Keep the screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: screens
           path: screens/
@@ -264,8 +264,8 @@ jobs:
     env:
       WIN_SIGNING: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_SIGNING_ACCOUNT != '' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -322,7 +322,7 @@ jobs:
           if ls src-tauri/target/release/bundle/nsis/*-setup.exe.sig >/dev/null 2>&1; then
             cp src-tauri/target/release/bundle/nsis/*-setup.exe.sig out/OfficeIn1-Setup.exe.sig
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: out/*
@@ -335,8 +335,8 @@ jobs:
           || (github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.action != 'labeled')))) }}
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -367,7 +367,7 @@ jobs:
             cp "$B"/macos/*.app.tar.gz out/OfficeIn1-mac.app.tar.gz
             cp "$B"/macos/*.app.tar.gz.sig out/OfficeIn1-mac.app.tar.gz.sig
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: mac
           path: out/*
@@ -380,12 +380,12 @@ jobs:
           || (github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.action != 'labeled')))) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 17
@@ -430,7 +430,7 @@ jobs:
           fi
           "$BT/apksigner" verify out/OfficeIn1.apk
           rm -f release.jks temp.jks
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android
           path: out/OfficeIn1.apk
@@ -447,7 +447,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: out
           merge-multiple: true
@@ -466,11 +466,11 @@ jobs:
           fi
       - name: Sign where the apps were built (SLSA build provenance, checked with gh attestation verify)
         continue-on-error: true
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             out/OfficeIn1*
-      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: v${{ env.OI1_VERSION }}
           target_commitish: ${{ github.sha }}
