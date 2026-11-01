@@ -11,6 +11,7 @@ import { t, type MessageKey } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import { onRatesChange } from '../../shell/rates';
 import { isLiveId, liveStore, newLiveId, tableText, type SyncState } from '../../shell/live';
+import { relabel } from '../../shell/defaultNames';
 import { useTheme } from '../../shell/theme';
 import { parseCsv, toCsv } from '../../formats/csv';
 import { cellName, colName, isError, moveRefs, parseCell, type Scalar } from '../../formats/formula';
@@ -1403,6 +1404,33 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     }) });
     return true;
   };
+  // Default sheet names ("Sheet1", "Feuille1"…) follow the interface language; names the person typed stay. A file
+  // opened from the device keeps its names until the language is changed.
+  const namesLang = useRef<string | null>(file ? lang : null);
+  useEffect(() => {
+    if (namesLang.current === lang) return;
+    namesLang.current = lang;
+    const b = bookRef.current;
+    const renames: [string, string][] = [];
+    const taken = new Set(b.sheets.map(s => s.name.toLowerCase()));
+    for (const s of b.sheets) {
+      const now = relabel('class.sheet', s.name);
+      if (!now || taken.has(now.toLowerCase())) continue;
+      taken.delete(s.name.toLowerCase()); taken.add(now.toLowerCase());
+      renames.push([s.name, now]);
+    }
+    if (!renames.length) return;
+    void import('../../formats/formula').then(({ renameSheetRefs }) => {
+      const cur = bookRef.current;
+      commit({ ...cur, sheets: cur.sheets.map(s => {
+        const cells: Record<string, Cell> = {};
+        for (const [k, cell] of Object.entries(s.cells)) cells[k] = cell.input.startsWith('=') ? { ...cell, input: renames.reduce((f, [a, z]) => renameSheetRefs(f, a, z), cell.input) } : cell;
+        const to = renames.find(([a]) => a === s.name)?.[1];
+        return { ...s, cells, ...(to ? { name: to } : {}) };
+      }) });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
   const deleteSheet = (i: number) => {
     if (bookRef.current.sheets.length < 2) return;
     const b = bookRef.current;
