@@ -10,7 +10,7 @@ import { getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import { modules } from '../../shell/modules';
 import { safeHtml } from '../../shell/safeHtml';
-import { jsonOf, planFrom, readySteps, SCHEMA, SYSTEM, taskMessage, type Plan, type Step, type StepApp } from './plan';
+import { chatPrompt, planFromAnswer, readySteps, SCHEMA, SYSTEM, taskMessage, type Plan, type Step, type StepApp } from './plan';
 import { matchRecipe, recipePlan, RECIPES, type Recipe, type RecipeLang } from './recipes';
 import { runPlan, savePdf, type Made, type StepState } from './run';
 
@@ -84,6 +84,11 @@ export default function Assistant({ shell, handoff }: { shell: ShellApi; handoff
   const stop = useRef<AbortController | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
   const aiOn = !noAi && shell.ai.ready();
+  // An AI's public chat (claude.ai, ChatGPT…) means leaving the app and pasting back, and the browser's small
+  // built-in model writes less well than a template: worth it only when no built-in template does the task.
+  const kind = shell.ai.provider?.().kind;
+  const viaWebsite = kind === 'web' || kind === 'browser';
+  const aiName = shell.ai.provider?.().name ?? 'Claude';
 
   useEffect(() => { shell.setTitle(t('assistant.tabTitle')); }, [shell, lang]);
   // "Je veux…" and other apps hand a task over.
@@ -122,10 +127,20 @@ export default function Assistant({ shell, handoff }: { shell: ShellApi; handoff
     remember(p, words);
   };
 
-  const make = async (words = task, recipe?: Recipe) => {
+  /**
+   * Does the task. An idea card, or words a built-in template knows when the AI is only a website away, is made at
+   * once from the template, offline (Martin's phone, 2026-11-01: a thank-you card sent him to the Claude app with
+   * a page of code). `withAi` asks the AI anyway ("Redo it with the AI").
+   */
+  const make = async (words = task, recipe?: Recipe, withAi = false) => {
     const what = words.trim();
     setError(''); setFallback(null);
     if (!what && !recipe) { box.current?.focus(); return; }
+    if (recipe && !withAi) { await fromRecipePlan(recipe, what || t(ideaKey(recipe.id))); return; }
+    if (aiOn && viaWebsite && !withAi) {
+      const r = matchRecipe(what, titles);
+      if (r) { await fromRecipePlan(r, what); return; }
+    }
     if (!aiOn) {
       const r = recipe ?? matchRecipe(what, titles);
       if (r) { await fromRecipePlan(r, what || t(ideaKey(r.id))); return; }
@@ -140,9 +155,10 @@ export default function Assistant({ shell, handoff }: { shell: ShellApi; handoff
       const answer = await shell.ai.ask({
         system: SYSTEM, schema: SCHEMA, effort: 'medium', signal: ctl.signal,
         messages: [{ role: 'user', content: taskMessage(ask, files) }],
+        chatPrompt: chatPrompt(ask, files, lang),
         onText: so => setWritten(so.length),
       });
-      const p = planFrom(jsonOf(answer));
+      const p = planFromAnswer(answer, ask);
       if (!readySteps(p).length) throw new Error(t('assistant.emptyPlan'));
       if (!p.title) p.title = ask.slice(0, 80);
       showPlan(p, false);
@@ -232,7 +248,7 @@ export default function Assistant({ shell, handoff }: { shell: ShellApi; handoff
               <input type="checkbox" checked={noAi} disabled={busy} onChange={e => { setNoAi(e.target.checked); try { localStorage.setItem(NO_AI, e.target.checked ? '1' : '0'); } catch { /* private mode */ } }} />
               <span className="as-track" aria-hidden="true" />{t('assistant.noAi')}
             </label>
-            <span className="as-who">{aiOn ? t('assistant.withAi', { name: shell.ai.provider?.().name ?? 'Claude' }) : t('assistant.withRecipes')}</span>
+            <span className="as-who">{aiOn ? t('assistant.withAi', { name: aiName }) : t('assistant.withRecipes')}</span>
             {phase === 'planning'
               ? <button type="button" className="as-go stop" onClick={() => stop.current?.abort()}>{t('assistant.stop')}</button>
               : <button type="button" className="as-go" disabled={busy} onClick={() => void make()} data-help-text={t('assistant.goHelp')}>{t('assistant.go')} ✦</button>}
@@ -252,6 +268,9 @@ export default function Assistant({ shell, handoff }: { shell: ShellApi; handoff
               <h2>{plan.title}</h2>
               {plan.summary && <p>{plan.summary}</p>}
               {fromRecipe && <p className="as-note">{t('assistant.recipeNote')}</p>}
+              {fromRecipe && phase === 'plan' && aiOn && (
+                <button type="button" className="as-tool small as-redo" title={t('assistant.redoAiHelp')} data-help-text={t('assistant.redoAiHelp')} onClick={() => void make(task || plan.title, undefined, true)}>✦ {t('assistant.redoAi', { name: aiName })}</button>
+              )}
             </div>
             <ol className="as-steps">
               {plan.steps.map((s, i) => {

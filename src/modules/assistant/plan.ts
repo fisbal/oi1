@@ -144,3 +144,66 @@ export function taskMessage(task: string, files: { name: string; text: string }[
   for (const f of files) parts.push(`Attached file "${f.name}":\n${f.text.slice(0, 20000)}`);
   return parts.join('\n\n');
 }
+
+const LANG_NAMES: Record<string, string> = { en: 'English', fr: 'French', es: 'Spanish', pt: 'Portuguese', de: 'German' };
+
+/**
+ * The task as one short, plain message for an AI's public chat (claude.ai, ChatGPT…), used there instead of
+ * SYSTEM + SCHEMA: those are long (the request no longer fits the address, and a phone app gets only part of it)
+ * and read like code to the person who sees them (Martin, 2026-11-01, on his phone). The task comes first, the
+ * answer's shape after, small enough to stay in the address.
+ */
+export function chatPrompt(task: string, files: { name: string; text: string }[], lang: string): string {
+  const example = { title: '…', summary: '…', steps: [{ app: 'letter', name: '…', purpose: '…', html: '<p>…</p>' }] };
+  const extra = files.map(f => `\n\nMy file "${f.name}":\n${f.text.slice(0, 1500)}`).join('').slice(0, 3000);
+  return [
+    `Hello! I use Office In 1 (an office suite). Please make the documents for this task: "${task.trim()}"${extra}`,
+    `Write them in ${LANG_NAMES[lang] ?? 'English'}, complete and ready to use, 1 to 5 documents.`,
+    `So I can paste your answer back into the app, answer with only one JSON code block like this: ${JSON.stringify(example)}`,
+    'For each document, "app" is one of: "letter" (text in "html" with <h2>, <p>, <ul>, <li>, <strong>), '
+      + '"class" (a table in "rows": a list of rows, the first row holds the titles, formulas like "=SUM(B2:B5)"), '
+      + '"stage" (slides in "html": each <h2> starts a slide), "code" (website files in "files": [{"path","content"}]). '
+      + 'To put a "class" table in a letter, give the letter "table": the number of that step (from 0) and write [[TABLE]] where it goes.',
+  ].join('\n\n');
+}
+
+/** Straight quotes and no trailing commas: what a chat app or a phone keyboard sometimes changes in JSON. */
+function repairJson(s: string): string {
+  return s.replace(/[“”„«»]/g, '"').replace(/[‘’]/g, "'").replace(/,\s*([}\]])/g, '$1');
+}
+
+/** Plain text as letter HTML: blank lines make paragraphs, "# " and "- " lines headings and lists. */
+export function proseHtml(text: string): string {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const inline = (s: string) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  const out: string[] = [];
+  let list: string[] = [];
+  const flush = () => { if (list.length) { out.push(`<ul>${list.map(l => `<li>${l}</li>`).join('')}</ul>`); list = []; } };
+  for (const block of text.replace(/```[a-z]*\n?|```/gi, '').split(/\n\s*\n/)) {
+    for (const line of block.split('\n').map(l => l.trim()).filter(Boolean)) {
+      const h = line.match(/^#{1,6}\s+(.*)/), li = line.match(/^(?:[-*•]|\d+[.)])\s+(.*)/);
+      if (li) { list.push(inline(li[1])); continue; }
+      flush();
+      out.push(h ? `<h2>${inline(h[1])}</h2>` : `<p>${inline(line)}</p>`);
+    }
+    flush();
+  }
+  return out.join('');
+}
+
+/**
+ * A plan from whatever the AI answered: its JSON (repaired when a chat app bent the quotes), or, when the answer is
+ * plain text, one letter holding that text, so a pasted answer is never lost.
+ */
+export function planFromAnswer(answer: string, task: string): Plan {
+  for (const tryIt of [(s: string) => jsonOf(s), (s: string) => jsonOf(repairJson(s))]) {
+    try {
+      const p = planFrom(tryIt(answer));
+      if (readySteps(p).length) return p;
+    } catch { /* next way */ }
+  }
+  const html = proseHtml(answer);
+  if (!html) return { title: '', summary: '', steps: [] };
+  const name = task.trim().slice(0, 80) || 'Document';
+  return { title: name, summary: '', steps: [{ id: stepId(), app: 'letter', name, purpose: '', on: true, html, rows: [], files: [], table: null, from: null }] };
+}

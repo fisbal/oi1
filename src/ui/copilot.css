@@ -139,20 +139,6 @@
 .copilot-modes button span { font-size: 11px; color: var(--muted); }
 .copilot-modes button.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
 
-/* Bringing an answer back from the AI's public site */
-.web-answer {
-  position: fixed; z-index: 60; right: 16px; bottom: 16px; width: min(380px, calc(100vw - 32px)); padding: 12px 14px; border-radius: 14px;
-  background: rgba(var(--bg-rgb), .97); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 14px 40px rgba(0, 0, 0, .25);
-  font-size: 13px; line-height: 1.4; display: flex; flex-direction: column; gap: 8px;
-}
-.web-answer-head { display: flex; align-items: center; gap: 8px; }
-.web-answer-head b { flex: 1; min-width: 0; }
-.web-answer p { margin: 0; color: var(--muted); }
-.web-answer-x { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 4px; }
-.web-answer-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
-.web-answer-buttons button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(var(--bg-rgb), .9); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; }
-.web-answer-buttons button.primary { background: var(--gold); border-color: transparent; color: #1b1407; font-weight: 600; }
-.web-answer textarea { width: 100%; box-sizing: border-box; resize: vertical; padding: 7px 9px; border: 1px dashed var(--line); border-radius: 9px; background: rgba(var(--bg-rgb), .7); color: var(--ink); font: inherit; font-size: 12.5px; }
 .copilot-account { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; font-size: 12.5px; }
 .copilot-account span { flex: 1; min-width: 0; }
 .copilot-account button { height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(var(--bg-rgb), .9); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; }

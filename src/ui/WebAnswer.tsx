@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { onWebWait, webWait } from '../shell/webAi';
 import { t } from '../shell/i18n';
 import { Icon } from './kit';
+import './web-answer.css';
 
 export function WebAnswer() {
   const [, redraw] = useState(0);
@@ -13,11 +14,29 @@ export function WebAnswer() {
   const box = useRef<HTMLTextAreaElement>(null);
   const w = webWait();
   useEffect(() => { setManual(false); }, [w?.id]);
+  // Back from the AI's site or app (a phone switches apps): when the browser lets the app read the clipboard
+  // without asking, an answer copied there comes in by itself; otherwise the big Paste button does it in one tap.
+  useEffect(() => {
+    if (!w) return;
+    const back = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const perm = await navigator.permissions?.query({ name: 'clipboard-read' as PermissionName });
+        if (perm?.state !== 'granted') return;
+        const text = (await navigator.clipboard.readText()).trim();
+        if (text && text !== w.sent.trim()) w.answer(text);
+      } catch { /* not allowed: the button is there */ }
+    };
+    document.addEventListener('visibilitychange', back);
+    window.addEventListener('focus', back);
+    return () => { document.removeEventListener('visibilitychange', back); window.removeEventListener('focus', back); };
+  }, [w]);
   if (!w) return null;
   const paste = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      if (text.trim()) { w.answer(text); return; }
+      // Still the request (the answer not copied yet): show the box rather than send the question back.
+      if (text.trim() && text.trim() !== w.sent.trim()) { w.answer(text); return; }
     } catch { /* not allowed here: paste by hand */ }
     setManual(true);
     window.setTimeout(() => box.current?.focus(), 0);
