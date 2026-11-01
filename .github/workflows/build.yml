@@ -76,7 +76,7 @@ jobs:
         run: npm run check:refs
       - name: Arrows on strips that scroll sideways, language bubble
         run: npm run check:arrows
-      - name: "I want…" search finds the buttons and tips guide (PC + phone)
+      - name: The I want… search finds the buttons, tips guide to them (PC + phone)
         run: npm run check:want
       - name: Word fidelity (Conversion Test A opens, prints to 3 pages and saves back with tab stops, lists and table)
         run: npm run check:fidelity
