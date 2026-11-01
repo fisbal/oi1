@@ -71,6 +71,12 @@ export interface ShellApi {
   /** Change the label on this module's tab. */
   setTitle(title: string): void;
   /**
+   * Called when the person renames this tab (double-click, right-click or long press on it, or ✎ in the list of open
+   * documents): the module renames its document, so it saves and exports under the new name, then calls setTitle.
+   * Without it the shell only shows the new name on the tab. Pass null to stop.
+   */
+  onRename?(fn: ((name: string) => void) | null): void;
+  /**
    * Open a module in a new tab, optionally with a file or with something handed over from another app.
    * Resolves to the new tab's id, or null when that app is not ready yet.
    */
