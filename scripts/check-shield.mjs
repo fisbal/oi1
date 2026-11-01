@@ -50,6 +50,8 @@ for (const [name, viewport, mobile] of [['PC', { width: 1280, height: 800 }, fal
   await page.waitForFunction(() => /Facture/.test(document.querySelector('.app-frame:not([hidden]) .ProseMirror.body-text')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => {});
   const text = await page.locator('.app-frame:not([hidden]) .ProseMirror.body-text').innerText().catch(() => '');
   check(text.includes('Facture piégée 2026'), `${name}: the clean copy opens in Letter with its text (${Date.now() - t0} ms)`);
+  // The tab takes the file's name once the letter has read it: wait for it (slow CI machines).
+  await page.waitForFunction(() => /sain/.test(document.querySelector('.app-frame:not([hidden]) .app-doc')?.getAttribute('title') ?? ''), null, { timeout: 8000 }).catch(() => {});
   const docName = await page.locator('.app-frame:not([hidden]) .app-doc').getAttribute('title').catch(() => '');
   check(/sain/.test(docName ?? ''), `${name}: the clean copy is named "(sain)" (${docName})`);
   const vacc = await page.evaluate(() => JSON.parse(localStorage.getItem('oi1.shield.antibodies') || '[]').length);
