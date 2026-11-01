@@ -222,7 +222,8 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       void shell.storage.save('deck', JSON.stringify({ deck, active, name: fileName } satisfies Saved));
     }, 500);
   }, [deck, active, fileName, shell]);
-  const title = fileName ? fileName.replace(/\.pptx$/i, '') : (slideTitle(deck.slides[0]) || t('stage.untitled'));
+  // As in PowerPoint: "Untitled presentation" until saved or renamed; a first save suggests the first slide's title.
+  const title = fileName ? fileName.replace(/\.pptx$/i, '') : t('stage.untitled');
   useEffect(() => { shell.setTitle(title.slice(0, 40)); }, [shell, title]);
   // Renaming the tab renames the presentation: it saves and exports under that name.
   useEffect(() => { shell.onRename?.(name => setFileName(`${name}.pptx`)); return () => shell.onRename?.(null); }, [shell]);
@@ -701,7 +702,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     if (!f) { alert(t('home.recentMissing')); return; }
     if (pristine()) void loadFile(f); else shell.openModule('stage', f);
   };
-  const baseName = () => title.replace(/[\\/:*?"<>|]+/g, '').trim() || 'presentation';
+  const baseName = () => (fileName ? title : (slideTitle(deck.slides[0]) || title)).replace(/[\\/:*?"<>|]+/g, '').trim().slice(0, 60) || 'presentation';
   const pptxBlob = async () => { const { writePptx } = await import('../../formats/pptx'); return writePptx(deckRef.current, getLanguage(), title); };
   const save = async (saveAs = false) => {
     const name = fileName.toLowerCase().endsWith('.pptx') ? fileName : `${baseName()}.pptx`;
