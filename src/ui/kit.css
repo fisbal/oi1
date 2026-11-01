@@ -337,6 +337,10 @@
 }
 .scroll-arrow:hover { transform: scale(1.08); background: color-mix(in srgb, var(--gold, #d4a843) 22%, var(--panel, #1b1b22)); }
 .scroll-arrow[hidden] { display: none; }
+.scroll-arrow { background: var(--panel, #1b1b22); }
+[data-sa='l'] { -webkit-mask-image: linear-gradient(to right, transparent 0, transparent 34px, #000 64px); mask-image: linear-gradient(to right, transparent 0, transparent 34px, #000 64px); }
+[data-sa='r'] { -webkit-mask-image: linear-gradient(to left, transparent 0, transparent 34px, #000 64px); mask-image: linear-gradient(to left, transparent 0, transparent 34px, #000 64px); }
+[data-sa='lr'] { -webkit-mask-image: linear-gradient(to right, transparent 0, transparent 34px, #000 64px, #000 calc(100% - 64px), transparent calc(100% - 34px)); mask-image: linear-gradient(to right, transparent 0, transparent 34px, #000 64px, #000 calc(100% - 64px), transparent calc(100% - 34px)); }
 
 /* ---------- Office In 1 tab: "Every app", one soft key per app in its colour (same in every app) ---------- */
 .app-keys { display: grid; grid-template-columns: repeat(3, auto); gap: 5px 6px; align-content: start; padding-top: 2px; }

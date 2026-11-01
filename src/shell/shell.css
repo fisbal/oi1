@@ -277,6 +277,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @keyframes orbit { to { transform: rotate(360deg); } }
 .scene-art .draw-stroke { stroke-dasharray: 140; animation: draw 4.2s ease-in-out infinite; }
 @keyframes draw { 0% { stroke-dashoffset: 140; } 70%, 85% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -140; } }
+.scene-art .photo-light { opacity: 0; animation: photo-light 4.2s ease-in-out infinite; }
+.scene-art .photo-sun { transform-box: fill-box; transform-origin: center; animation: photo-sun 4.2s ease-in-out infinite; }
+@keyframes photo-light { 0%, 100% { opacity: 0; } 50% { opacity: .45; } }
+@keyframes photo-sun { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.35); } }
 .scene-art .tick { stroke-dasharray: 14; stroke-dashoffset: 14; animation: tick 4.2s ease-out infinite; }
 .scene-art .tick.t1 { animation-delay: .5s; }
 .scene-art .tick.t2 { animation-delay: 1s; }
