@@ -2,6 +2,7 @@
 .imgapp { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; outline: none; }
 .im-body { flex: 1; min-height: 0; display: flex; position: relative; }
 .im-main { flex: 1; min-width: 0; display: flex; position: relative; }
+.im-scroll[data-fit] { overflow: hidden; }
 .im-scroll { flex: 1; min-width: 0; overflow: auto; position: relative; overscroll-behavior: contain;
   background: radial-gradient(ellipse at 50% 40%, rgba(var(--fg-rgb), .06), rgba(var(--fg-rgb), .02) 70%); }
 .im-stage { position: relative; display: grid; place-items: center; }

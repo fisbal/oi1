@@ -112,6 +112,15 @@ try {
       const sideBox = await page.locator(`${H} .im-side`).boundingBox();
       check(!!sideBox && sideBox.x >= 0 && sideBox.x + sideBox.width <= d.viewport.width + 1 && sideBox.y + sideBox.height <= d.viewport.height + 1, `${n}: the looks panel fits the screen${narrow ? ' (drawer under the photo)' : ''}`);
 
+      // The photo stays still in "See it all", whatever the tab (Martin, Windows: it shook until a zoom click)
+      for (const tb of ['Adjust', 'Crop', 'Home']) {
+        await tabTo(page, tb);
+        await page.waitForTimeout(500);
+        const sizes = await page.evaluate(sel => new Promise(res => { const seen = new Set(); const t0 = performance.now(); const f = () => { const r = document.querySelector(sel)?.getBoundingClientRect(); if (r) seen.add(`${Math.round(r.width)}x${Math.round(r.height)}`); if (performance.now() - t0 < 900) requestAnimationFrame(f); else res([...seen]); }; f(); }), `${H} .im-frame`);
+        check(sizes.length === 1, `${n}: the photo stays still on the ${tb} tab (${sizes.join(' / ')})`);
+      }
+      if (await page.locator(`${H} .im-crop-box`).count()) await tabTo(page, 'Looks');
+
       // A slider, then Undo
       await tabTo(page, 'Adjust');
       const exposure = page.locator(`${H} .im-slider[data-help="image.adj.exposure"] input`);

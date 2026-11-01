@@ -3,6 +3,7 @@
 
 import type { AiApi } from '../../shell/contract';
 import { jsonOf } from '../assistant/plan';
+import { planChat } from '../../shell/chatText';
 import { PRIORITIES, addDays, cleanTask, newId, type Task } from './model';
 
 const LANG: Record<string, string> = { en: 'English', fr: 'French', es: 'Spanish', pt: 'Portuguese', de: 'German' };
@@ -34,10 +35,24 @@ export function tasksFromAnswer(answer: string, start: string, bucket: string): 
   let raw: unknown;
   try { raw = jsonOf(answer); } catch { try { raw = jsonOf(answer.replace(/[“”]/g, '"').replace(/,\s*([}\]])/g, '$1')); } catch { raw = null; } }
   let list = (raw as { tasks?: unknown[] } | null)?.tasks;
-  // A website may answer with plain lines instead of JSON: one task per line.
+  // A website answers with plain lines (what planChat asks for): one task per line, in order, "(2 days)" for its
+  // length and "!" after an important one. Each task starts when the one before ends.
   if (!Array.isArray(list)) {
-    const lines = answer.split('\n').map(l => l.replace(/^\s*(?:[-*•]|\d+[.)]|- \[[ x]\])\s*/i, '').trim()).filter(l => l && l.length < 200 && !/^```/.test(l));
-    list = lines.slice(0, 40).map((title, i) => ({ title, day: i * 2, days: 2, after: i ? i - 1 : -1 }));
+    const MARK = /^(?:[-*•]|\d+\s*[.)-]|- \[[ x]\])\s*/i;
+    const all = answer.replace(/```[a-z]*/gi, '').split('\n').map(l => l.replace(/\*\*/g, '').trim()).filter(l => l && l.length < 240);
+    const marked = all.filter(l => MARK.test(l)); // a sentence before or after the list is left out
+    const lines = (marked.length ? marked : all).map(l => l.replace(MARK, '').trim()).filter(Boolean);
+    let day = 0;
+    list = lines.slice(0, 40).map((line, i) => {
+      const important = /!\s*$/.test(line);
+      let title = line.replace(/\s*!+\s*$/, '');
+      const m = title.match(/\((\d+)\s*(?:jours?|days?|d[ií]as?|tage?|j|d|t)\)/i);
+      const days = m ? Math.max(1, Number(m[1])) : 2;
+      if (m) title = (title.slice(0, m.index) + title.slice(m.index! + m[0].length)).trim();
+      const t = { title, day, days, after: i ? i - 1 : -1, priority: important ? 'important' : 'medium' };
+      day += days;
+      return t;
+    });
   }
   const ids: string[] = [];
   const out: Task[] = [];
@@ -64,7 +79,7 @@ export async function planWithAi(ai: AiApi, goal: string, lang: string, start: s
   const answer = await ai.ask({
     system: SYSTEM, schema: SCHEMA, effort: 'medium', signal,
     messages: [{ role: 'user', content: `Goal: ${goal}\nWrite the tasks in ${words}.` }],
-    chatPrompt: `Hello! Please make a plan for: "${goal}" (tasks in ${words}). Answer with only one JSON code block like {"tasks":[{"title":"Book the room","day":0,"days":2,"priority":"important","after":-1,"checklist":["Call 3 places"]}]} where "day" is the start day (0 = today) and "after" is the index of the task it waits for, or -1.`,
+    chatPrompt: planChat(goal, lang),
   });
   return tasksFromAnswer(answer, start, bucket);
 }

@@ -225,16 +225,28 @@ function ImageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setArea({ w: el.clientWidth, h: el.clientHeight }));
+    // Second safety against the photo shaking (Martin's Windows screen): when the size flips back to the one before
+    // within half a second (A → B → A, a bar coming and going), the smaller one is kept instead of following.
+    let prev: { w: number; h: number; at: number } | null = null, cur = { w: el.clientWidth, h: el.clientHeight, at: performance.now() };
+    const read = () => {
+      const now = { w: el.clientWidth, h: el.clientHeight, at: performance.now() };
+      if (now.w === cur.w && now.h === cur.h) return;
+      const flip = prev && now.w === prev.w && now.h === prev.h && now.at - prev.at < 500;
+      prev = cur; cur = now;
+      setArea(flip ? { w: Math.min(now.w, prev.w), h: Math.min(now.h, prev.h) } : { w: now.w, h: now.h });
+    };
+    const ro = new ResizeObserver(read);
     ro.observe(el);
-    setArea({ w: el.clientWidth, h: el.clientHeight });
+    setArea({ w: cur.w, h: cur.h });
     return () => ro.disconnect();
   }, [doc === null]); // eslint-disable-line react-hooks/exhaustive-deps
   const cropping = tab === 'crop' && !!doc;
   const shown = useMemo(() => (doc && cropping ? { ...doc, geom: { ...doc.geom, crop: { x: 0, y: 0, w: 1, h: 1 } } } : doc), [doc, cropping]);
   const out = shown ? outputSize(shown) : { w: 1, h: 1 };
   const pad = narrow ? 12 : 32;
-  const fitK = Math.max(0.02, Math.min((area.w - pad) / out.w, (area.h - pad) / out.h));
+  // "See it all": the stage is exactly the visible area and never scrolls (.im-scroll[data-fit]; a data attribute, so React keeps FastScroll's class). Sized in pixels, a scroll
+  // bar could come and go (rounding on a 125 % Windows screen), changing the area, the fit, then the bar again.
+  const fitK = Math.max(0.02, Math.min((area.w - pad - 1) / out.w, (area.h - pad - 1) / out.h));
   const k = zoom === 'fit' ? fitK : zoom;
   const kRef = useRef(k);
   kRef.current = k;
@@ -687,7 +699,7 @@ function ImageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       {ribbon}
       <div className="im-body">
         <div className="im-main">
-          <div className="im-scroll" ref={scroller}
+          <div className="im-scroll" data-fit={zoom === 'fit' && doc ? '' : undefined} ref={scroller}
             onDragOver={e => e.preventDefault()}
             onDrop={e => { e.preventDefault(); const f = Array.from(e.dataTransfer.files)[0]; if (f) void loadFile({ name: f.name, type: f.type, text: () => f.text(), arrayBuffer: () => f.arrayBuffer() }); }}>
             {!doc && (
@@ -705,7 +717,7 @@ function ImageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               </div>
             )}
             {doc && (
-              <div className="im-stage" style={{ width: Math.max(cw + pad, area.w), height: Math.max(ch + pad, area.h) }}>
+              <div className="im-stage" style={zoom === 'fit' ? { width: '100%', height: '100%' } : { width: Math.max(cw + pad, area.w), height: Math.max(ch + pad, area.h) }}>
                 <div className="im-frame" style={{ width: cw, height: ch }}
                   onPointerDown={() => { if (!cropping) holdTimer.current = window.setTimeout(() => setHolding(true), 450); }}
                   onPointerUp={() => { window.clearTimeout(holdTimer.current); setHolding(false); }} onPointerLeave={() => { window.clearTimeout(holdTimer.current); setHolding(false); }} onPointerCancel={() => { window.clearTimeout(holdTimer.current); setHolding(false); }}

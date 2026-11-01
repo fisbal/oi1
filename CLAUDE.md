@@ -19,3 +19,6 @@ The workflow picks its mode from the repo's visibility (see the top of .github/w
   Release assets of this private repo are NOT downloadable by users.
 - The shield list is published on the site at https://fisbal.github.io/oi1/shield/ (gh-pages /shield/).
 - Never change the site URL, manifest id, start_url/scope, app name or icons (MS Store package, rule 14).
+- Promo kit (Martin, 2026-11-01): https://fisbal.github.io/oi1/promo/ and the QR target /get/ are remade at every
+  build by `scripts/promo.mjs` (CI step "Make the promo kit"). When an app becomes ready or a feature line changes,
+  update FEATURES in `public/promo/kit.js`; links only in `public/promo/config.json`. Never change the /get/ address.
