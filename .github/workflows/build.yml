@@ -14,8 +14,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least privilege (OpenSSF Scorecard "Token-Permissions"): every job reads only; the two jobs that
+# publish (web -> gh-pages, release -> GitHub Release) get write access for themselves.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: build-${{ github.ref }}
@@ -28,6 +30,8 @@ env:
 jobs:
   web:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -130,8 +134,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: src-tauri
       - run: npm ci
@@ -194,10 +200,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           targets: aarch64-apple-darwin,x86_64-apple-darwin
-      - uses: swatinem/rust-cache@v2
+      - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: src-tauri
       - run: npm ci
@@ -237,10 +244,11 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
-      - uses: swatinem/rust-cache@v2
+      - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: src-tauri
       - run: npm ci
@@ -286,6 +294,10 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: [web, windows, mac, android]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -304,7 +316,13 @@ jobs:
             fi
             cat out/latest.json
           fi
-      - uses: softprops/action-gh-release@v2
+      - name: Sign where the apps were built (SLSA build provenance, checked with gh attestation verify)
+        continue-on-error: true
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            out/OfficeIn1*
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ env.OI1_VERSION }}
           target_commitish: ${{ github.sha }}

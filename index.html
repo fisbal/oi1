@@ -4,6 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>Office In 1</title>
+  <!-- Security (OWASP CSP Cheat Sheet): no plug-ins (<object>/<embed>) and no <base> tag can be injected.
+       Scripts stay allowed because Code+ runs the user's own code in sandboxed previews, which inherit this policy;
+       HTML coming from files or AI answers is cleaned by src/shell/safeHtml.ts instead. -->
+  <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="theme-color" content="#2E2E36">
   <script>
     try {

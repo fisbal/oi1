@@ -2,12 +2,13 @@
 // at the slide's own size in pixels. The editor, the thumbnails, the slide show and printing all use it,
 // so a slide looks the same everywhere.
 
-import { memo, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { cssBackground, defaultAlign, defaultSize, isEmptyHtml, type Deck, type DeckTheme, type Item, type LayoutId, type ShapeItem, type Slide, type TableItem } from '../../formats/slides';
 import { cssFont } from '../letter/model';
 import { fontLineMin } from '../../ui/fonts';
 import { geomPath, isLine, textInset } from './geom';
 import { splitHtml, type ItemPlay } from './anim';
+import { safeHtml } from '../../shell/safeHtml';
 
 /** Light or dark text for a fill color. */
 export function onColor(fill: string): 'light' | 'dark' {
@@ -86,10 +87,11 @@ function FitText({ html, children, autofit, base, onFit, id }: { html: string; c
     onFit?.(id, next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [html, base, autofit, children, id, onFit]);
+  const clean = useMemo(() => safeHtml(html), [html]);
   return (
     <div ref={outer} className="st-fit" style={{ fontSize: `${base}pt` }}>
       {children ? <div ref={inner} className="st-editwrap">{children}</div>
-        : <div ref={inner} className="st-html" style={k !== 1 ? { zoom: k, width: `${100 / k}%` } : undefined} dangerouslySetInnerHTML={{ __html: html }} />}
+        : <div ref={inner} className="st-html" style={k !== 1 ? { zoom: k, width: `${100 / k}%` } : undefined} dangerouslySetInnerHTML={{ __html: clean }} />}
     </div>
   );
 }
