@@ -6,6 +6,7 @@ import type { FileRef, Handoff, HandoffLink, OpenedFile, RecentFile, ShellApi, T
 import { getLanguage, t } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import { isLiveId, liveStore, newLiveId } from '../../shell/live';
+import { relabel } from '../../shell/defaultNames';
 import { useLiveTables } from './liveTables';
 import { recheck } from '../../ui/proof/extension';
 import { ProofBubble } from '../../ui/proof/Bubble';
@@ -247,6 +248,23 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   const inTable = useEditorState({ editor: body, selector: ({ editor }) => !!editor && editor.isActive('table') }) ?? false;
   const linkedTable = useEditorState({ editor: body, selector: ({ editor }) => (editor ? !!tableAt(editor)?.node.attrs.link : false) }) ?? false;
   useEffect(() => { shell.setTitle(title); }, [title, shell]);
+  // A new letter's "Untitled letter" heading follows the interface language (a heading the person wrote stays).
+  const uiLang = getLanguage();
+  useEffect(() => {
+    if (!body) return;
+    let at: { pos: number; size: number; text: string } | null = null;
+    body.state.doc.descendants((node, pos) => {
+      if (at) return false;
+      if (node.type.name === 'heading' || node.attrs.styleId === 'title') { at = { pos: pos + 1, size: node.content.size, text: node.textContent }; return false; }
+      return true;
+    });
+    const found = at as { pos: number; size: number; text: string } | null;
+    const now = found && relabel('letter.untitled', found.text);
+    if (!found || !now) return;
+    const tr = body.state.tr.insertText(now, found.pos, found.pos + found.size).setMeta('addToHistory', false);
+    body.view.dispatch(tr);
+  }, [body, uiLang]);
+
   // Renaming the tab renames the letter: it saves and exports under that name.
   useEffect(() => {
     shell.onRename?.(name => {
