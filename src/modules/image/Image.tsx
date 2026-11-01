@@ -225,9 +225,19 @@ function ImageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setArea({ w: el.clientWidth, h: el.clientHeight }));
+    // Second safety against the photo shaking (Martin's Windows screen): when the size flips back to the one before
+    // within half a second (A → B → A, a bar coming and going), the smaller one is kept instead of following.
+    let prev: { w: number; h: number; at: number } | null = null, cur = { w: el.clientWidth, h: el.clientHeight, at: performance.now() };
+    const read = () => {
+      const now = { w: el.clientWidth, h: el.clientHeight, at: performance.now() };
+      if (now.w === cur.w && now.h === cur.h) return;
+      const flip = prev && now.w === prev.w && now.h === prev.h && now.at - prev.at < 500;
+      prev = cur; cur = now;
+      setArea(flip ? { w: Math.min(now.w, prev.w), h: Math.min(now.h, prev.h) } : { w: now.w, h: now.h });
+    };
+    const ro = new ResizeObserver(read);
     ro.observe(el);
-    setArea({ w: el.clientWidth, h: el.clientHeight });
+    setArea({ w: cur.w, h: cur.h });
     return () => ro.disconnect();
   }, [doc === null]); // eslint-disable-line react-hooks/exhaustive-deps
   const cropping = tab === 'crop' && !!doc;
