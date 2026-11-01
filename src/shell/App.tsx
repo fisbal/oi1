@@ -468,7 +468,7 @@ export default function App() {
             <div className="hero">
               <div className="reveal">
                 <span className="kicker">{t('home.kicker')}</span>
-                <h1>{t('home.welcome').replace(/1\s*$/, '')}<span className="gold-text">1</span></h1>
+                <h1>{t('home.welcome').replace(/In\s*1\s*$/, '')}<span className="nowrap">In <span className="gold-text">1</span></span></h1>
                 <p className="sub">{t('home.subtitle')}</p>
               </div>
               <div className="hero-actions reveal" style={{ '--i': 2 } as CSSProperties}>

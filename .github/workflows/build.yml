@@ -369,10 +369,32 @@ jobs:
           fi
           "$BT/apksigner" verify out/OfficeIn1.apk
           rm -f release.jks temp.jks
+      # The Google Play version: an app bundle (.aab) signed with the same key as the upload key. Its web part is
+      # built with VITE_STORE=play, which turns off the in-app APK offer (Play installs the updates itself).
+      - name: Build the Google Play bundle
+        env:
+          VITE_STORE: play
+        run: npx tauri android build --aab --ci --target aarch64 armv7 x86_64
+      - name: Sign the Google Play bundle
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          AAB=$(ls src-tauri/gen/android/app/build/outputs/bundle/*/*.aab | head -1)
+          if [ -n "$KEYSTORE" ]; then
+            echo "$KEYSTORE" | base64 -d > release.jks
+            jarsigner -keystore release.jks -storepass:env KEYSTORE_PASSWORD -sigalg SHA256withRSA -digestalg SHA-256 \
+              -signedjar out/OfficeIn1-play.aab "$AAB" "$KEY_ALIAS"
+            jarsigner -verify out/OfficeIn1-play.aab | tail -1
+            rm -f release.jks
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; no Google Play bundle this time."
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: android
-          path: out/OfficeIn1.apk
+          path: out/OfficeIn1*
 
   release:
     if: >-
@@ -418,7 +440,7 @@ jobs:
             Office In 1 ${{ env.OI1_VERSION }}
 
             - Web: https://fisbal.github.io/oi1/
-            - Android: OfficeIn1.apk
+            - Android: OfficeIn1.apk (Google Play bundle: OfficeIn1-play.aab)
             - Windows: OfficeIn1-Setup.exe (or OfficeIn1.msi)
             - Mac (Apple silicon and Intel): OfficeIn1.dmg (the first time: right-click the app, then Open)
             - Installed apps update themselves: Windows installs this version and restarts, Android offers the new APK.
@@ -427,3 +449,21 @@ jobs:
           files: |
             out/OfficeIn1*
             out/latest.json
+      # Google Play: once the app exists in the Play Console and the secret PLAY_SERVICE_ACCOUNT_JSON is set,
+      # every release goes to the track in the variable PLAY_TRACK (default: internal testing). Phones that installed
+      # it from Play then update silently. Without the secret this step does nothing.
+      - name: Is Google Play set up?
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -n "$PLAY_JSON" ] && [ -f out/OfficeIn1-play.aab ]; then echo "PLAY_READY=true" >> "$GITHUB_ENV"
+          else echo "Google Play upload skipped (no PLAY_SERVICE_ACCOUNT_JSON secret or no bundle)."; fi
+      - name: Send the bundle to Google Play
+        if: ${{ env.PLAY_READY == 'true' }}
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: io.github.fisbal.oi1
+          releaseFiles: out/OfficeIn1-play.aab
+          track: ${{ vars.PLAY_TRACK || 'internal' }}
+          status: completed
