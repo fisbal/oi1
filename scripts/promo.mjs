@@ -23,7 +23,7 @@ const OUT = 'dist/promo';
 const LANGS = { fr: 'fr-FR', en: 'en-US' };
 // Apps filmed in the demo, in this order, when they are ready on the home screen. ProDFos is its own site
 // (loaded from the web inside OI1): it is filmed only once its page has really opened, otherwise left out.
-const FILMED = ['Letter', 'Class', 'Stage', 'ProDFos', 'Assistant', 'Plan', 'Notes', 'Draw', 'Form', 'Code+'];
+const FILMED = ['Letter', 'Class', 'Stage', 'ProDFos', 'Assistant', 'Plan', 'Notes', 'Draw', 'Image', 'Form', 'Code+'];
 const problems = [];
 
 if (!existsSync('dist/index.html')) { console.error('Run `npm run build` first.'); process.exit(1); }
@@ -118,6 +118,11 @@ try {
           }
           await p.waitForTimeout(500);
         }
+        if (app === 'Image') {
+          // One of its painted sample photos, so the studio shows a picture.
+          await host.locator('.im-sample[data-sample="lake"]').first().click({ timeout: 2000 });
+          await p.waitForTimeout(1500);
+        }
         if (app === 'Code+') {
           const tpl = p.locator('.code .tpl').first();
           if (await tpl.count()) { await tpl.click({ timeout: 2000 }); await p.waitForTimeout(1200); }
@@ -184,6 +189,14 @@ try {
       await p.goto(`${ROOT}promo/video.html?lang=${lang}&scene=end&rec=1&format=${kind}`);
       await p.waitForFunction(() => window.promoReady === true, null, { timeout: 30000 });
       await p.waitForTimeout(2600);
+      // A poster is centered: every part of the end card in the middle, as much room above as below.
+      const r = await p.evaluate(() => {
+        const els = [...document.querySelectorAll('.scene.on .qr, .scene.on .endtitle, .scene.on .scan, .scene.on .storebtn, .scene.on .url')];
+        const off = Math.max(...els.map(e => { const b = e.getBoundingClientRect(); return Math.abs(b.left + b.width / 2 - innerWidth / 2); }));
+        const top = Math.min(...els.map(e => e.getBoundingClientRect().top)), bottom = innerHeight - Math.max(...els.map(e => e.getBoundingClientRect().bottom));
+        return { off, gap: Math.abs(top - bottom), n: els.length };
+      });
+      if (r.n < 5 || r.off > 2 || r.gap > 4) problems.push(`poster ${lang} ${kind} not centered (${r.off}px sideways, ${r.gap}px top/bottom, ${r.n} parts)`);
       await p.screenshot({ path: `${OUT}/poster-${lang}-${kind}.png` });
       await c.close();
     }

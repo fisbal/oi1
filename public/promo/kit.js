@@ -19,6 +19,8 @@
              en: ['Quick notes', 'Phone, tablet, PC', 'With or without AI'] },
     Draw: { fr: ['Diagrammes et croquis', 'Téléphone, tablette, PC', 'Images PNG, JPG, SVG'],
             en: ['Diagrams and sketches', 'Phone, tablet, PC', 'PNG, JPG, SVG pictures'] },
+    Image: { fr: ['Studio photo', 'Améliorer en un geste', '31 looks, recadrage, 16 réglages'],
+             en: ['Photo studio', 'Enhance in one tap', '31 looks, crop, 16 sliders'] },
     Form: { fr: ['Formulaires, sondages, quiz', '23 sortes de questions', 'Réponses et résultats'],
             en: ['Forms, surveys, quizzes', '23 kinds of questions', 'Answers and results'] },
     'Code+': { fr: ['Sites web et applis', 'Aperçu en direct', 'Publiez en un clic'],
