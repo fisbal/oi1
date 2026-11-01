@@ -224,6 +224,8 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   }, [deck, active, fileName, shell]);
   const title = fileName ? fileName.replace(/\.pptx$/i, '') : (slideTitle(deck.slides[0]) || t('stage.untitled'));
   useEffect(() => { shell.setTitle(title.slice(0, 40)); }, [shell, title]);
+  // Renaming the tab renames the presentation: it saves and exports under that name.
+  useEffect(() => { shell.onRename?.(name => setFileName(`${name}.pptx`)); return () => shell.onRename?.(null); }, [shell]);
 
   const setDeck = (next: Deck) => { deckRef.current = next; setDeckState(next); };
   /** Every change goes through here, so Undo can bring the deck back. */

@@ -227,6 +227,8 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   const empty = Object.keys(project.files).length === 0 && project.folders.length === 0;
   const title = project.name || t('code.untitled');
   useEffect(() => { shell.setTitle(title); }, [shell, title]);
+  // Renaming the tab renames the project (its zip and its title).
+  useEffect(() => { shell.onRename?.(name => update(p => ({ ...p, name }))); return () => shell.onRename?.(null); }, [shell, update]);
   const active = project.active && project.files[project.active] !== undefined ? project.active : null;
 
   const openPath = useCallback((path: string) => update(p => ({ ...p, open: p.open.includes(path) ? p.open : [...p.open, path], active: path })), [update]);
