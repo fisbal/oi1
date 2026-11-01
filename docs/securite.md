@@ -54,3 +54,20 @@ OWASP Top 10 (2021) et XSS Prevention / Content Security Policy Cheat Sheets ; C
 GitHub Docs (secret scanning, push protection, Dependabot, CodeQL, rulesets, artifact attestations) ;
 OpenSSF Scorecard ; SLSA v1.0 (Build L2) ; Convention de Berne ; Loi sur le droit d'auteur (Canada) ; Code de la propriété
 intellectuelle (France) ; U.S. Copyright Office 2025.
+
+## Le Bouclier (antivirus et anti-arnaques intégré)
+
+Bouton 🛡 sur l'accueil et dans la barre de chaque appli (sur PC). Il travaille en arrière-plan, sans rien envoyer :
+
+| Ce qu'il fait | Comment | Fichier |
+|---|---|---|
+| Regarde dans chaque fichier avant de l'ouvrir | Macros VBA, objets OLE/ActiveX, modèles et liens distants (CVE-2017-0199, CVE-2021-40444, « Follina » CVE-2022-30190), champs DDE, RTF `\objdata`, PDF `/JavaScript` `/Launch` `/EmbeddedFile`, programmes déguisés (« facture.pdf » qui est un .exe, double extension), bombes zip, chemins `../` | `src/shell/shield/scan.ts` |
+| Copie désinfectée en un clic | Retire macros, objets, ActiveX, liens distants et DDE ; garde texte, tableaux, images, styles (principe CDR) | `vaccine.ts` |
+| Vérifie chaque lien cliqué dans un document | Schémas dangereux (`javascript:`), astuce « @ », lettres sosies (punycode), marques imitées (paypa1, paypal.com.faux.xyz), texte du lien qui ment, raccourcisseurs, extensions à risque | `links.ts` |
+| Liste mondiale de sites dangereux, mise à jour chaque jour | ~510 000 sites (Phishing.Database MIT, Block List Project, URLhaus CC0), publiés en empreintes SHA-256 réparties en 256 petits fichiers : l'appli ne télécharge que celui dont elle a besoin, le site visité n'est jamais envoyé (comme Google Safe Browsing) | `feed.ts`, `.github/workflows/shield-feed.yml`, `scripts/shield-feed.py` |
+| Anti-arnaque du texte collé | 16 familles (cartes-cadeaux, crypto, « nouveau RIB », code SMS demandé, faux support technique, colis, héritage, sextorsion…) en 5 langues ; plusieurs signes ensemble, jamais un mot seul | `scam.ts` |
+| Vaccin | Toute menace « danger » devient un anticorps (empreinte du fichier ou nom du site) : bloquée tout de suite la prochaine fois, même hors ligne. « Partager avec tous » ouvre un ticket GitHub (empreinte seulement) ; quand Martin ajoute l'étiquette `approved`, l'antidote part dans la liste du lendemain pour tous les Office In 1 | `feed.ts`, onglet Vaccins |
+
+Limites honnêtes : ce n'est pas un antivirus système (une page web ou une appli Store ne peut pas analyser tout l'ordinateur). Garder Windows Defender / la protection du téléphone. Un PDF dont le JavaScript est caché dans un flux compressé peut échapper à l'analyse rapide, mais Office In 1 n'exécute jamais ce code.
+
+Sources : MITRE ATT&CK (T1204.002, T1221, T1559.002), oletools (P. Lagadec), pdfid (D. Stevens), APWG, Unicode TR #39, FBI IC3 2024, Centre antifraude du Canada, cybermalveillance.gouv.fr, Forrest et al. 1994 (systèmes immunitaires artificiels).

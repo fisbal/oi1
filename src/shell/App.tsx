@@ -16,6 +16,8 @@ import { store } from './storage';
 import { aiFor } from './ai';
 import { aiTranslator, bestTranslator, originalOf, registerTranslator, rememberChoice, rememberedChoice, restoreOriginal, translateFromOriginal, translatorFor, type LangChoice } from './translate';
 import { LangChoiceDialog } from './LangChoice';
+import { guardFile } from './shield/guard';
+import { ShieldButton, ShieldHost } from './shield/Shield';
 import { installScrollArrows, schedule as scheduleScrollArrows } from '../ui/scrollArrows';
 import { autoSaveOn, forgetTab, onSaveStatus, registerSaver, saveStatus, setAutoSave, trackedSave } from './saveStatus';
 import { setTheme, useTheme } from './theme';
@@ -86,11 +88,15 @@ export default function App() {
 
   const cloudAcc = useCloud();
   const [homeCloud, setHomeCloud] = useState(false);
-  const openAnyFile = useCallback((file: OpenedFile | null) => {
-    if (!file) return;
-    const entry = moduleForFile(file.name);
-    if (entry) { openModule(entry.id, file); void remember(entry.id, file); }
-    else alert(`${t('shell.cannotOpen')} ${file.name}`);
+  const openAnyFile = useCallback((picked: OpenedFile | null) => {
+    if (!picked) return;
+    // The shield looks inside first (macros, hidden programs, traps); it may hand back a clean copy, or stop.
+    void guardFile(picked).then(file => {
+      if (!file) return;
+      const entry = moduleForFile(file.name);
+      if (entry) { openModule(entry.id, file); void remember(entry.id, file); }
+      else alert(`${t('shell.cannotOpen')} ${file.name}`);
+    });
   }, [openModule]);
 
   // A tab that never showed anything (its app could not load): removed without asking.
@@ -186,7 +192,7 @@ export default function App() {
   const makeApi = useCallback((tabId: string, moduleId: string): ShellApi => ({
     tabId,
     openFile: async extensions => {
-      const f = await pickFile(extensions);
+      const f = await guardFile(await pickFile(extensions));
       if (f && moduleForFile(f.name)?.id === moduleId) void remember(moduleId, f); // not pictures picked for a letter
       return f;
     },
@@ -377,6 +383,7 @@ export default function App() {
           {activeId && originalOf(activeId) && <option value="__orig">⟲ {t('lang.original')}</option>}
         </select>
       </header>
+      <ShieldHost />
       {langAsk && <LangChoiceDialog to={langAsk} onClose={() => setLangAsk(null)}
         onPick={(c, remember) => { const to = langAsk; setLangAsk(null); if (remember) rememberChoice(c); applyLanguage(to, c); }} />}
       {launcher && (
@@ -406,6 +413,7 @@ export default function App() {
               <div className="hero-actions reveal" style={{ '--i': 2 } as CSSProperties}>
                 <button className="gold-pill" onClick={() => void openModule('letter')}>{t('home.newLetter')}</button>
                 <button className="glass-pill" onClick={() => pickFile(readyExtensions).then(openAnyFile)}>{t('home.openFile')}</button>
+                <ShieldButton label />
                 <span className="home-cloud">
                   <button className="glass-pill" onClick={() => setHomeCloud(o => !o)}>☁ {cloudAcc ? t('cloud.openTitle') : t('cloud.title')}</button>
                   {homeCloud && <CloudPanel onOpen={openAnyFile} onClose={() => setHomeCloud(false)} />}
@@ -522,6 +530,7 @@ function TabHost({ tab, hidden, makeApi, onOpen, onDrop }: { tab: Tab; hidden: b
         <span className="app-doc" title={tab.title}>{tab.title}</span>
         <WantBar moduleId={tab.moduleId} />
         <SaveBadge tabId={tab.tabId} onOpen={onOpen} />
+        <ShieldButton />
       </div>
       <div ref={ref} className="module-host" hidden={hidden} />
     </div>

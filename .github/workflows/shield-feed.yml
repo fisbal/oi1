@@ -1,0 +1,45 @@
+# The shield's world list of dangerous sites, rebuilt every day (Martin: "un antivirus qui se met à jour").
+# Publishes to the shield-data branch only (never main), so it does not start a new release:
+# every Office In 1 (web, Store, Windows, Android, Mac) reads it from raw.githubusercontent.com.
+name: Shield list
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [scripts/shield-feed.py, .github/workflows/shield-feed.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shield-feed
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download the lists and the approved antidotes, make the 256 small files
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 -I scripts/shield-feed.py out
+      - name: Publish to the shield-data branch
+        env:
+          TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd out
+          printf '# Office In 1 shield list\nBuilt every day by .github/workflows/shield-feed.yml. Only SHA-256 fingerprints of site names.\n' > README.md
+          git init -q -b shield-data
+          git -c user.name=ci -c user.email=ci@local add -A
+          git -c user.name=ci -c user.email=ci@local commit -qm "Shield list $(date -u +%F)"
+          git push -qf "https://x-access-token:${TOKEN}@github.com/${REPO}" HEAD:shield-data
