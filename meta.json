@@ -1,0 +1,14 @@
+{
+ "updated": "2026-11-01T11:20:26+00:00",
+ "count": 510650,
+ "sources": [
+  "Phishing.Database (MIT)",
+  "Block List Project phishing (Unlicense)",
+  "Block List Project scam (Unlicense)"
+ ],
+ "antidotes": {
+  "files": [],
+  "hosts": []
+ },
+ "format": "sha256(host)[2:16] in h/<sha256[:2]>.txt"
+}
