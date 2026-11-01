@@ -23,6 +23,10 @@ export interface Made {
   error?: string;
 }
 
+/** Every character that means something in a regular expression, escaped (backslash included). */
+const reEsc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** A paragraph that holds only the table mark. */
+const markRe = (flags = '') => new RegExp(`<p[^>]*>\\s*${reEsc(TABLE_MARK)}\\s*</p>`, flags);
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 export const fileBase = (s: string) => (s.trim() || 'Document').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 80);
 
@@ -56,7 +60,7 @@ export function linkedTableHtml(table: TableData, live: string | null): string {
 
 /** Puts the table where the letter marks it, or before its last paragraph (the signature) when it does not. */
 export function placeTableInHtml(html: string, tableHtml: string): string {
-  const marked = new RegExp(`<p[^>]*>\\s*${TABLE_MARK.replace(/[[\]]/g, '\\$&')}\\s*</p>`);
+  const marked = markRe();
   if (marked.test(html)) return html.replace(marked, tableHtml);
   if (html.includes(TABLE_MARK)) return html.replace(TABLE_MARK, tableHtml);
   const last = html.lastIndexOf('<p');
@@ -97,7 +101,7 @@ export async function runPlan(shell: ShellApi, plan: Plan, onState: (id: string,
           html = placeTableInHtml(html, linkedTableHtml(t, lives.get(s.table) ?? null));
           m.live = lives.get(s.table);
           m.linked.push(byId.get(s.table)?.name ?? '');
-        } else html = html.replace(new RegExp(`<p[^>]*>\\s*${TABLE_MARK.replace(/[[\]]/g, '\\$&')}\\s*</p>`, 'g'), '');
+        } else html = html.replace(markRe('g'), '');
         m.tabId = shell.openModule('letter', undefined, { kind: 'html', title: s.name, html });
         if (m.tabId && s.table && !letterOf.has(s.table)) { letterOf.set(s.table, m); }
       } else if (s.app === 'class') {
