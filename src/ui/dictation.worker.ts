@@ -33,6 +33,8 @@ function load(): Promise<Asr> {
 }
 
 self.onmessage = async (ev: MessageEvent) => {
+  // A dedicated worker only hears the page that created it (origin is empty); refuse anything else.
+  if (ev.origin && ev.origin !== self.location.origin) return;
   const m = ev.data as { type: string; id?: number; audio?: Float32Array; language?: string };
   if (m.type === 'load') {
     try { await load(); post({ type: 'ready' }); }
