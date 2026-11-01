@@ -11,6 +11,7 @@ import { HELP_STAGE } from './helpStage';
 import { HELP_CONVERT } from './helpConvert';
 import { HELP_PRINT } from './helpPrint';
 import { HELP_DRAW } from './helpDraw';
+import { HELP_NOTES } from './helpNotes';
 
 export type HelpText = [en: string, fr: string];
 
@@ -130,6 +131,7 @@ export const HELP: Record<string, HelpText> = {
   ...HELP_CONVERT,
   ...HELP_PRINT,
   ...HELP_DRAW,
+  ...HELP_NOTES,
 };
 
 /** The explanation of a control: its key's text, a family's text ("class.chart.*") with its name, or null. */

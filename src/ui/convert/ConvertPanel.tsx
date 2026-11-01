@@ -149,7 +149,7 @@ export function ConvertPanel({ shell, source }: { shell: ShellApi; source: Conve
     if (doc && await restoreOriginal(shell.tabId, doc)) shell.notify(t('lang.restored'));
     else shell.notify(t('convert.noOriginal'));
   };
-  const copyTarget: TargetId = source.appId === 'file' ? 'letter' : source.appId === 'draw' ? 'png' : source.appId;
+  const copyTarget: TargetId = source.appId === 'file' || source.appId === 'notes' ? 'letter' : source.appId === 'draw' ? 'png' : source.appId;
   const pickFile = async () => {
     const f = await shell.openFile(CONVERT_FILE_TYPES);
     if (!f) return;
