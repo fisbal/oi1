@@ -203,4 +203,6 @@ The full plan (architecture, stack choice, roadmap, sources) is in the blueprint
 ## License and security
 
 Copyright (c) 2026 Martin Balla. All rights reserved: see [LICENSE](LICENSE). Libraries keep their own licences: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+Office In 1 is independent software. It is not affiliated with, sponsored by or endorsed by Microsoft. Microsoft, Microsoft Office, Word, Excel, PowerPoint and Outlook are trademarks of Microsoft Corporation; LibreOffice is a trademark of The Document Foundation. They are named only to describe file compatibility. / Office In 1 est un logiciel indépendant, ni affilié à Microsoft ni approuvé par Microsoft.
+
 Report a security problem privately: [SECURITY.md](SECURITY.md). How the app protects itself: [docs/securite.md](docs/securite.md).

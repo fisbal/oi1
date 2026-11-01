@@ -19,4 +19,10 @@ Third-party libraries keep their own licences (MIT, Apache-2.0, ISC, BSD, OFL-1.
 see THIRD-PARTY-NOTICES.md. The spelling dictionaries are separate data files loaded at run time, each
 under its own licence (see README.md).
 
+Office In 1 is independent software, not affiliated with, sponsored by or endorsed by Microsoft
+Corporation. Microsoft, Microsoft Office, Word, Excel, PowerPoint and Outlook are trademarks of
+Microsoft Corporation; LibreOffice is a trademark of The Document Foundation. They are named only to
+describe file compatibility. / Office In 1 est un logiciel indépendant : il n'est ni affilié à Microsoft,
+ni commandité ni approuvé par Microsoft.
+
 Contact: https://github.com/fisbal
