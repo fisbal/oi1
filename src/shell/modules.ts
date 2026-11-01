@@ -31,7 +31,7 @@ export const modules: ModuleEntry[] = [
   { id: 'plan', name: 'In 1 Plan', kind: 'kind.plan', color: '#5FB8E8', code: '#0E7FB8', badge: 'P', extensions: ['.oi1plan'], load: () => import('../modules/plan') },
   { id: 'mail', name: 'In 1 Mail', kind: 'kind.mail', color: '#8C9CF0', code: '#4F5FD0', badge: 'M', extensions: [], load: null },
   { id: 'draw', name: 'In 1 Draw', kind: 'kind.draw', color: '#E26FC2', code: '#B8379A', badge: 'D', extensions: ['.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif'], load: () => import('../modules/draw') },
-  { id: 'form', name: 'In 1 Form', kind: 'kind.form', color: '#4FC4B5', code: '#14857A', badge: 'F', extensions: [], load: null },
+  { id: 'form', name: 'In 1 Form', kind: 'kind.form', color: '#4FC4B5', code: '#14857A', badge: 'F', extensions: ['.oi1form'], load: () => import('../modules/form') },
 ];
 
 /** The ready module that opens files with this name, if any. */
