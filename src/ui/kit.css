@@ -373,3 +373,18 @@
 .rgroup.tinted .rgroup-label { color: color-mix(in srgb, var(--accent) 78%, var(--ink)); }
 @media (prefers-reduced-motion: reduce) { .app-key, .app-key .scene-art * { animation: none; } .app-key, .rgroup.tinted .rb.big .key { transition: none; } }
 .rgroup.tinted .rb.big:active:not(:disabled) .key { transform: translateY(3px); box-shadow: 0 1px 0 var(--edge); }
+
+/* shared by every app (status note that fades, AI dialog, one-line ask): kept here so an app never depends on another app's CSS */
+.dr-note { color: var(--gold); animation: dr-fade 4s forwards; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+@keyframes dr-fade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+.dr-ai { display: flex; flex-direction: column; gap: 10px; min-width: min(460px, 80vw); }
+.dr-ai p { margin: 0; }
+.dr-ai textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: rgba(var(--bg-rgb), 1); color: var(--ink); resize: vertical; }
+.dr-ai-ideas { display: flex; flex-wrap: wrap; gap: 6px; }
+.dr-ai-ideas button { border: 1px solid rgba(var(--fg-rgb), .14); border-radius: 999px; padding: 6px 12px; background: none; color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; min-height: 32px; }
+.dr-ai-ideas button:hover { border-color: #7B6CF6; }
+.dr-ai-busy { color: #7B6CF6; }
+.dr-ai-error { color: #E06C6C; }
+.dr-ai-who { color: var(--muted); font-size: 12px; }
+.nt-ask { display: flex; flex-direction: column; gap: 8px; min-width: min(380px, 78vw); }
+.nt-ask input { min-height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(var(--bg-rgb), 1); color: var(--ink); font: inherit; }
