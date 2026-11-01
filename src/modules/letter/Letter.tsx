@@ -23,7 +23,7 @@ import { letterCopilot } from './copilot';
 import { htmlBody, textToHtml, wrapHtml } from './html';
 import { PASTE_PROMPTS, pasteHtml, type PasteKind } from './textTools';
 import { markdownToHtml } from '../../ui/markdown';
-import { defaultStyles, emptyDoc, stylesCss, type DocStyles, type LetterDoc } from './model';
+import { blankDoc, defaultStyles, emptyDoc, stylesCss, suggestedName, type DocStyles, type LetterDoc } from './model';
 import { listStylesCss } from './extensions';
 import { PX_PER_IN, defaultPage, isDark, pageInches, type PageSettings } from './page';
 import { CommandPalette, FindBar, MarginsDialog, OutlinePane, WordCountDialog, type Command } from './panels';
@@ -95,7 +95,7 @@ async function savedLetter(shell: ShellApi): Promise<LetterDoc | null> {
 export default function Letter({ shell, file, handoff }: { shell: ShellApi; file?: OpenedFile; handoff?: Handoff }) {
   const [initial, setInitial] = useState<LetterDoc | null>(null);
   useEffect(() => {
-    void savedLetter(shell).then(d => setInitial(d ?? emptyDoc(t('letter.untitled'))));
+    void savedLetter(shell).then(d => setInitial(d ?? blankDoc()));
   }, [shell]);
   if (!initial) return <div className="letter" />;
   return <LetterEditor shell={shell} file={file} handoff={handoff} initial={initial} />;
@@ -231,19 +231,9 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   });
 
   // ---------- title ----------
-  const title = useEditorState({
-    editor: body,
-    selector: ({ editor }) => {
-      if (fileName) return fileName.replace(/\.(docx|html?|txt)$/i, '');
-      let heading = '';
-      editor?.state.doc.descendants(node => {
-        if (heading) return false;
-        if (node.type.name === 'heading' || node.attrs.styleId === 'title') heading = node.textContent.trim();
-        return !heading;
-      });
-      return (heading || t('letter.untitled')).slice(0, 60);
-    },
-  }) ?? t('letter.untitled');
+  // As in Word: the name stays "Untitled letter" (Document1) until the letter is saved or renamed; the words typed
+  // or dictated never rename it by themselves (Martin, 2026-11-01). A first save suggests the first line (baseName).
+  const title = fileName ? fileName.replace(/\.(docx|html?|txt)$/i, '') : t('letter.untitled');
   const words = useEditorState({ editor: body, selector: ({ editor }) => editor?.storage.characterCount.words() ?? 0 }) ?? 0;
   const fields = useEditorState({ editor: body, selector: ({ editor }) => (editor ? fieldsIn(editor.state.doc).length : 0) }) ?? 0;
   const inTable = useEditorState({ editor: body, selector: ({ editor }) => !!editor && editor.isActive('table') }) ?? false;
@@ -363,7 +353,8 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     return () => { window.removeEventListener('beforeprint', before); window.removeEventListener('afterprint', after); after(); };
   }, [isPrint, inches.width, inches.height, m.top, m.right, m.bottom, m.left, page.color]);
 
-  const baseName = () => (title || 'letter').replace(/[\\/:*?"<>|]+/g, '').trim() || 'letter';
+  // A first save suggests the first line, as Word does; afterwards the file's own name is used.
+  const baseName = () => (fileName ? title : suggestedName(body?.getText({ blockSeparator: '\n' }) ?? '', title)).replace(/[\\/:*?"<>|]+/g, '').trim() || 'letter';
 
   const print = useCallback(() => {
     const go = () => {

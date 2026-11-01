@@ -64,6 +64,23 @@ export function defaultStyles(): DocStyles {
   };
 }
 
+/** A new letter, as in Word: an empty page with the cursor at the top (no title written into the text). */
+export function blankDoc(): LetterDoc {
+  return { ...emptyDoc(''), body: { type: 'doc', content: [{ type: 'paragraph' }] } };
+}
+
+/**
+ * The name Word suggests when a new document is saved for the first time: its first line (a few words), or the
+ * default name when the page is still empty. The tab keeps the default name until then.
+ */
+export function suggestedName(text: string, fallback: string): string {
+  const first = text.split('\n').map(l => l.trim()).find(Boolean) ?? '';
+  const words = first.replace(/[\\/:*?"<>|]+/g, ' ').split(/\s+/).filter(Boolean);
+  let out = '';
+  for (const w of words) { if ((out + ' ' + w).trim().length > 40) break; out = (out + ' ' + w).trim(); }
+  return (out || first.slice(0, 40)).replace(/[.,;:!?…]+$/u, '').trim() || fallback;
+}
+
 export function emptyDoc(title: string): LetterDoc {
   return {
     body: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: title }] }, { type: 'paragraph' }] },

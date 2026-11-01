@@ -199,7 +199,9 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
 
   // ---------- title, rename ----------
   const title = titleOf(page, untitled);
-  useEffect(() => { shell.setTitle(title.slice(0, 40)); }, [shell, title]);
+  // The tab shows the page's own title (or "Untitled page"), never the first words being typed or dictated.
+  const tabTitle = page.title.trim() || untitled;
+  useEffect(() => { shell.setTitle(tabTitle.slice(0, 40)); }, [shell, tabTitle]);
   useEffect(() => {
     shell.onRename?.(name => setLib(l => updatePage(l, l.at.page, { title: name })));
     return () => shell.onRename?.(null);
