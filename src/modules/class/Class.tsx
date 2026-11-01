@@ -34,7 +34,7 @@ import { AUDITS, AUDIT_SHORT, runAudit, type AuditId } from './pro/audit';
 import { tx, type Lang } from './pro/build';
 import { CondDialog, FilterMenu, FindPanel, HIGHLIGHT_KINDS, TOP_KINDS, type CondKind, type FindOptions } from './panels';
 import { borderCss, printHtml, sheetHtml } from './print';
-import { GoalSeekDialog, ScenarioDialog, SolverDialog, ValidationAlert, ValidationDialog, setRule } from './WhatIf';
+import { GoalSeekDialog, ScenarioDialog, SolverDialog, ValidationAlert, ValidationDialog, setRule } from './whatIfUi';
 import { customValue, invalidCells, isValid, listChoices, validationAt, withValues, type Validation } from './whatif';
 
 const FN_ICON: Record<'financial' | 'logical' | 'text' | 'date' | 'lookup' | 'math', string> = {
