@@ -270,7 +270,8 @@
 .callout-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; }
 
 .status-read { color: var(--faint); }
-.status-live { display: inline-flex; align-items: center; gap: 6px; color: #ff8a80; }
+.status-live { display: inline-flex; align-items: center; gap: 6px; color: #ff8a80; min-width: 0; flex: 0 1 auto; overflow-wrap: anywhere; }
+.status-live.error { color: var(--gold-light); }
 .status-live i { width: 8px; height: 8px; border-radius: 50%; background: #ff5c5c; animation: oi-live 1.2s ease-in-out infinite; }
 @keyframes oi-live { 50% { opacity: .3; transform: scale(.7); } }
 

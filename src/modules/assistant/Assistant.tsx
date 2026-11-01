@@ -4,6 +4,8 @@
 // inside a letter stays the same on both sides). It does not replace the copilot each app has: that one helps
 // inside a document, this one makes the documents. Without any AI it still makes 25 everyday tasks from recipes.
 
+import { useDictation } from '../../ui/useDictation';
+import { joinDictation } from '../../ui/dictation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Handoff, ShellApi } from '../../shell/contract';
 import { getLanguage, t, type MessageKey } from '../../shell/i18n';
@@ -78,7 +80,6 @@ export default function Assistant({ shell, handoff }: { shell: ShellApi; handoff
   const [states, setStates] = useState<Record<string, StepState>>({});
   const [made, setMade] = useState<Made[]>([]);
   const [history, setHistory] = useState<Saved[]>(loadHistory);
-  const [listening, setListening] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
   const stop = useRef<AbortController | null>(null);
@@ -190,22 +191,11 @@ export default function Assistant({ shell, handoff }: { shell: ShellApi; handoff
     setFiles(list => [...list.filter(x => x.name !== f.name), { name: f.name, text: f.name.match(/\.html?$/i) ? textOf(text) : text }]);
   };
 
-  const Speech = (window as unknown as { SpeechRecognition?: new () => SpeechRec; webkitSpeechRecognition?: new () => SpeechRec }).SpeechRecognition
-    ?? (window as unknown as { webkitSpeechRecognition?: new () => SpeechRec }).webkitSpeechRecognition;
-  const rec = useRef<SpeechRec | null>(null);
-  const dictate = () => {
-    if (!Speech) return;
-    if (listening) { rec.current?.stop(); return; }
-    const r = new Speech();
-    r.lang = ({ en: 'en-US', fr: 'fr-FR', es: 'es-ES', pt: 'pt-BR', de: 'de-DE' } as Record<string, string>)[lang] ?? 'en-US';
-    r.interimResults = false;
-    r.onresult = e => { const said = Array.from(e.results).map(x => x[0].transcript).join(' '); setTask(v => (v ? `${v} ${said}` : said)); };
-    r.onend = () => setListening(false);
-    r.onerror = () => setListening(false);
-    rec.current = r;
-    setListening(true);
-    r.start();
-  };
+  // Dictation: shared engine (Web Speech when it works, Whisper on the device otherwise).
+  const dict = useDictation(lang, text => setTask(v => joinDictation(v, text)));
+  const listening = dict.active;
+  const dictate = dict.toggle;
+  useEffect(() => { if (dict.error) shell.notify(dict.message); }, [dict.error, dict.message, shell]);
 
   const reset = () => { setPhase('home'); setPlan(null); setMade([]); setError(''); setFallback(null); setTask(''); setFiles([]); setTimeout(() => box.current?.focus(), 0); };
   const openTab = (tabId: string | null) => { if (tabId && shell.tabs().some(x => x.tabId === tabId)) shell.showTab(tabId); else shell.notify(t('assistant.tabClosed')); };
@@ -236,9 +226,9 @@ export default function Assistant({ shell, handoff }: { shell: ShellApi; handoff
             </div>
           )}
           <div className="as-bar">
-            {Speech && (
-              <button type="button" className={`as-tool${listening ? ' on' : ''}`} disabled={busy} onClick={dictate} title={t('assistant.dictateHelp')} data-help-text={t('assistant.dictateHelp')}>
-                <span aria-hidden="true">🎤</span>{listening ? t('assistant.listening') : t('assistant.dictate')}
+            {(
+              <button type="button" className={`as-tool${listening ? ' on' : ''}`} data-dictation={dict.status?.kind} disabled={busy} onClick={dictate} title={t('assistant.dictateHelp')} data-help-text={t('assistant.dictateHelp')}>
+                <span aria-hidden="true">🎤</span>{listening ? (dict.status?.kind === 'loading' ? `${dict.status.pct} %` : t('assistant.listening')) : t('assistant.dictate')}
               </button>
             )}
             <button type="button" className="as-tool" disabled={busy} onClick={() => void attach()} title={t('assistant.attachHelp')} data-help-text={t('assistant.attachHelp')}>
@@ -388,9 +378,3 @@ function textOf(html: string): string {
   return (d.textContent ?? '').trim();
 }
 
-interface SpeechRec {
-  lang: string; interimResults: boolean;
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
-  onend: (() => void) | null; onerror: (() => void) | null;
-  start(): void; stop(): void;
-}

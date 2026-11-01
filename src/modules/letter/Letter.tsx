@@ -1,4 +1,6 @@
 import { isStaleBuild, reloadToNewVersion } from '../../shell/staleBuild';
+import { useDictation } from '../../ui/useDictation';
+import { insertDictation } from '../../ui/dictation';
 import { closeHistory } from '@tiptap/pm/history';
 import { EditorContent, useEditor, useEditorState, type Editor, type JSONContent } from '@tiptap/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -127,7 +129,6 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   const [docLang, setDocLang] = useState<'fr' | 'en'>(() => (shell.storage.get('docLang') as 'fr' | 'en' | null) || (getLanguage() === 'fr' ? 'fr' : 'en'));
   const [outline, setOutline] = useState(() => window.innerWidth >= 1200 && shell.storage.get('outline') === '1');
   const [focusMode, setFocusMode] = useState(false);
-  const [dictating, setDictating] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [hfVersion, setHfVersion] = useState(0);
   const [comments, setCommentsState] = useState<LetterComment[]>(initial.comments ?? []);
@@ -546,35 +547,12 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
 
 
   // ---------- beyond Word: smart tools ----------
-  const recognition = useRef<{ stop(): void } | null>(null);
-  const dictate = () => {
-    if (recognition.current) { recognition.current.stop(); return; }
-    type Recognition = { lang: string; continuous: boolean; interimResults: boolean; start(): void; stop(): void; onresult: ((e: { resultIndex: number; results: { isFinal: boolean; 0: { transcript: string } }[] }) => void) | null; onend: (() => void) | null; onerror: ((e: { error: string }) => void) | null };
-    const w = window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
-    const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
-    if (!SR) { alert(t('letter.dictateUnsupported')); return; }
-    const r = new SR();
-    r.lang = speechLang(lang);
-    r.continuous = true;
-    r.interimResults = false;
-    r.onresult = e => {
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const res = e.results[i];
-        if (!res.isFinal) continue;
-        const text = res[0].transcript.trim();
-        if (!text) continue;
-        const ed = editors.current[activeRef.current] ?? body;
-        const before = ed?.state.doc.textBetween(Math.max(0, ed.state.selection.from - 1), ed.state.selection.from) ?? '';
-        ed?.chain().focus().insertContent(`${before && !/\s$/.test(before) ? ' ' : ''}${text}`).run();
-      }
-    };
-    r.onerror = e => { if (e.error === 'not-allowed') alert(t('letter.dictateBlocked')); };
-    r.onend = () => { recognition.current = null; setDictating(false); };
-    r.start();
-    recognition.current = r;
-    setDictating(true);
-  };
-  useEffect(() => () => { recognition.current?.stop(); window.speechSynthesis?.cancel(); }, []);
+  // Dictation: one engine for all In 1 apps (Web Speech when it works, Whisper on the device otherwise).
+  const dict = useDictation(speechLang(lang), text => insertDictation(editors.current[activeRef.current] ?? body, text));
+  const dictating = dict.active;
+  const dictate = dict.toggle;
+  useEffect(() => { if (dict.error) shell.notify(dict.message); }, [dict.error, dict.message, shell]);
+  useEffect(() => () => { window.speechSynthesis?.cancel(); }, []);
 
   const readAloud = () => {
     const synth = window.speechSynthesis;
@@ -1179,7 +1157,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
         <span>{isPrint ? t('letter.pageOf', { n: cursorPage, total: layout.pages }) : t('letter.webLayout')}</span>
         <button type="button" className="status-btn" onClick={() => setPanel('count')}>{words === 1 ? t('letter.word') : t('letter.words', { n: words })}</button>
         {words > 0 && <span className="status-read">{t('letter.minutesRead', { n: readMinutes })}</span>}
-        {dictating && <span className="status-live"><i />{t('letter.listening')}</span>}
+        {(dictating || dict.error) && dict.message && <span className={`status-live${dict.error ? ' error' : ''}`} data-dictation={dict.status?.kind} role="status">{!dict.error && <i />}{dict.message}</span>}
         {tracking && <button type="button" className="status-btn status-track" onClick={review.track}>{t('letter.trackStatus')}</button>}
         {openComments > 0 && !commentsOpen && (
           <button type="button" className="status-btn" onClick={() => setCommentsOpen(true)}><Icon name="comment" /> {openComments}</button>
