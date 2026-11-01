@@ -99,11 +99,15 @@ export function rememberChoice(c: LangChoice | null) {
 }
 
 const hasWords = (s: string) => /\p{L}{2,}/u.test(s);
-const langName = (code: LanguageCode) => LANGUAGES.find(l => l.code === code)?.name ?? code;
+const langName = (code: string) => {
+  const known = LANGUAGES.find(l => l.code === code)?.name;
+  if (known) return known;
+  try { return new Intl.DisplayNames(['en'], { type: 'language' }).of(code) ?? code; } catch { return code; }
+};
 
 /** Asks the AI to translate `texts` into `to`, in batches, keeping spaces at both ends and leaving texts without
  *  words (numbers, codes, symbols) alone. A batch whose answer does not fit is left as it was. */
-export function aiTranslator(ai: AiApi, to: LanguageCode, signal?: AbortSignal): TranslateTexts {
+export function aiTranslator(ai: AiApi, to: LanguageCode | string, signal?: AbortSignal): TranslateTexts {
   return async texts => {
     const out = [...texts];
     const unique = [...new Set(texts.map(s => s.trim()).filter(hasWords))];
@@ -144,7 +148,8 @@ export async function translateHtml(htmls: string[], tr: TranslateTexts): Promis
   const nodes: Text[] = [];
   for (const d of docs) {
     const walk = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT);
-    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (hasWords(n.nodeValue ?? '')) nodes.push(n as Text);
+    // Code, scripts and styles are not words to translate.
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (hasWords(n.nodeValue ?? '') && !n.parentElement?.closest('script, style, code, pre')) nodes.push(n as Text);
   }
   if (!nodes.length) return htmls;
   const got = await tr(nodes.map(n => n.nodeValue ?? ''));
@@ -272,7 +277,7 @@ export function onlineTranslator(to: string, from: string): (texts: string[]) =>
 
 /** Chrome's translator first (free, no account, on the device); then the free online translator (phones); the
  *  copilot's AI only for what both could not do. */
-export async function bestTranslator(to: LanguageCode, from: string, ai: () => TranslateTexts): Promise<TranslateTexts> {
+export async function bestTranslator(to: LanguageCode | string, from: string, ai: () => TranslateTexts): Promise<TranslateTexts> {
   const browser = await browserTranslator(to, from);
   const first = browser ?? (from && from !== to ? onlineTranslator(to, from) : null);
   if (!first) return ai();

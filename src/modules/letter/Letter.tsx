@@ -44,6 +44,9 @@ import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, sel
 import { profileValues } from './templates/profile';
 import { letterPartMarkup, type LetterPart } from './templates/parts';
 import { CommentsPane, showComment } from './comments';
+import { ConvertPanel } from '../../ui/convert/ConvertPanel';
+import { translateJson, type ConvertSource } from '../../shell/convert';
+import { tablesInHtml } from '../../formats/textFormats';
 import { notesDom, type LayoutResult } from './pagination';
 import {
   addCommentMark, changeAt, commentRanges, commentsAt, footnoteAt, goToChange, isTracking, listChanges, listFootnotes,
@@ -916,6 +919,25 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     docAi: (what: 'docWrite' | 'fillAi') => { setCopilot(true); setCopilotStart(x => ({ id: what, n: (x?.n ?? 0) + 1 })); },
   };
 
+  // The Convert tab: this letter as HTML with its styles, its tables, and Word/PDF made by Letter itself.
+  const convertSource: ConvertSource = {
+    appId: 'letter',
+    title: () => title || baseName(),
+    html: () => body?.getHTML() ?? '',
+    css: () => stylesCss(styles, page, '').split(' .doc-text').join('.cv-doc') + '\n' + listStylesCss('.cv-doc'),
+    tables: () => tablesInHtml(body?.getHTML() ?? '').map((table, i) => ({ name: `${title || baseName()} ${i + 1}`, table })),
+    native: {
+      docx: async tr => {
+        const { letterToDocx } = await import('./docx/write');
+        const doc = letterNow();
+        if (tr) { doc.body = await translateJson(doc.body, tr); doc.header = doc.header && await translateJson(doc.header, tr); doc.footer = doc.footer && await translateJson(doc.footer, tr); }
+        return new Blob([await letterToDocx(doc, title, userName())], { type: DOCX_TYPE });
+      },
+      // Letter's own PDF and print keep its pages, headers and footers.
+      pdf: async tr => { if (tr) return undefined; print(); return true; },
+      print: async tr => { if (tr) return undefined; print(); return true; },
+    },
+  };
   const actions: RibbonActions = {
     fileMenu: () => setPanel('file'),
     pasteAs: async (kind: PasteKind) => {
@@ -1085,6 +1107,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       <style>{stylesCss(styles, page, `.${scope}`)}{listStylesCss()}{commentCss}</style>
       <Ribbon editor={activeEditor} body={body} styles={styles} page={page} setPage={setPage} lang={lang} setLang={setLang}
         view={view} setView={setView} actions={actions} suite={suite}
+        convertPanel={<ConvertPanel shell={shell} source={convertSource} />}
         proofTools={<ProofButtons editor={activeEditor} ai={shell.ai} lang={lang} notify={m => shell.notify(m)} />} />
       {focusMode && <button type="button" className="focus-exit" onClick={exitFocus}>{t('letter.focusExit')}</button>}
       <div className="letter-body">

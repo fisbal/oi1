@@ -3,7 +3,8 @@
 // .pptx open and save, printing and PDF, Claude as copilot, and links with Office Letter and Office Class.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import type { FileRef, Handoff, OpenedFile, RecentFile, ShellApi, TableData } from '../../shell/contract';
 import { LANGUAGES, getLanguage, t, type MessageKey } from '../../shell/i18n';
@@ -21,6 +22,11 @@ import { qrDataUrl } from '../../ui/qr';
 import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
 import { usePinchZoom } from '../../ui/pinch';
 import { translateHtml } from '../../shell/translate';
+import { deckOutline, outlineHtml, slidesFromHtml } from '../../formats/deckText';
+import { ConvertPanel } from '../../ui/convert/ConvertPanel';
+import { offscreen, settle } from '../../ui/convert/render';
+import { translateDeck, type ConvertSource } from '../../shell/convert';
+export { deckOutline, slidesFromHtml };
 import { FastScroll } from '../../ui/FastScroll';
 import { FONT_GROUPS, FONT_SIZES, cssFont } from '../letter/model';
 import { readAsDataUrl } from '../letter/setup';
@@ -47,7 +53,7 @@ const ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.25, 1.5, 2];
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
 
 interface Saved { deck: Deck; active: number; name: string }
-type Tab = 'home' | 'insert' | 'design' | 'transitions' | 'animations' | 'show' | 'review' | 'view' | 'oi1' | 'format' | 'table';
+type Tab = 'home' | 'insert' | 'design' | 'transitions' | 'animations' | 'show' | 'review' | 'view' | 'oi1' | 'convert' | 'format' | 'table';
 type Drag =
   | { kind: 'move'; x0: number; y0: number; start: Map<string, { x: number; y: number }>; moved: boolean; clickEdit: string | null }
   | { kind: 'resize'; id: string; hx: number; hy: number; x0: number; y0: number; orig: Item }
@@ -56,52 +62,6 @@ type Drag =
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const isText = (it: Item | undefined): it is ShapeItem => !!it && it.kind === 'shape' && !isLine(it.geom);
-
-/** Text for a whole deck, for searching, the copilot and the outline sent to Letter. */
-export function deckOutline(deck: Deck): { title: string; lines: string[]; notes: string }[] {
-  return deck.slides.map(s => {
-    const title = slideTitle(s);
-    const lines = s.items.filter(i => !(i.kind === 'shape' && i.role === 'title')).flatMap(i => itemText(i).split('\n')).map(l => l.trim()).filter(Boolean);
-    return { title, lines, notes: s.notes };
-  });
-}
-
-function outlineHtml(deck: Deck, name: string): string {
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return deckOutline(deck).map((s, i) => {
-    const head = `<h2>${esc(s.title || t('stage.slideN', { n: i + 1 }))}</h2>`;
-    const list = s.lines.length ? `<ul>${s.lines.map(l => `<li><p>${esc(l)}</p></li>`).join('')}</ul>` : '';
-    const notes = s.notes.trim() ? s.notes.split('\n').filter(Boolean).map(l => `<p><em>${esc(l)}</em></p>`).join('') : '';
-    return head + list + notes;
-  }).join('') || `<p>${esc(name)}</p>`;
-}
-
-/** Slides from a letter's HTML: each heading starts a slide, the text under it becomes its bullets. */
-export function slidesFromHtml(html: string, deck: Pick<Deck, 'w' | 'h'>): Slide[] {
-  const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html');
-  const out: { title: string; lines: string[]; level: number }[] = [];
-  for (const el of Array.from(doc.body.children)) {
-    const tag = el.tagName.toLowerCase();
-    const text = (el.textContent ?? '').trim();
-    if (/^h[1-3]$/.test(tag)) { out.push({ title: text, lines: [], level: Number(tag[1]) }); continue; }
-    if (!out.length) out.push({ title: '', lines: [], level: 9 });
-    const cur = out[out.length - 1];
-    if (tag === 'ul' || tag === 'ol') el.querySelectorAll('li').forEach(li => { const x = (li.querySelector('p') ?? li).textContent?.trim(); if (x) cur.lines.push(x); });
-    else if (text) cur.lines.push(text);
-  }
-  return out.filter(s => s.title || s.lines.length).map((s, i) => {
-    const layout: LayoutId = i === 0 && s.level === 1 && !s.lines.length ? 'title' : s.level === 1 && !s.lines.length ? 'section' : 'content';
-    const slide = newSlide(layout, deck);
-    slide.items = slide.items.map(it => {
-      if (it.kind !== 'shape') return it;
-      if (it.role === 'title') return { ...it, html: linesToHtml([s.title], false) };
-      if (it.role === 'body' && s.lines.length) return { ...it, html: linesToHtml(s.lines.slice(0, 12), true) };
-      return it;
-    });
-    if (s.lines.length > 12) slide.notes = s.lines.slice(12).join('\n');
-    return slide;
-  });
-}
 
 function useSize(ref: React.RefObject<HTMLElement | null>) {
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -1114,12 +1074,35 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     <ColorGrid none={none} onPick={c => { close(); onPick(c); }} />
   </>;
 
+  // The Convert tab: the deck's outline as HTML, its tables, the deck itself (translated when asked) and its slides as pages.
+  const convertSource: ConvertSource = {
+    appId: 'stage',
+    title: () => title,
+    html: () => outlineHtml(deckRef.current, title),
+    tables: () => deckRef.current.slides.flatMap(s => s.items.filter((i): i is TableItem => i.kind === 'table').map(i => ({ name: slideTitle(s) || title, table: { rows: i.rows.map(r => r.map(text => ({ text }))), header: i.header } }))),
+    deck: async tr => (tr ? translateDeck(deckRef.current, tr) : deckRef.current),
+    pages: async tr => {
+      const d = tr ? await translateDeck(deckRef.current, tr) : deckRef.current;
+      const host = offscreen(d.w);
+      const root = createRoot(host);
+      flushSync(() => root.render(<div>{d.slides.filter(s => !s.hidden).map(s => (
+        <div key={s.id} className="cv-page" style={{ width: d.w, height: d.h, overflow: 'hidden' }}><SlideView deck={d} slide={s} /></div>
+      ))}</div>));
+      await settle(host);
+      return { nodes: Array.from(host.querySelectorAll<HTMLElement>('.cv-page')), width: d.w, height: d.h, done: () => { root.unmount(); host.remove(); } };
+    },
+    native: {
+      pdf: async tr => { if (tr) return undefined; print(); return true; },
+      print: async tr => { if (tr) return undefined; print(); return true; },
+    },
+  };
   const ribbon = (
     <div className="ribbon">
       <div className="ribbon-tabs" role="tablist">
         <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
         {tabs.map(x => <button key={x.id} type="button" role="tab" aria-selected={shownTab === x.id} className={shownTab === x.id ? 'on' : ''} onClick={() => setTab(x.id)}>{t(x.label)}</button>)}
         <button type="button" role="tab" aria-selected={shownTab === 'oi1'} className={`ribbon-special${shownTab === 'oi1' ? ' on' : ''}`} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
+        <button type="button" role="tab" aria-selected={shownTab === 'convert'} className={`ribbon-special ribbon-convert${shownTab === 'convert' ? ' on' : ''}`} onClick={() => setTab('convert')}>{t('convert.tab')}</button>
         <TutoTab />
         <RibbonToggle />
         {hasFormat && <button type="button" role="tab" aria-selected={shownTab === 'format'} className={shownTab === 'format' ? 'on' : ''} onClick={() => setTab('format')}>{t('stage.tab.format')}</button>}
@@ -1406,6 +1389,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           </Group>
         </>}
 
+        {shownTab === 'convert' && <ConvertPanel shell={shell} source={convertSource} />}
         {shownTab === 'oi1' && <>
           <Group label="stage.group.withLetter" accent={appColor('letter')}>
             <Drop big icon="letter" title="stage.toLetter">

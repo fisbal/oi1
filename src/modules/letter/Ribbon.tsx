@@ -142,7 +142,7 @@ export interface SuiteState {
 }
 
 const TABS = ['home', 'insert', 'design', 'layout', 'references', 'review', 'view', 'smart', 'docs'] as const;
-type TabId = (typeof TABS)[number] | 'oi1' | 'table' | 'picture';
+type TabId = (typeof TABS)[number] | 'oi1' | 'convert' | 'table' | 'picture';
 
 const STYLE_KEYS: Record<StyleId, MessageKey> = {
   normal: 'letter.style.normal', title: 'letter.style.title', subtitle: 'letter.style.subtitle', quote: 'letter.style.quote',
@@ -214,12 +214,14 @@ const BORDER_PRESETS: [string, (color: string) => Borders | null][] = (() => {
   ];
 })();
 
-export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, view, setView, actions, suite, proofTools }: {
+export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, view, setView, actions, suite, proofTools, convertPanel }: {
   editor: Editor; body: Editor; styles: DocStyles; page: PageSettings; setPage: (p: PageSettings) => void;
   lang: string; setLang: (l: string) => void; view: ViewState; setView: (v: Partial<ViewState>) => void; actions: RibbonActions;
   suite: SuiteState;
   /** Style check, grammar online and the user's dictionary, shared by every app. */
   proofTools?: ReactNode;
+  /** The Convert tab, the same in every app. */
+  convertPanel?: ReactNode;
 }) {
   const [tab, setTab] = useState<TabId>('home');
   const s = useEditorState({
@@ -282,7 +284,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
   const borderColor = styles.normal.color ?? (isDark(page.color) ? '#FFFFFF' : '#000000');
   const setBorders = (b: Borders | null) => run().setParagraphFormat({ borders: b }).run();
 
-  const tabLabel: Record<Exclude<TabId, 'oi1'>, MessageKey> = {
+  const tabLabel: Record<Exclude<TabId, 'oi1' | 'convert'>, MessageKey> = {
     home: 'letter.tab.home', insert: 'letter.tab.insert', design: 'letter.tab.design', layout: 'letter.tab.layout', review: 'letter.tab.review',
     references: 'letter.tab.references', view: 'letter.tab.view', smart: 'letter.tab.smart', docs: 'letter.tab.docs', table: 'letter.tab.table', picture: 'letter.tab.picture',
   };
@@ -299,6 +301,8 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
         ))}
         <button type="button" role="tab" aria-selected={shownTab === 'oi1'} className={`ribbon-special${shownTab === 'oi1' ? ' on' : ''}`}
           onMouseDown={e => e.preventDefault()} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
+        {convertPanel && <button type="button" role="tab" aria-selected={shownTab === 'convert'} className={`ribbon-special ribbon-convert${shownTab === 'convert' ? ' on' : ''}`}
+          onMouseDown={e => e.preventDefault()} onClick={() => setTab('convert')}>{t('convert.tab')}</button>}
         <TutoTab />
         <RibbonToggle />
         {s.inTable && (
@@ -889,6 +893,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           </Group>
         </>}
 
+        {shownTab === 'convert' && convertPanel}
         {shownTab === 'oi1' && <>
           <Group label="letter.group.withClass" accent={appColor('class')}>
             <Btn big icon="sheet" title={suite.linkedTable ? 'letter.openLinkedSheet' : 'letter.editInClass'} onClick={actions.editInClass} disabled={!s.inTable} />

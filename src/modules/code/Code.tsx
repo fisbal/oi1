@@ -33,6 +33,10 @@ import { runTests, testFiles, testTemplate, type TestRun } from './tests';
 import { TrainingPanel, TrainingRibbon, useTraining } from './trainingUi';
 import { bestVersion, loadVersions, newVersion, sameFiles, saveVersions, type Score, type Version } from './versions';
 import { LANGUAGES, getLanguage } from '../../shell/i18n';
+import { ConvertPanel } from '../../ui/convert/ConvertPanel';
+import { asFile, type ConvertSource } from '../../shell/convert';
+import { translateHtml } from '../../shell/translate';
+import { markdownToHtml } from '../../ui/markdown';
 
 export const EXTENSIONS = [
   '.zip', '.js', '.mjs', '.jsx', '.ts', '.tsx', '.css', '.scss', '.json', '.md', '.py', '.sql', '.xml', '.yaml', '.yml',
@@ -154,7 +158,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   const [project, setProjectState] = useState(initial);
   const projectRef = useRef(project);
   const [fileRef, setFileRef] = useState<FileRef | null>(initialRef);
-  const [tab, setTab] = useState<'home' | 'run' | 'tools' | 'corrector' | 'training' | 'github' | 'oi1'>('home');
+  const [tab, setTab] = useState<'home' | 'run' | 'tools' | 'corrector' | 'training' | 'github' | 'oi1' | 'convert'>('home');
   const [dock, setDock] = useState<null | 'problems' | 'search' | 'tests' | 'corrector' | 'versions' | 'training'>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [decided, setDecided] = useState<Record<string, Decision>>({});
@@ -748,6 +752,68 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   const errorCount = logs.filter(l => l.level === 'error').length;
   const g = project.github;
   const content = active ? project.files[active] : '';
+  // ---------- Convert tab: the open file (Markdown and web pages as documents, code as code, CSV/JSON as tables) ----------
+  const escT = (x: string) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const fileNow = () => { const p = projectRef.current; const a = p.active; return a && !isBinary(p.files[a]) ? { path: a, text: p.files[a] } : null; };
+  const convertSource: ConvertSource = {
+    appId: 'code',
+    title: () => (fileNow()?.path.split('/').pop()?.replace(/\.[^.]+$/, '') || title),
+    html: () => {
+      const f = fileNow();
+      if (!f) return `<h1>${escT(title)}</h1><ul>${Object.keys(projectRef.current.files).map(n => `<li>${escT(n)}</li>`).join('')}</ul>`;
+      const ext = extOf(f.path);
+      if (ext === 'md' || ext === 'markdown') return markdownToHtml(f.text);
+      if (ext === 'html' || ext === 'htm') { const b = new DOMParser().parseFromString(f.text, 'text/html').body; b.querySelectorAll('script, style, noscript').forEach(e => e.remove()); return b.innerHTML; }
+      if (ext === 'txt') return f.text.split(/\n{2,}/).map(p => `<p>${escT(p).replace(/\n/g, '<br>')}</p>`).join('');
+      return `<h1>${escT(f.path)}</h1><pre><code>${escT(f.text)}</code></pre>`;
+    },
+    text: () => fileNow()?.text ?? '',
+    tables: () => {
+      const f = fileNow();
+      if (!f) return [];
+      const ext = extOf(f.path);
+      if (ext === 'csv' || ext === 'tsv') return [{ name: f.path, table: { rows: parseCsv(f.text, ext === 'tsv' ? '\t' : undefined).map(r => r.map(text => ({ text }))), header: true } }];
+      if (ext === 'json') {
+        try {
+          const data = JSON.parse(f.text) as unknown;
+          if (Array.isArray(data) && data.length && data.every(r => r && typeof r === 'object' && !Array.isArray(r))) {
+            const keys = [...new Set(data.flatMap(r => Object.keys(r as object)))];
+            return [{ name: f.path, table: { header: true, rows: [keys.map(k => ({ text: k, bold: true })), ...data.map(r => keys.map(k => ({ text: String((r as Record<string, unknown>)[k] ?? '') })))] } }];
+          }
+        } catch { /* not a table */ }
+      }
+      return [];
+    },
+    native: {
+      // A translated copy of the project: the words of Markdown, text and web pages; code stays as it is.
+      code: async tr => {
+        if (!tr) return undefined;
+        const files: Files = { ...projectRef.current.files };
+        for (const [path, text] of Object.entries(files)) {
+          if (isBinary(text)) continue;
+          const ext = extOf(path);
+          if (ext === 'md' || ext === 'markdown' || ext === 'txt') {
+            const parts = text.split(/(\n{2,})/);
+            const idx = parts.map((x, i) => (/\p{L}{2,}/u.test(x) && !x.startsWith('```') ? i : -1)).filter(i => i >= 0);
+            const got = await tr(idx.map(i => parts[i]));
+            idx.forEach((i, k) => { parts[i] = got[k] ?? parts[i]; });
+            files[path] = parts.join('');
+          } else if (ext === 'html' || ext === 'htm') {
+            const doc = new DOMParser().parseFromString(text, 'text/html');
+            const [body] = await translateHtml([doc.body.innerHTML], tr);
+            const titleEl = doc.querySelector('title');
+            if (titleEl?.textContent) titleEl.textContent = (await tr([titleEl.textContent]))[0] || titleEl.textContent;
+            doc.body.innerHTML = body;
+            files[path] = `<!doctype html>\n${doc.documentElement.outerHTML}\n`;
+          }
+        }
+        const zip = await writeZip(files);
+        shell.openModule('code', asFile(`${baseName()}.zip`, zip));
+        return true;
+      },
+    },
+  };
+
   const copilotHost = codeCopilot({
     project: title, files: Object.keys(project.files), path: active && !isBinary(content) ? active : null,
     view: () => editor.current.view, errors: () => logs.filter(l => l.level === 'error').map(l => `${l.file ?? ''}${l.line ? `:${l.line}` : ''} ${l.text}`),
@@ -762,6 +828,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
             <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{t(label)}</button>
           ))}
           <button type="button" role="tab" aria-selected={tab === 'oi1'} className={`ribbon-special${tab === 'oi1' ? ' on' : ''}`} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
+          <button type="button" role="tab" aria-selected={tab === 'convert'} className={`ribbon-special ribbon-convert${tab === 'convert' ? ' on' : ''}`} onClick={() => setTab('convert')}>{t('convert.tab')}</button>
         <TutoTab />
         <RibbonToggle />
           <span className="ribbon-quick">
@@ -938,6 +1005,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
               <Btn big icon="qr" title="code.onPhone" onClick={() => void showQr('site')} disabled={!g?.pages} />
             </Group>
           </>}
+          {tab === 'convert' && <ConvertPanel shell={shell} source={convertSource} />}
           {tab === 'oi1' && <>
             <Group label="code.group.toLetter" accent={appColor('letter')}>
               <Drop big icon="send" title="code.sendToLetter" disabled={!active}>

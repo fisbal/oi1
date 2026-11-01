@@ -34,6 +34,8 @@ import { AUDITS, AUDIT_SHORT, runAudit, type AuditId } from './pro/audit';
 import { tx, type Lang } from './pro/build';
 import { CondDialog, FilterMenu, FindPanel, HIGHLIGHT_KINDS, TOP_KINDS, type CondKind, type FindOptions } from './panels';
 import { borderCss, printHtml, sheetHtml } from './print';
+import { ConvertPanel } from '../../ui/convert/ConvertPanel';
+import type { ConvertSource } from '../../shell/convert';
 import { GoalSeekDialog, ScenarioDialog, SolverDialog, ValidationAlert, ValidationDialog, setRule } from './whatIfUi';
 import { customValue, invalidCells, isValid, listChoices, validationAt, withValues, type Validation } from './whatif';
 
@@ -57,7 +59,7 @@ const ZOOMS = [0.25, 0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 3, 4];
 interface Pos { c: number; r: number }
 interface Sel { a: Pos; f: Pos }
 interface Saved { book: WorkbookData; active: number; link: HandoffLink | null; name: string }
-type Tab = 'home' | 'insert' | 'formulas' | 'metiers' | 'data' | 'view' | 'chart' | 'oi1';
+type Tab = 'home' | 'insert' | 'formulas' | 'metiers' | 'data' | 'view' | 'chart' | 'oi1' | 'convert';
 
 const boxOf = (s: Sel): Range => ({ c1: Math.min(s.a.c, s.f.c), r1: Math.min(s.a.r, s.f.r), c2: Math.max(s.a.c, s.f.c), r2: Math.max(s.a.r, s.f.r) });
 const newId = (p: string) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -812,6 +814,40 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const pngs = [];
     for (const ch of sheet.charts ?? []) pngs.push(await chartPng(ch));
     printHtml(sheetHtml(sheet, values, looks, lang, currency, pngs, hiddenRows), () => gridRef.current?.focus());
+  };
+
+  // ---------- Convert tab: the sheet as a table, every sheet's table, the workbook (translated when asked) ----------
+  const convertSource: ConvertSource = {
+    appId: 'class',
+    title: () => title,
+    html: () => { const h = sheetHtml(sheet, values, looks, lang, currency, [], hiddenRows); return h.slice(h.indexOf('<body>') + 6, h.lastIndexOf('</body>')); },
+    css: () => '.cv-doc table { table-layout: fixed; } .cv-doc td { padding: 2px 5px; white-space: nowrap; overflow: hidden; vertical-align: bottom; border: 1px solid #d4d4d4; } .cv-doc td span { position: relative; }',
+    tables: () => {
+      const all = computeBook(bookRef.current);
+      const list = bookRef.current.sheets.map((s, i) => {
+        const u = usedRange(s);
+        return { name: s.name, table: sheetToTable(s, { c1: 0, r1: 0, c2: Math.max(0, u.cols), r2: Math.max(0, u.rows) }, all[i], lang, currency) };
+      });
+      // The sheet on screen first: CSV, Code+ and JSON take the first table.
+      const i = bookRef.current.sheets.indexOf(sheet);
+      return i > 0 ? [list[i], ...list.filter((_, k) => k !== i)] : list;
+    },
+    book: async tr => {
+      const book = { ...bookRef.current, currency };
+      if (!tr) return book;
+      const spots: [number, string][] = [], texts: string[] = [];
+      book.sheets.forEach((s, i) => Object.entries(s.cells).forEach(([k, c]) => {
+        if (c.input && !c.input.startsWith('=') && /\p{L}{2,}/u.test(c.input)) { spots.push([i, k]); texts.push(c.input); }
+      }));
+      const [got, names] = await Promise.all([texts.length ? tr(texts) : Promise.resolve([] as string[]), tr(book.sheets.map(s => s.name))]);
+      const sheets = book.sheets.map((s, i) => ({ ...s, name: (names[i] || s.name).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31), cells: { ...s.cells } }));
+      spots.forEach(([i, k], n) => { sheets[i].cells[k] = { ...sheets[i].cells[k], input: got[n] || sheets[i].cells[k].input }; });
+      return { ...book, sheets };
+    },
+    native: {
+      pdf: async tr => { if (tr) return undefined; await print(); return true; },
+      print: async tr => { if (tr) return undefined; await print(); return true; },
+    },
   };
 
   // ---------- copilot (Claude) ----------
@@ -1703,6 +1739,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
           {tabs.map(x => <button key={x.id} type="button" role="tab" aria-selected={shownTab === x.id} className={shownTab === x.id ? 'on' : ''} onClick={() => setTab(x.id)}>{t(x.label)}</button>)}
           <button type="button" role="tab" aria-selected={shownTab === 'oi1'} className={`ribbon-special${shownTab === 'oi1' ? ' on' : ''}`} onClick={() => setTab('oi1')}><span className="dot" />Office In 1</button>
+          <button type="button" role="tab" aria-selected={shownTab === 'convert'} className={`ribbon-special ribbon-convert${shownTab === 'convert' ? ' on' : ''}`} onClick={() => setTab('convert')}>{t('convert.tab')}</button>
         <TutoTab />
         <RibbonToggle />
           {chart && <button type="button" role="tab" aria-selected={shownTab === 'chart'} className={shownTab === 'chart' ? 'on' : ''} onClick={() => setTab('chart')}>{t('class.tab.chart')}</button>}
@@ -1995,6 +2032,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               <Btn big icon="trash" title="class.chart.delete" onClick={deleteChart} />
             </Group>
           </>}
+          {shownTab === 'convert' && <ConvertPanel shell={shell} source={convertSource} />}
           {shownTab === 'oi1' && <>
             <Group label="class.group.toLetter" accent={appColor('letter')}>
               <Drop big icon="send" title="class.sendToLetter">

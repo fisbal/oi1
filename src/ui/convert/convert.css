@@ -1,0 +1,11 @@
+/* The Convert tab: the language pill shows the chosen language; the file dialog shows every target in rows. */
+.cv-lang-label { max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
+.cv-langs { display: grid; grid-template-columns: repeat(2, minmax(150px, 1fr)); gap: 2px 6px; }
+@media (max-width: 640px) { .cv-langs { grid-template-columns: 1fr; } }
+.cv-langs .menu-item { border-radius: 999px; }
+.cv-note { margin: 0 0 10px; color: var(--muted); font-size: 13px; line-height: 1.4; }
+.oi-dialog .cv-file-grid { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; height: auto; overflow: visible; padding: 4px 0; background: none; border: 0; }
+.oi-dialog .cv-file-grid .rgroup { border-radius: 18px; background: rgba(var(--fg-rgb), .04); padding: 6px 8px 2px; }
+.oi-dialog:has(.cv-file-grid) { max-width: min(860px, calc(100vw - 24px)); }
+.cv-offscreen, .cv-offscreen * { animation: none !important; transition: none !important; }
+@media print { .cv-offscreen { display: none !important; } }
