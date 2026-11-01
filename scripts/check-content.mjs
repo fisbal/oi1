@@ -16,6 +16,7 @@ const APPS = ['Letter', 'Class', 'Stage', 'Code+'];
 // Lists that are short by nature, with the reason. Everything else needs MIN_CHOICES.
 const SHORT_BY_NATURE = {
   'Orientation': 'portrait or landscape',
+  'Print area': 'set, add to or clear the print area, like Excel',
   'Clear': 'everything, formats or contents, like Excel',
   'Freeze Panes': 'at the cell, the top row or the first column',
   'Speed': 'fast, medium or slow',

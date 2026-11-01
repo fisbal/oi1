@@ -9,6 +9,7 @@ import { HELP_CODE } from './helpCode';
 import { HELP_LETTER } from './helpLetter';
 import { HELP_STAGE } from './helpStage';
 import { HELP_CONVERT } from './helpConvert';
+import { HELP_PRINT } from './helpPrint';
 
 export type HelpText = [en: string, fr: string];
 
@@ -111,7 +112,7 @@ export const HELP: Record<string, HelpText> = {
   'class.renameSheet': ['Gives the current sheet a new name. Double-clicking its tab does the same.', 'Renomme la feuille actuelle. Un double-clic sur son onglet fait pareil.'],
   'class.tabColor': ['Colours the tab of the current sheet, to find it quickly.', 'Colore l’onglet de la feuille, pour la retrouver vite.'],
   'class.freeze': ['Keeps the top rows and left columns in view while you scroll, like the header of a long list.', 'Garde les premières lignes et colonnes visibles pendant le défilement, comme l’en-tête d’une longue liste.'],
-  'class.gridlines': ['Shows or hides the grey lines between cells (they are never printed).', 'Affiche ou cache les lignes grises entre les cellules (elles ne s’impriment pas).'],
+  'class.gridlines': ['Shows or hides the grey lines between cells on screen. Whether they print is set in Page Layout › Print gridlines.', 'Affiche ou cache les lignes grises entre les cellules à l’écran. Leur impression se règle dans Mise en page › Imprimer le quadrillage.'],
   'class.headings': ['Shows or hides the column letters and row numbers.', 'Affiche ou cache les lettres de colonnes et les numéros de lignes.'],
   'class.zoom100': ['Goes back to the normal size (100 %).', 'Revient à la taille normale (100 %).'],
   'class.zoomSelection': ['Zooms so the selected cells fill the screen.', 'Zoome pour que les cellules choisies remplissent l’écran.'],
@@ -126,6 +127,7 @@ export const HELP: Record<string, HelpText> = {
   ...HELP_STAGE,
   ...HELP_CODE,
   ...HELP_CONVERT,
+  ...HELP_PRINT,
 };
 
 /** The explanation of a control: its key's text, a family's text ("class.chart.*") with its name, or null. */
