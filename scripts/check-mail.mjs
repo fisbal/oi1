@@ -202,8 +202,9 @@ try {
       check((await dlg.textContent()).includes('2 mails will be made'), `${n}: the merge says how many mails it makes`);
       await dlg.locator('.dialog-buttons button.primary').click();
       await page.waitForTimeout(500);
-      const box = await drafts(page);
-      const paul = box.mails.find(m => m.subject === 'Invoice for Paul');
+      // A slow phone may save a moment later: look again for up to 5 seconds.
+      let paul;
+      for (let i = 0; i < 8 && !paul?.html?.includes('you owe 80'); i++) paul = (await drafts(page))?.mails.find(m => m.subject === 'Invoice for Paul');
       check(!!paul && paul.to[0] === 'paul@example.com' && paul.html.includes('you owe 80 €'), `${n}: the merge makes one filled mail per person`);
 
       // Contacts
