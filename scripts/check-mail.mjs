@@ -159,7 +159,7 @@ try {
       await page.waitForTimeout(500);
       const opened = await page.evaluate(() => window.__opened?.[0] ?? '');
       const gq = opened ? new URL(opened).searchParams : new URLSearchParams();
-      check(opened.includes('mail.google.com') && gq.get('su') === 'Lunch on Friday' && gq.get('to') === 'anna@example.com' && (gq.get('body') ?? '').includes('free for lunch'), `${n}: Gmail opens with the mail filled in`);
+      check(!!opened && new URL(opened).hostname === 'mail.google.com' && gq.get('su') === 'Lunch on Friday' && gq.get('to') === 'anna@example.com' && (gq.get('body') ?? '').includes('free for lunch'), `${n}: Gmail opens with the mail filled in`);
       check((await drafts(page)).mails.find(m => m.subject === 'Lunch on Friday')?.folder === 'sent', `${n}: the sent mail is in Sent`);
       await closePeek(page);
 
@@ -283,7 +283,7 @@ try {
     const cardEl = page.locator('.web-answer');
     check(await cardEl.waitFor({ timeout: 6000 }).then(() => true, () => false), `${n}: a card explains how to bring Claude's answer back`);
     const sent = await page.evaluate(() => window.__opened?.[0] ?? '');
-    check(sent.includes('claude.ai') && sent.length < 7000, `${n}: Claude's site gets one short message (${sent.length})`);
+    check(!!sent && new URL(sent).hostname === 'claude.ai' && sent.length < 7000, `${n}: Claude's site gets one short message (${sent.length})`);
     const bx = await cardEl.boundingBox();
     check(!!bx && bx.x >= 0 && bx.x + bx.width <= d.viewport.width + 1, `${n}: the Paste card is on screen`);
     await cardEl.locator('textarea').fill('Objet : Retard ce matin\n\nBonjour Paul,\n\nJe serai en retard de 20 minutes ce matin.\n\nMerci,');
