@@ -88,6 +88,8 @@ jobs:
         run: npm run check:convert
       - name: Every icon is centered in its capsule in every app (PC + phone)
         run: npm run check:icons
+      - name: Every tab of Office In 1 can be renamed and its document takes the name (PC + phone)
+        run: npm run check:rename
       - name: Class prints the sheet, selection, cell, columns, rows, page, area, formulas or workbook with a real preview (PC + phone + sideways)
         run: npm run check:print
       - name: Word fidelity (Conversion Test A opens, prints to 3 pages and saves back with tab stops, lists and table)

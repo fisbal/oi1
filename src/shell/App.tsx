@@ -27,6 +27,8 @@ interface Tab {
   tabId: string;
   moduleId: string;
   title: string;
+  /** A name the person gave the tab, for an app that cannot rename its document. */
+  custom?: string;
   file?: OpenedFile; // only for the first mount; not saved
   handoff?: Handoff; // the same, for something another app handed over
 }
@@ -37,6 +39,8 @@ const receivers = new Map<string, Set<Receiver>>();
 type Answerer = (want: 'table', from: string) => Handoff | null | Promise<Handoff | null>;
 /** What each open tab gives when another tab asks (see ShellApi.ask). */
 const answerers = new Map<string, Answerer>();
+/** How each open tab renames its document when the person renames its tab (see ShellApi.onRename). */
+const renamers = new Map<string, (name: string) => void>();
 
 const newTabId = () => `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -59,7 +63,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    store.set('tabs', JSON.stringify(tabs.map(({ tabId, moduleId, title }) => ({ tabId, moduleId, title }))));
+    store.set('tabs', JSON.stringify(tabs.map(({ tabId, moduleId, title, custom }) => ({ tabId, moduleId, title, ...(custom ? { custom } : {}) }))));
     store.set('active', activeId ?? '');
   }, [tabs, activeId]);
 
@@ -114,6 +118,7 @@ export default function App() {
       store.removePrefix(`${tabId}:`);
       receivers.delete(tabId);
       answerers.delete(tabId);
+      renamers.delete(tabId);
       void idb.deletePrefix('kv', `${tabId}:`).catch(() => {});
     }
     setTabs(ts => {
@@ -128,6 +133,36 @@ export default function App() {
     });
   }, []);
   const closeTab = useCallback((tabId: string) => closeTabs([tabId]), [closeTabs]);
+
+  // Renaming a tab renames its document (the app saves and exports under the new name); an app that cannot rename
+  // its document keeps the name on the tab.
+  const [renaming, setRenaming] = useState<{ id: string; where: 'tab' | 'menu'; text: string } | null>(null);
+  const startRename = (tab: Tab, where: 'tab' | 'menu') => setRenaming({ id: tab.tabId, where, text: tab.custom ?? tab.title });
+  const commitRename = () => {
+    const r = renaming;
+    setRenaming(null);
+    if (!r) return;
+    const name = r.text.replace(/[\\/:*?"<>|\n\r\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+    const tab = tabsRef.current.find(x => x.tabId === r.id);
+    if (!name || !tab || name === (tab.custom ?? tab.title)) return;
+    const fn = renamers.get(r.id);
+    if (fn) {
+      fn(name);
+      setTabs(ts => ts.map(x => (x.tabId === r.id ? { ...x, custom: undefined, title: name } : x)));
+    } else setTabs(ts => ts.map(x => (x.tabId === r.id ? { ...x, custom: name } : x)));
+  };
+  const renameBox = (label: string) => (
+    <input className="tab-rename" autoFocus aria-label={t('tab.renameBox', { name: label })} value={renaming?.text ?? ''} maxLength={80}
+      onFocus={e => e.currentTarget.select()}
+      onClick={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}
+      onChange={e => { const text = e.target.value; setRenaming(r => (r ? { ...r, text } : r)); }}
+      onKeyDown={e => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
+        if (e.key === 'Escape') { e.preventDefault(); setRenaming(null); }
+      }}
+      onBlur={commitRename} />
+  );
 
   const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
   const notify = useCallback((text: string) => setToast(cur => ({ text, n: (cur?.n ?? 0) + 1 })), []);
@@ -236,6 +271,7 @@ export default function App() {
       open: id => openRecent(id),
     },
     setTitle: title => setTabs(ts => ts.map(t => (t.tabId === tabId && t.title !== title ? { ...t, title } : t))),
+    onRename: fn => { if (fn) renamers.set(tabId, fn); else renamers.delete(tabId); },
     openModule,
     goHome: () => setActiveId(null),
     apps: () => modules.map(m => ({ id: m.id, name: m.name, ready: !!m.load, color: m.color })),
@@ -337,11 +373,13 @@ export default function App() {
           {tabs.map(tab => {
             const entry = modules.find(m => m.id === tab.moduleId)!;
             return (
-              <div key={tab.tabId} className={`tab ${tab.tabId === activeId ? 'active' : ''}`} data-app={tab.moduleId}
-                style={{ '--accent': entry.color, '--app': entry.code } as CSSProperties} title={`${entry.name}: ${tab.title}`}
-                onClick={() => setActiveId(tab.tabId)}>
+              <div key={tab.tabId} className={`tab ${tab.tabId === activeId ? 'active' : ''}${renaming?.id === tab.tabId && renaming.where === 'tab' ? ' renaming' : ''}`} data-app={tab.moduleId}
+                style={{ '--accent': entry.color, '--app': entry.code } as CSSProperties} title={`${entry.name}: ${tab.custom ?? tab.title} · ${t('tab.renameHint')}`}
+                onClick={() => setActiveId(tab.tabId)}
+                onDoubleClick={() => startRename(tab, 'tab')}
+                onContextMenu={e => { e.preventDefault(); setActiveId(tab.tabId); startRename(tab, 'tab'); }}>
                 <span className="app-badge" aria-hidden="true">{entry.badge}</span>
-                <span className="tab-label">{tab.title}</span>
+                {renaming?.id === tab.tabId && renaming.where === 'tab' ? renameBox(tab.custom ?? tab.title) : <span className="tab-label">{tab.custom ?? tab.title}</span>}
                 <button className="tab-close" title={t('tab.close')} aria-label={t('tab.close')}
                   onClick={e => { e.stopPropagation(); closeTab(tab.tabId); }}>×</button>
               </div>
@@ -363,10 +401,19 @@ export default function App() {
                   const entry = modules.find(m => m.id === tab.moduleId)!;
                   return (
                     <div key={tab.tabId} className={`tabs-menu-row${tab.tabId === activeId ? ' on' : ''}`} role="none" style={{ '--app': entry.code } as CSSProperties}>
-                      <button role="menuitem" className="tabs-menu-open" onClick={() => { setActiveId(tab.tabId); setAllTabs(false); }}>
-                        <span className="app-badge" aria-hidden="true">{entry.badge}</span>
-                        <span className="tabs-menu-label">{tab.title}</span>
-                        <small>{entry.name}</small>
+                      {renaming?.id === tab.tabId && renaming.where === 'menu'
+                        ? <div className="tabs-menu-open"><span className="app-badge" aria-hidden="true">{entry.badge}</span>{renameBox(tab.custom ?? tab.title)}</div>
+                        : (
+                          <button role="menuitem" className="tabs-menu-open" onClick={() => { setActiveId(tab.tabId); setAllTabs(false); }}>
+                            <span className="app-badge" aria-hidden="true">{entry.badge}</span>
+                            <span className="tabs-menu-label">{tab.custom ?? tab.title}</span>
+                            <small>{entry.name}</small>
+                          </button>
+                        )}
+                      <button className="tabs-menu-rename" title={t('tab.rename')} aria-label={`${t('tab.rename')} : ${tab.custom ?? tab.title}`}
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={e => { e.stopPropagation(); startRename(tab, 'menu'); }}>
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13l-3.5.5L3 10z" /></svg>
                       </button>
                       <button className="tabs-menu-close" title={t('tab.close')} aria-label={`${t('tab.close')} : ${tab.title}`}
                         onClick={e => { e.stopPropagation(); closeTab(tab.tabId); }}>
