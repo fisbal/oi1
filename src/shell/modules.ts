@@ -30,8 +30,9 @@ export const modules: ModuleEntry[] = [
   { id: 'notes', name: 'In 1 Notes', kind: 'kind.notes', color: '#E8C35F', code: '#B98A00', badge: 'N', extensions: [], load: () => import('../modules/notes') },
   { id: 'plan', name: 'In 1 Plan', kind: 'kind.plan', color: '#5FB8E8', code: '#0E7FB8', badge: 'P', extensions: ['.oi1plan'], load: () => import('../modules/plan') },
   { id: 'mail', name: 'In 1 Mail', kind: 'kind.mail', color: '#8C9CF0', code: '#4F5FD0', badge: 'M', extensions: [], load: null },
-  { id: 'draw', name: 'In 1 Draw', kind: 'kind.draw', color: '#E26FC2', code: '#B8379A', badge: 'D', extensions: ['.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif'], load: () => import('../modules/draw') },
+  { id: 'draw', name: 'In 1 Draw', kind: 'kind.draw', color: '#E26FC2', code: '#B8379A', badge: 'D', extensions: ['.svg'], load: () => import('../modules/draw') },
   { id: 'form', name: 'In 1 Form', kind: 'kind.form', color: '#4FC4B5', code: '#14857A', badge: 'F', extensions: ['.oi1form'], load: () => import('../modules/form') },
+  { id: 'image', name: 'In 1 Image', kind: 'kind.image', color: '#FF6F91', code: '#D63A60', badge: 'I', extensions: ['.oi1img', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.bmp'], load: () => import('../modules/image') },
 ];
 
 /** The ready module that opens files with this name, if any. */

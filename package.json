@@ -43,7 +43,8 @@
     "check:draw": "node scripts/check-draw.mjs",
     "check:notes": "node scripts/check-notes.mjs",
     "check:plan": "node scripts/check-plan.mjs",
-    "check:form": "node scripts/check-form.mjs"
+    "check:form": "node scripts/check-form.mjs",
+    "check:image": "node scripts/check-image.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",

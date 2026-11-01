@@ -11,7 +11,7 @@ import { chromium } from 'playwright';
 
 const PORT = 4184;
 const MIN_CHOICES = 20;
-const APPS = ['Letter', 'Class', 'Stage', 'Code+', 'Draw', 'Notes', 'Plan', 'Form'];
+const APPS = ['Letter', 'Class', 'Stage', 'Code+', 'Draw', 'Notes', 'Plan', 'Form', 'Image'];
 
 // Lists that are short by nature, with the reason. Everything else needs MIN_CHOICES.
 const SHORT_BY_NATURE = {
@@ -68,6 +68,7 @@ try {
     if (!(await slab.count())) { await ctx.close(); continue; }
     await slab.first().click();
     await page.waitForTimeout(1200);
+    if (app === 'Image') { const smp = page.locator('.module-host:not([hidden]) .im-sample').first(); if (await smp.count()) { await smp.click(); await page.waitForTimeout(1200); } }
     if (app === 'Code+') { const tpl = page.locator('.code .tpl').first(); if (await tpl.count()) { await tpl.click(); await page.waitForTimeout(800); } }
     const host = page.locator('.module-host:not([hidden])');
     const tabs = host.locator('.ribbon-tabs [role=tab]');
