@@ -284,7 +284,8 @@
 .fast-scroll-thumb { position: absolute; left: 2px; right: 2px; min-height: 28px; border-radius: 4px; background: color-mix(in srgb, var(--app, var(--gold)) 70%, transparent); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
 .fast-scroll:hover .fast-scroll-thumb, .fast-scroll:active .fast-scroll-thumb { background: var(--app, var(--gold)); }
 @media (pointer: coarse) {
-  .fast-scroll { width: 18px; right: 1px; }
+  /* Kept off the screen's edge: phones use the edge for their back swipe and edge panels (Martin's screenshot). */
+  .fast-scroll { width: 18px; right: 8px; box-shadow: 0 0 0 1px rgba(var(--fg-rgb), .12); }
   .fast-scroll-thumb { left: 3px; right: 3px; min-height: 44px; }
 }
 .status-zoom .fit { width: 24px; display: inline-grid; place-items: center; }

@@ -170,6 +170,30 @@ try {
     const lay = await page.locator(`${D} .dr-layers`).boundingBox();
     check(!!lay && lay.x >= -1 && lay.x + lay.width <= d.viewport.width + 1 && await page.locator(`${D} .dr-layers li`).count() === await count(page), `${n}: the layers panel lists every shape, on screen`);
 
+    // Phones: a pinch with the pen tool zooms and leaves no dots; a tap leaves no dot; the eraser takes a tiny dot
+    if (d.mobile) {
+      await help(page, 'draw.tool.pen').click();
+      const before = await count(page);
+      const mid = await at(page, 0.5, 0.5);
+      const cdp = await ctx.newCDPSession(page);
+      await cdp.send('Input.synthesizePinchGesture', { x: mid.x, y: mid.y, scaleFactor: 1.6, gestureSourceType: 'touch', relativeSpeed: 600 });
+      await page.waitForTimeout(300);
+      await page.touchscreen.tap(mid.x + 20, mid.y + 20);
+      await page.waitForTimeout(200);
+      check(await count(page) === before, `${n}: a pinch or a tap with the pen leaves no dots (${(await count(page)) - before} extra)`);
+      await help(page, 'ui.fitAll').click();
+    } else {
+      // A mouse click with the pen makes a dot; the eraser must be able to take it away again.
+      await help(page, 'draw.tool.pen').click();
+      const before = await count(page);
+      const spot = await at(page, 0.85, 0.15);
+      await page.mouse.click(spot.x, spot.y);
+      check(await count(page) === before + 1, `${n}: a click with the pen makes a dot`);
+      await help(page, 'draw.tool.eraser').click();
+      await page.mouse.click(spot.x, spot.y);
+      check(await count(page) === before, `${n}: the eraser removes a tiny dot`);
+    }
+
     // Zoom: fit and +
     await help(page, 'letter.zoomIn').click();
     const z1 = await page.locator(`${D} .status-zoom .pct`).textContent();
