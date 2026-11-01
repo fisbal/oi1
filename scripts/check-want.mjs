@@ -69,13 +69,10 @@ for (const [name, viewport, mobile] of [['PC', { width: 1280, height: 800 }, fal
       const gb = await page.locator('.want-guide').boundingBox();
       check(!!gb && gb.x >= 0 && gb.x + gb.width <= viewport.width + 1, `${name}: ${app}: the steps in words fit the screen`);
       const first = page.locator('.want-glow').first();
-      // The guide scrolls the ribbon smoothly to the button; a far one (Print, at the end of a long ribbon on a
-      // phone) can take longer than the wait above, so wait for the scroll to settle (up to 2 s) before measuring.
-      let fb = await first.boundingBox();
-      for (let i = 0; i < 20 && !(fb && fb.x >= -1 && fb.x + fb.width <= viewport.width + 1 && fb.y >= 0); i++) {
-        await page.waitForTimeout(100);
-        fb = await first.boundingBox();
-      }
+      // The ribbon scrolls the button into view smoothly: give it time on slow machines (CI) before measuring.
+      const inView = async () => { const b = await first.boundingBox(); return !!b && b.x >= -1 && b.x + b.width <= viewport.width + 1 && b.y >= 0; };
+      for (let i = 0; i < 20 && !(await inView()); i++) await page.waitForTimeout(100);
+      const fb = await first.boundingBox();
       check(!!fb && fb.x >= -1 && fb.x + fb.width <= viewport.width + 1 && fb.y >= 0, `${name}: ${app}: the first button is in view`);
       await page.keyboard.press('Escape');
       await page.waitForTimeout(200);
