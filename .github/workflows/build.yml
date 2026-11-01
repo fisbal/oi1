@@ -7,11 +7,19 @@ name: Build and release OI1
 #   mac      the Mac app (.dmg, Apple silicon and Intel), made with Tauri
 #   android  the Android app (.apk), made with Tauri and signed
 #   release  on main, a GitHub Release with all of them plus the source code
-# Pull requests run the same builds as a check, without publishing.
+# Cost-aware (the repo is private: Actions minutes are counted, Mac x10, Windows x2):
+#   pull request  every check of the web job on phone, tablet, PC and Mac sizes (rule 16), no native builds
+#   push to main  build + publish the web app (Pages, MS Store) at once; the checks already passed on the PR
+#   every night   if main changed since the last release: Windows, Mac, Android + the GitHub Release,
+#                 copied within 30 minutes to the public update channel on the hub (fisbal.github.io/updates/oi1)
+#   by hand       (Run workflow) everything: all checks, all apps, a release
 on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: '23 6 * * *'
   workflow_dispatch:
 
 # Least privilege (OpenSSF Scorecard "Token-Permissions"): every job reads only; the two jobs that
@@ -26,9 +34,28 @@ concurrency:
 env:
   # Every build gets its own version, so a new APK installs over the old one and Windows sees an update.
   OI1_VERSION: 0.1.${{ github.run_number }}
+  FULL_CHECKS: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
 
 jobs:
+  changed:
+    # Nightly: build the apps only if main moved since the newest release.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.cmp.outputs.go }}
+    steps:
+      - id: cmp
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view -R "${{ github.repository }}" --json tagName -q .tagName 2>/dev/null || true)
+          last=$([ -n "$tag" ] && gh api "repos/${{ github.repository }}/commits/$tag" -q .sha 2>/dev/null || true)
+          echo "newest release $tag at $last, main at ${{ github.sha }}"
+          if [ "$last" = "${{ github.sha }}" ]; then echo go=false >> "$GITHUB_OUTPUT"; else echo go=true >> "$GITHUB_OUTPUT"; fi
+
   web:
+    needs: changed
+    if: ${{ !cancelled() && (github.event_name != 'schedule' || needs.changed.outputs.go == 'true') && !(github.event_name == 'pull_request' && github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -43,64 +70,93 @@ jobs:
       - run: npm test
       - run: npm run build
       - name: Check every app on phones, tablets, PCs and Macs
+        if: env.FULL_CHECKS == 'true'
         run: |
           npx playwright install --with-deps chromium
           npm run check:screens
       - name: Check every tab has content and every list 20 choices
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:content
       - name: Check the ribbon folds away for more room
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:ribbon
       - name: Check no text overlaps or is cut, in every language
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:text
       - name: Use every app like a person (typing, handles, move, copy, undo, speed)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:interactions
       - name: Play all 60 training exercises like a learner (Code+)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:training
       - name: Check shared tables stay in step between apps (Synchro)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:sync
       - name: Check spelling, grammar and style underlines and the fix bubble
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:proof
       - name: Check AutoSave keeps every change and writes the document's file by itself
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:autosave
       - name: AutoSave to the cloud (GitHub) works on PC and phone
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:cloud
       - name: Check every word is readable on its page, highlight and theme (contrast)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:contrast
       - name: Adapting a Stage deck to its audience works on PC and phone
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:audience
       - name: Office Class knows Excel's functions (440+, Insert function, DEVISE) on PC and phone
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:formulas
       - name: Office Class Business tab (ready finance and accounting sheets, currency converter) on PC and phone
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:metiers
       - name: Manual zoom in Class, Letter and Stage (pinch, Ctrl+wheel, See it all, side scroll bar) on PC and phone
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:zoom
       - name: Changing the language asks what to translate (everything, menus only, document only) on PC and phone
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:translate
       - name: References (APA in French, models for every style, check sources)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:refs
       - name: Arrows on strips that scroll sideways, language bubble
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:arrows
       - name: The I want… search finds the buttons, tips guide to them (PC + phone)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:want
       - name: Class Goal Seek, Scenarios, Solver and Data validation work like Excel (PC + phone)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:whatif
       - name: The Convert tab makes real files in every format, opens the other Offices and translates (PC + phone)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:convert
       - name: Every icon is centered in its capsule in every app (PC + phone)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:icons
       - name: Every tab of Office In 1 can be renamed and its document takes the name (PC + phone)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:rename
       - name: Class prints the sheet, selection, cell, columns, rows, page, area, formulas or workbook with a real preview (PC + phone + sideways)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:print
       - name: Word fidelity (Conversion Test A opens, prints to 3 pages and saves back with tab stops, lists and table)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:fidelity
       - name: The Tuto tab explains every button (all of Office Class) on PC and phone
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:tuto
       - name: Choosing the copilot (Claude, ChatGPT, Gemini, Microsoft …) works on PC and phone
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:copilot
       - name: Office Assistant makes linked documents in the Offices from plain words, with and without AI (PC + phone)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:assistant
       - name: The shield checks files, links and pasted scams, makes vaccines (PC + phone)
+        if: env.FULL_CHECKS == 'true'
         run: npm run check:shield
       - name: Keep the screenshots
         if: always()
@@ -123,6 +179,8 @@ jobs:
               [ "$f" = .release ] && continue
               [ -e "dist/assets/$f" ] || { [ -f "prev/assets/$f" ] && cp "prev/assets/$f" "dist/assets/$f"; }
             done
+            # The shield's daily world list (shield-feed.yml) lives on the site, next to the app.
+            [ -d prev/shield ] && cp -r prev/shield dist/shield
             rm -rf prev
           fi
           cd dist
@@ -133,6 +191,8 @@ jobs:
           git push -qf https://x-access-token:${{ github.token }}@github.com/${{ github.repository }} HEAD:gh-pages
 
   windows:
+    needs: changed
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && needs.changed.outputs.go == 'true')) }}
     runs-on: windows-latest
     env:
       WIN_SIGNING: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_SIGNING_ACCOUNT != '' }}
@@ -201,6 +261,8 @@ jobs:
           path: out/*
 
   mac:
+    needs: changed
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && needs.changed.outputs.go == 'true')) }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -241,6 +303,8 @@ jobs:
           path: out/*
 
   android:
+    needs: changed
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && needs.changed.outputs.go == 'true')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -299,7 +363,9 @@ jobs:
           path: out/OfficeIn1.apk
 
   release:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: >-
+      ${{ !cancelled() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+      && needs.web.result == 'success' && needs.windows.result == 'success' && needs.mac.result == 'success' && needs.android.result == 'success' }}
     needs: [web, windows, mac, android]
     runs-on: ubuntu-latest
     permissions:

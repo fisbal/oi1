@@ -1,6 +1,7 @@
 # The shield's world list of dangerous sites, rebuilt every day (Martin: "un antivirus qui se met à jour").
-# Publishes to the shield-data branch only (never main), so it does not start a new release:
-# every Office In 1 (web, Store, Windows, Android, Mac) reads it from raw.githubusercontent.com.
+# Publishes to the site (gh-pages /shield/, read by every Office In 1 at https://fisbal.github.io/oi1/shield/,
+# public even though the repo is private) and, for older installed apps, to the shield-data branch.
+# Never to main, so it does not start a new release.
 name: Shield list
 
 on:
@@ -43,3 +44,20 @@ jobs:
           git -c user.name=ci -c user.email=ci@local add -A
           git -c user.name=ci -c user.email=ci@local commit -qm "Shield list $(date -u +%F)"
           git push -qf "https://x-access-token:${TOKEN}@github.com/${REPO}" HEAD:shield-data
+      - name: Publish on the site (gh-pages /shield/)
+        env:
+          TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          for i in 1 2 3 4; do
+            rm -rf site
+            git clone -q --depth 1 --branch gh-pages "https://x-access-token:${TOKEN}@github.com/${REPO}" site || exit 1
+            rm -rf site/shield && mkdir site/shield && cp -r out/. site/shield/ && rm -rf site/shield/.git
+            cd site
+            git -c user.name=ci -c user.email=ci@local add -A shield
+            if git diff --cached --quiet; then echo "Already up to date"; exit 0; fi
+            git -c user.name=ci -c user.email=ci@local commit -qm "Shield list $(date -u +%F)"
+            git push -q origin HEAD:gh-pages && exit 0
+            cd ..; sleep $((i*10))
+          done
+          exit 1

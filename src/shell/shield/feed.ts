@@ -3,7 +3,7 @@
 // World lists: a GitHub workflow (.github/workflows/shield-feed.yml) downloads every day the public lists of
 // phishing and malware sites (Phishing.Database, MIT; URLhaus by abuse.ch, CC0; Block List Project, Unlicense),
 // keeps only a short fingerprint of each site (SHA-256), splits them in 256 small files and publishes them on the
-// shield-data branch. To check a site, Office In 1 downloads only the small file for the first two letters of its
+// site, next to the app (https://fisbal.github.io/oi1/shield/), so they stay public even with a private repo. To check a site, Office In 1 downloads only the small file for the first two letters of its
 // fingerprint: the site you visit is never sent anywhere (the same idea as Google Safe Browsing's hash prefixes
 // and Have I Been Pwned's k-anonymity).
 //
@@ -15,7 +15,7 @@
 // "A biologically inspired immune system for computers", IBM 1994), which is also how antivirus signatures began.
 import { siteOf } from './links';
 
-export const FEED_BASE = 'https://raw.githubusercontent.com/fisbal/oi1/shield-data/';
+export const FEED_BASE = 'https://fisbal.github.io/oi1/shield/';
 const META_KEY = 'oi1.shield.meta';
 const SHARD_KEY = (p: string) => `oi1.shield.h.${p}`;
 const AB_KEY = 'oi1.shield.antibodies';
