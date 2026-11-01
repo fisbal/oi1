@@ -9,5 +9,16 @@
   "apk": "https://github.com/fisbal/fisbal.github.io/releases/download/oi1-updates/OfficeIn1.apk",
   "exe": "https://github.com/fisbal/fisbal.github.io/releases/download/oi1-updates/OfficeIn1-Setup.exe",
   "dmg": "https://github.com/fisbal/fisbal.github.io/releases/download/oi1-updates/OfficeIn1.dmg",
-  "hub": "https://fisbal.github.io/"
+  "hub": "https://fisbal.github.io/",
+  "_upcoming": "Apps announced but not yet on the home screen: shown as coming soon. Once an app appears on the home screen, the real one is used and this line can go.",
+  "upcoming": [
+    {
+      "name": "In 1 Image",
+      "kind": {
+        "fr": "Photos et images",
+        "en": "Photos and pictures"
+      },
+      "color": "#FF6F91"
+    }
+  ]
 }

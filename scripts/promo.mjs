@@ -23,7 +23,7 @@ const OUT = 'dist/promo';
 const LANGS = { fr: 'fr-FR', en: 'en-US' };
 // Apps filmed in the demo, in this order, when they are ready on the home screen. ProDFos is its own site
 // (loaded from the web inside OI1): it is filmed only once its page has really opened, otherwise left out.
-const FILMED = ['Letter', 'Class', 'Stage', 'ProDFos', 'Assistant', 'Plan', 'Notes', 'Draw', 'Code+'];
+const FILMED = ['Letter', 'Class', 'Stage', 'ProDFos', 'Assistant', 'Plan', 'Notes', 'Draw', 'Form', 'Code+'];
 const problems = [];
 
 if (!existsSync('dist/index.html')) { console.error('Run `npm run build` first.'); process.exit(1); }
@@ -41,7 +41,8 @@ const colors = {};
 for (const m of readFileSync('src/shell/modules.ts', 'utf8').matchAll(/name: '([^']+)'[^}]*?color: '(#[0-9A-Fa-f]{6})'/g)) colors[m[1]] = m[2];
 
 const config = JSON.parse(readFileSync('public/promo/config.json', 'utf8'));
-delete config._;
+const upcoming = config.upcoming ?? [];
+for (const k of Object.keys(config)) if (k.startsWith('_') || k === 'upcoming') delete config[k];
 const version = process.env.OI1_VERSION || JSON.parse(readFileSync('package.json', 'utf8')).version;
 
 // QR code to the install page: the address never changes, so printed codes keep working forever.
@@ -73,6 +74,10 @@ try {
     })));
     if (slabs.filter(s => s.ready).length < 3) problems.push(`${lang}: only ${slabs.filter(s => s.ready).length} ready apps on the home screen`);
     info.apps[lang] = slabs.map(s => ({ ...s, short: s.name.replace(/^In 1 /, ''), color: colors[s.name] ?? '#D4A843' }));
+    // Announced apps not on the home screen yet (config.json "upcoming") count as coming soon.
+    for (const u of upcoming) if (!slabs.some(s => s.name === u.name)) {
+      info.apps[lang].push({ name: u.name, kind: u.kind?.[lang] ?? '', ready: false, short: u.name.replace(/^In 1 /, ''), color: u.color ?? '#D4A843' });
+    }
     await page.screenshot({ path: `${OUT}/shots/${lang}-home.jpg`, type: 'jpeg', quality: 84 });
     info.shots[lang] = { home: `shots/${lang}-home.jpg` };
     await ctx.close();
@@ -191,6 +196,14 @@ try {
     await p.goto(`${ROOT}promo/guide.html?lang=${lang}`);
     await p.waitForFunction(() => window.promoReady === true, null, { timeout: 30000 });
     await p.waitForTimeout(500);
+    // More apps or longer lines must never push a section under a page's footer.
+    const over = await p.evaluate(() => [...document.querySelectorAll('.page')].map((pg, i) => {
+      const f = pg.querySelector('.foot'); if (!f) return null;
+      const top = f.getBoundingClientRect().top;
+      const worst = Math.max(...[...pg.querySelectorAll('.apps, .why, .caps, table, .note, .src, .install, ul')].map(e => e.getBoundingClientRect().bottom));
+      return worst > top + 1 ? `page ${i + 1} runs under its footer by ${Math.round(worst - top)}px` : null;
+    }).filter(Boolean));
+    for (const o of over) problems.push(`guide ${lang}: ${o}`);
     await p.pdf({ path: `${OUT}/OfficeIn1-Guide-${lang.toUpperCase()}.pdf`, format: 'Letter', printBackground: true, preferCSSPageSize: true });
     await c.close();
   }

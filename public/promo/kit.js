@@ -19,6 +19,8 @@
              en: ['Quick notes', 'Phone, tablet, PC', 'With or without AI'] },
     Draw: { fr: ['Diagrammes et croquis', 'Téléphone, tablette, PC', 'Images PNG, JPG, SVG'],
             en: ['Diagrams and sketches', 'Phone, tablet, PC', 'PNG, JPG, SVG pictures'] },
+    Form: { fr: ['Formulaires, sondages, quiz', '23 sortes de questions', 'Réponses et résultats'],
+            en: ['Forms, surveys, quizzes', '23 kinds of questions', 'Answers and results'] },
     'Code+': { fr: ['Sites web et applis', 'Aperçu en direct', 'Publiez en un clic'],
                en: ['Websites and apps', 'Live preview', 'Publish in one click'] },
   };
@@ -77,7 +79,7 @@
     const [info, config] = await Promise.all([json('info.json'), json('config.json')]);
     const out = Object.assign({}, FALLBACK, info || {});
     out.links = Object.assign({}, FALLBACK.links, (info && info.links) || {}, config || {});
-    delete out.links._;
+    for (const key of Object.keys(out.links)) if (key.startsWith('_') || key === 'upcoming') delete out.links[key];
     out.base = here;
     return out;
   }

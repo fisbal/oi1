@@ -172,7 +172,7 @@ b { font-weight: inherit; background: var(--goldfill); -webkit-background-clip: 
   }).join('');
   add(4.6, `<div class="orbit">${ring}<div class="one"><b>1</b></div></div>
     <h2 class="count" data-in style="--d:.3">${t.count(every.length)}</h2>
-    ${soon.length ? `<p class="soonline" data-in style="--d:.6">${esc(t.soonLine(apps.length, soon.map(a => a.short).join(soon.length === 2 ? (L === 'fr' ? ' et ' : ' and ') : ', ')))}</p>` : ''}
+    ${soon.length ? `<p class="soonline" data-in style="--d:.6">${esc(t.soonLine(apps.length, soon.length > 1 ? soon.slice(0, -1).map(a => a.short).join(', ') + (L === 'fr' ? ' et ' : ' and ') + soon[soon.length - 1].short : soon[0].short))}</p>` : ''}
     <p class="sub" data-in style="--d:.9">${t.countSub}</p>`, 'rgba(212,168,67,.5)');
 
   for (const a of filmed) {
