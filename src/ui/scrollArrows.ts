@@ -85,6 +85,9 @@ function place() {
     const more = strip.scrollWidth - strip.clientWidth;
     const showL = visible && more > 1 && strip.scrollLeft > 1;
     const showR = visible && more > 1 && strip.scrollLeft < more - 1;
+    // The strip fades out under an arrow, so no half tab, cut border or stray × shows next to it (Martin, 2026-11-01).
+    const sa = `${showL ? 'l' : ''}${showR ? 'r' : ''}`;
+    if ((strip.dataset.sa ?? '') !== sa) { if (sa) strip.dataset.sa = sa; else delete strip.dataset.sa; }
     const size = Math.max(22, Math.min(30, r.height - 6));
     const top = r.top + (r.height - size) / 2;
     const set = (b: HTMLButtonElement, show: boolean, x: number) => {

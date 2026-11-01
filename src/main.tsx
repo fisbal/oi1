@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import App from './shell/App';
 import './shell/shell.css';
 import { startRibbonMin } from './ui/ribbonMin';
+import { startCapsuleTips } from './ui/tips';
 import { watchStaleBuild } from './shell/staleBuild';
 
 // A page left open across a new release reloads onto it instead of failing (see staleBuild.ts).
@@ -18,6 +19,7 @@ if (location.hash.startsWith('#run=')) void import('./modules/code/runner').then
 else createRoot(document.getElementById('root')!).render(<App />);
 
 startRibbonMin();
+startCapsuleTips();
 
 // On short screens (and when the ribbon is folded) the ribbon shows only its tabs (see kit.css): a tap on a tab opens its buttons, a tap on the work closes them.
 // Done here once for every app; Safari does not focus buttons when they are tapped, so :focus-within alone is not enough.
