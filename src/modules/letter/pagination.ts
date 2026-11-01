@@ -15,6 +15,7 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
+import { safeHtml } from '../../shell/safeHtml';
 
 export interface PageLayout {
   enabled: boolean;
@@ -68,7 +69,7 @@ function cloneHf(html: string, kind: 'header' | 'footer', page: number, pages: n
   el.className = `hf-clone ${kind}`;
   el.style.setProperty('--pn', `"${page}"`);
   el.style.setProperty('--pt', `"${pages}"`);
-  el.innerHTML = html; // our own editor's HTML, already cleaned by its schema
+  el.innerHTML = safeHtml(html); // the editor's HTML, cleaned again in case it came from a file someone sent
   el.setAttribute('aria-hidden', 'true');
   return el;
 }

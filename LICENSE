@@ -1,0 +1,22 @@
+Office In 1
+Copyright (c) 2026 Martin Balla. All rights reserved. / Tous droits réservés.
+
+The source code of Office In 1 is published so that it can be read and so that its builds can be
+checked. Publishing it does not grant a licence: no part of it may be copied, modified, redistributed,
+sold or published as another product without the written permission of Martin Balla.
+
+Le code source d'Office In 1 est publié pour pouvoir être lu et pour que ses versions puissent être
+vérifiées. Cette publication n'accorde aucune licence : aucune partie ne peut être copiée, modifiée,
+redistribuée, vendue ou publiée comme un autre produit sans l'autorisation écrite de Martin Balla.
+
+Using the app itself (https://fisbal.github.io/oi1/, the Microsoft Store app and the published
+installers) is free. / Utiliser l'application elle-même est gratuit.
+
+"Office In 1", "Office Letter", "Office Class", "Office Stage", "Office Code+" and the Office In 1 logo
+are names and marks of Martin Balla.
+
+Third-party libraries keep their own licences (MIT, Apache-2.0, ISC, BSD, OFL-1.1, MPL-2.0 and others):
+see THIRD-PARTY-NOTICES.md. The spelling dictionaries are separate data files loaded at run time, each
+under its own licence (see README.md).
+
+Contact: https://github.com/fisbal

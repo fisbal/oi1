@@ -199,3 +199,8 @@ The full plan (architecture, stack choice, roadmap, sources) is in the blueprint
 5. Windows and Android apps with Tauri, updating themselves (done); then cloud save and co-editing
 6. Office Notes and Plan (the Assistant is already in every app as the Copilot)
 7. Office Mail, Draw and Form
+
+## License and security
+
+Copyright (c) 2026 Martin Balla. All rights reserved: see [LICENSE](LICENSE). Libraries keep their own licences: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+Report a security problem privately: [SECURITY.md](SECURITY.md). How the app protects itself: [docs/securite.md](docs/securite.md).
