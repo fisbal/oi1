@@ -9,7 +9,7 @@ import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 
 // Buttons without an explanation yet, per app. These numbers may only shrink.
-const STILL_TO_EXPLAIN = { Class: 0, Letter: 0, Stage: 0, 'Code+': 0 };
+const STILL_TO_EXPLAIN = { Class: 0, Letter: 0, Stage: 0, 'Code+': 0, Draw: 0 };
 
 const PORT = Number(process.env.PORT) || 4196;
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore', detached: true });
@@ -24,7 +24,7 @@ const counts = {};
 
 try {
   for (const [device, viewport, mobile] of [['PC', { width: 1440, height: 900 }, false], ['Phone', { width: 390, height: 844 }, true]]) {
-    for (const app of ['Class', 'Letter', 'Stage', 'Code+']) {
+    for (const app of ['Class', 'Letter', 'Stage', 'Code+', 'Draw']) {
       const ctx = await browser.newContext({ viewport, locale: 'en-US', isMobile: mobile, hasTouch: mobile });
       const page = await ctx.newPage();
       page.on('pageerror', e => problems.push(`${device} ${app}: script error: ${e.message}`));
