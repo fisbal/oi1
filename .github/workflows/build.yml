@@ -190,6 +190,9 @@ jobs:
       - name: In 1 Form works on phone, tablet, PC and Mac, both ways, with and without AI (check:form)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:form
+      - name: In 1 Mail works on phone, tablet, PC and Mac, both ways, with and without AI (check:mail)
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:mail
       - name: Dictation works in Letter, Notes and Assistant on phone and PC, also in the Windows app, plus a real spoken sentence through Whisper (check:dictation)
         if: env.FULL_CHECKS == 'true'
         run: |

@@ -14,6 +14,7 @@ import { HELP_DRAW } from './helpDraw';
 import { HELP_NOTES } from './helpNotes';
 import { HELP_PLAN } from './helpPlan';
 import { HELP_FORM } from './helpForm';
+import { HELP_MAIL } from './helpMail';
 import { HELP_IMAGE } from './helpImage';
 
 export type HelpText = [en: string, fr: string];
@@ -137,6 +138,7 @@ export const HELP: Record<string, HelpText> = {
   ...HELP_NOTES,
   ...HELP_PLAN,
   ...HELP_FORM,
+  ...HELP_MAIL,
   ...HELP_IMAGE,
 };
 

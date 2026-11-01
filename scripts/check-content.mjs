@@ -11,7 +11,7 @@ import { chromium } from 'playwright';
 
 const PORT = 4184;
 const MIN_CHOICES = 20;
-const APPS = ['Letter', 'Class', 'Stage', 'Code+', 'Draw', 'Notes', 'Plan', 'Form', 'Image'];
+const APPS = ['Letter', 'Class', 'Stage', 'Code+', 'Draw', 'Notes', 'Plan', 'Form', 'Mail', 'Image'];
 
 // Lists that are short by nature, with the reason. Everything else needs MIN_CHOICES.
 const SHORT_BY_NATURE = {

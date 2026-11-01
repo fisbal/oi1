@@ -16,7 +16,7 @@ const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath
 const problems = [], passed = [];
 const check = (ok, what) => (ok ? passed : problems).push(what);
 const H = '.app-frame:not([hidden])';
-const APPS = ['In 1 Letter', 'In 1 Class', 'In 1 Stage', 'In 1 Code+', 'In 1 Draw', 'In 1 Notes', 'In 1 Plan', 'In 1 Form', 'In 1 Image'];
+const APPS = ['In 1 Letter', 'In 1 Class', 'In 1 Stage', 'In 1 Code+', 'In 1 Draw', 'In 1 Notes', 'In 1 Plan', 'In 1 Form', 'In 1 Mail', 'In 1 Image'];
 
 for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, false], ['Phone', { width: 390, height: 844 }, true]]) {
   const ctx = await browser.newContext({ viewport, locale: 'en-US', isMobile: mobile, hasTouch: mobile });
