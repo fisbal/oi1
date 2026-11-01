@@ -133,6 +133,29 @@ export interface SheetData {
   scenarios?: Scenario[];
   /** The last Solver model. */
   solver?: SolverSaved;
+  /** How the sheet prints (Page Layout tab). */
+  print?: PrintSetup;
+}
+
+/** Excel's page setup: paper, orientation, margins, scaling, print area and titles, grid, headings, header and footer. */
+export interface PrintSetup {
+  paper?: string;
+  orientation?: 'portrait' | 'landscape';
+  margins?: string;
+  /** 'none', 'page', 'width', 'height', '2x1' (pages across x down) or a size in percent like '75'. */
+  fit?: string;
+  grid?: boolean;
+  headings?: boolean;
+  /** Rows from the top (columns from the left) repeated on every page. */
+  titleRows?: number;
+  titleCols?: number;
+  /** The print area. */
+  area?: { c1: number; r1: number; c2: number; r2: number };
+  center?: boolean;
+  /** Page order: down then over (Excel's default) or over then down. */
+  order?: 'down' | 'over';
+  header?: string;
+  footer?: string;
 }
 
 export interface WorkbookData {
