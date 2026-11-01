@@ -12,6 +12,7 @@ import { HELP_CONVERT } from './helpConvert';
 import { HELP_PRINT } from './helpPrint';
 import { HELP_DRAW } from './helpDraw';
 import { HELP_NOTES } from './helpNotes';
+import { HELP_PLAN } from './helpPlan';
 
 export type HelpText = [en: string, fr: string];
 
@@ -132,6 +133,7 @@ export const HELP: Record<string, HelpText> = {
   ...HELP_PRINT,
   ...HELP_DRAW,
   ...HELP_NOTES,
+  ...HELP_PLAN,
 };
 
 /** The explanation of a control: its key's text, a family's text ("class.chart.*") with its name, or null. */
