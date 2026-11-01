@@ -207,6 +207,15 @@ const SCENES: Record<string, (accent: string) => ReactNode> = {
       points={pts([p(0.2, 0.3, 0.05), p(0.5, 0.2, 0.05), p(0.7, 0.55, 0.05), p(1.0, 0.45, 0.05), p(1.2, 0.85, 0.05), p(0.8, 1.0, 0.05)])} />
     <circle cx={p(1.25, 0.35, 0.4)[0]} cy={p(1.25, 0.35, 0.4)[1]} r="4" fill="url(#oi1-gold)" />
   </>,
+  image: accent => <>
+    <Shadow x={0} y={0} w={1.5} d={1.1} />
+    <Box x={0} y={0} w={1.5} d={1.1} h={0.05} top="#FFFFFF" side="#CFC7B4" edge="#B3AA95" />
+    <polygon points={pts([p(0.1, 0.1, 0.05), p(1.4, 0.1, 0.05), p(1.4, 1.0, 0.05), p(0.1, 1.0, 0.05)])} fill="#9CC9F0" />
+    <polygon className="photo-light" points={pts([p(0.1, 0.1, 0.05), p(1.4, 0.1, 0.05), p(1.4, 1.0, 0.05), p(0.1, 1.0, 0.05)])} fill="#FFD27A" />
+    <polygon points={pts([p(0.1, 1.0, 0.05), p(0.1, 0.55, 0.05), p(0.5, 0.3, 0.05), p(0.85, 0.62, 0.05), p(1.1, 0.45, 0.05), p(1.4, 0.7, 0.05), p(1.4, 1.0, 0.05)])} fill={accent} />
+    <polygon points={pts([p(0.1, 1.0, 0.05), p(0.1, 0.8, 0.05), p(0.7, 0.72, 0.05), p(1.4, 0.88, 0.05), p(1.4, 1.0, 0.05)])} fill="#2E5E3A" />
+    <circle className="photo-sun" cx={p(1.15, 0.22, 0.05)[0]} cy={p(1.15, 0.22, 0.05)[1]} r="4.5" fill="url(#oi1-gold)" />
+  </>,
   form: accent => <>
     <Shadow x={0} y={0} w={1.1} d={1.4} />
     <Box x={0} y={0} w={1.1} d={1.4} h={0.05} {...PAPER} />
