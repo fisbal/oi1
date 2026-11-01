@@ -20,7 +20,7 @@ const SIZES = [
   { name: 'mac', viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 },
 ];
 // Apps that run inside OI1 itself (ProDFos is its own site, checked in its own repository).
-const APPS = ['home', 'Letter', 'Class', 'Stage', 'Code+', 'Assistant', 'Draw', 'Notes', 'Plan'];
+const APPS = ['home', 'Letter', 'Class', 'Stage', 'Code+', 'Assistant', 'Draw', 'Notes', 'Plan', 'Form'];
 
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
 const url = `http://localhost:${PORT}/`;
