@@ -3,6 +3,7 @@
 
 import type { AiApi } from '../../shell/contract';
 import { jsonOf } from '../assistant/plan';
+import { drawChat } from '../../shell/chatText';
 import { cleanShape, newId, SHAPE_GEOMS, type Drawing, type Shape } from './model';
 
 const KINDS = ['rect', 'roundRect', 'ellipse', 'triangle', 'diamond', 'star5', 'heart', 'hexagon', 'pentagon', 'rightArrow', 'line', 'arrow', 'text'] as const;
@@ -32,13 +33,6 @@ For "line" and "arrow", the line goes from (x, y) to (x + w, y + h); w or h can 
 Draw what is asked clearly with 3 to 40 shapes, well spaced inside the page, in pleasant colours. Shapes listed later are drawn on top.`;
 }
 
-/** The request as one short readable message, for an AI's public chat site. */
-function chat(d: Drawing, what: string, lang: string) {
-  return `Hello! Please draw "${what}" for my drawing app In 1 Draw, as simple shapes on a page ${d.w} wide and ${d.h} high ((0,0) top left), labels in ${LANG[lang] ?? 'English'}.
-Answer with only one JSON code block like: {"shapes":[{"type":"rect","x":100,"y":100,"w":300,"h":200,"fill":"#BFD7FF","color":"#2B2D42","text":"Label"}]}
-"type" is one of: ${KINDS.join(', ')}. For line and arrow the line goes from (x,y) to (x+w,y+h).`;
-}
-
 /** The AI's shapes made into In 1 Draw shapes. */
 export function shapesFromAnswer(answer: string): Shape[] {
   let raw: unknown;
@@ -66,7 +60,7 @@ export async function drawWithAi(ai: AiApi, d: Drawing, what: string, lang: stri
   const answer = await ai.ask({
     system: system(d), schema: SCHEMA, effort: 'medium', signal,
     messages: [{ role: 'user', content: `Draw: ${what}\nLabels in ${LANG[lang] ?? 'English'}.` }],
-    chatPrompt: chat(d, what, lang),
+    chatPrompt: drawChat(what, lang, d.w, d.h, KINDS),
     onText: so => onText?.(so.length),
   });
   return shapesFromAnswer(answer);
