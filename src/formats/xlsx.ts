@@ -2,6 +2,7 @@
 // Keeps values, formulas, sheets, column widths and row heights, the formatting OI1 knows (see CellStyle),
 // merged cells, frozen panes, the AutoFilter, conditional formatting and charts.
 
+import { applyPrintName, printNames, printXml, readPrint } from './xlsxPrint';
 import JSZip from 'jszip';
 import { chartLayout } from './chartdata';
 import { cellName, colName, isError, moveRefs, parseCell, type Scalar } from './formula';
@@ -222,7 +223,10 @@ export async function xlsxBytes(book: WorkbookData, lang = 'en'): Promise<ArrayB
       ? `<pane${fz.c ? ` xSplit="${fz.c}"` : ''}${fz.r ? ` ySplit="${fz.r}"` : ''} topLeftCell="${cellName(fz.c, fz.r)}" activePane="${fz.c && fz.r ? 'bottomRight' : fz.r ? 'bottomLeft' : 'topRight'}" state="frozen"/>`
       : '';
     const views = `<sheetViews><sheetView workbookViewId="0"${si === 0 ? ' tabSelected="1"' : ''}${sheet.noGrid ? ' showGridLines="0"' : ''}${pane ? `>${pane}</sheetView>` : '/>'}</sheetViews>`;
-    const pr = sheet.tabColor ? `<sheetPr><tabColor rgb="${rgb(sheet.tabColor)}"/></sheetPr>` : '';
+    const px = printXml(sheet.print);
+    definedNames.push(...printNames(sheet.print, si, quoted(names[si])));
+    const prInner = `${sheet.tabColor ? `<tabColor rgb="${rgb(sheet.tabColor)}"/>` : ''}${px.fitToPage ? '<pageSetUpPr fitToPage="1"/>' : ''}`;
+    const pr = prInner ? `<sheetPr>${prInner}</sheetPr>` : '';
     let autoFilter = '';
     if (f) {
       definedNames.push(`<definedName name="_xlnm._FilterDatabase" localSheetId="${si}" hidden="1">${esc(absRange(names[si], f.range))}</definedName>`);
@@ -257,7 +261,7 @@ export async function xlsxBytes(book: WorkbookData, lang = 'en'): Promise<ArrayB
       zip.file(`xl/drawings/_rels/drawing${d}.xml.rels`, `${XML_HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join('')}</Relationships>`);
       contentOverrides.push(`<Override PartName="/xl/drawings/drawing${d}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`);
     }
-    return `${XML_HEAD}<worksheet xmlns="${NS}" xmlns:r="${R_NS}">${pr}${views}<sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${rows}</sheetData>${autoFilter}${merges}${cond}${validationsXml(sheet)}<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>${drawing}</worksheet>`;
+    return `${XML_HEAD}<worksheet xmlns="${NS}" xmlns:r="${R_NS}">${pr}${views}<sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${rows}</sheetData>${autoFilter}${merges}${cond}${validationsXml(sheet)}${px.printOptions}${px.pageMargins || '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'}${px.pageSetup}${px.headerFooter}${drawing}</worksheet>`;
   };
 
   const condXml = (rule: CondRule, priority: number): string => {
@@ -571,6 +575,8 @@ export async function readXlsx(data: ArrayBuffer): Promise<WorkbookData> {
     }
     const tab = argb(kid(kid(root, 'sheetPr'), 'tabColor'));
     if (tab) sheet.tabColor = tab;
+    const print = readPrint(root);
+    if (print) sheet.print = print;
     // The AutoFilter: values hidden in each column are those of hidden rows that the filter does not list.
     const af = kid(root, 'autoFilter');
     const afRange = af ? rangeOf(af.getAttribute('ref') ?? '') : null;
@@ -655,6 +661,13 @@ export async function readXlsx(data: ArrayBuffer): Promise<WorkbookData> {
       if (path && ddoc) for (const anchor of Array.from(ddoc.documentElement.children)) chartsToRead.push({ sheet, doc: ddoc, anchor, path });
     }
     book.sheets.push(sheet);
+  }
+  // Print areas and print titles are workbook names tied to a sheet.
+  const wbSheets = Array.from(wb.getElementsByTagNameNS(NS, 'sheet')).map(sh => book.sheets.find(s => s.name === sh.getAttribute('name')));
+  for (const dn of Array.from(wb.getElementsByTagNameNS(NS, 'definedName'))) {
+    const name = dn.getAttribute('name') ?? '';
+    const target = wbSheets[Number(dn.getAttribute('localSheetId') ?? -1)];
+    if (target && (name === '_xlnm.Print_Area' || name === '_xlnm.Print_Titles')) target.print = applyPrintName(target.print ?? {}, name, dn.textContent ?? '');
   }
   if (!book.sheets.length) book.sheets.push({ name: 'Sheet1', cells: {}, widths: {} });
 

@@ -32,6 +32,7 @@
     "check:convert": "node scripts/check-convert.mjs",
     "check:icons": "node scripts/check-icons.mjs",
     "check:rename": "node scripts/check-rename.mjs",
+    "check:print": "node scripts/check-print.mjs",
     "check:fidelity": "node scripts/check-fidelity.mjs",
     "check:tuto": "node scripts/check-tuto.mjs",
     "check:autosave": "node scripts/check-autosave.mjs",
