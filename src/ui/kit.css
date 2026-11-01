@@ -85,6 +85,9 @@
 .rb.big.on { background: none; border-color: transparent; box-shadow: none; }
 
 .rb-icon { position: relative; display: inline-flex; }
+/* A key with an arrow or a colour bar is an .rb-icon too: it stays a centered grid, so its icon sits in the middle of
+   the capsule like every other key (Martin, 2026-11-01: "toujours centrer les petits icônes de la capsule"). */
+.rb-icon.key { display: inline-grid; place-items: center; }
 .rb-icon .swatch { position: absolute; left: -1px; right: -1px; bottom: -4px; height: 3px; border-radius: 1px; }
 .rb-icon.key .swatch { left: 13px; right: 13px; bottom: 5px; height: 3px; border-radius: 99px; }
 /* Toolbar icons are soft capsules (Martin, 2026-10-31: "comme une capsule ovale"): a gel shine on the top half. */
