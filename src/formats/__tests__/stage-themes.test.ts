@@ -16,7 +16,7 @@ const lum = (c: string) => {
 };
 const contrast = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 
-describe('Office Stage themes', () => {
+describe('In 1 Stage themes', () => {
   it('has 20 everyday-life and 5 military themes next to the classic ones', () => {
     expect(THEMES.filter(t => t.group === 'life')).toHaveLength(20);
     expect(THEMES.filter(t => t.group === 'military')).toHaveLength(5);
@@ -80,7 +80,7 @@ describe('Office Stage themes', () => {
   });
 });
 
-describe('Office Stage diagrams', () => {
+describe('In 1 Stage diagrams', () => {
   const deck = newDeck(THEMES.find(t => t.id === 'navy') as DeckTheme);
 
   it('draws every kind of diagram inside the slide', () => {

@@ -1,4 +1,4 @@
-// Proofing inside a text editor (Office Letter, Office Stage, and any Tiptap editor): wavy underlines while
+// Proofing inside a text editor (In 1 Letter, In 1 Stage, and any Tiptap editor): wavy underlines while
 // typing, red for spelling, blue for grammar, green for style, and a bubble with the fix when one is clicked.
 // Each paragraph is checked in its own language, and only paragraphs that changed are checked again.
 

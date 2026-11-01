@@ -1,4 +1,4 @@
-// Training in Office Code+ (Martin, 2026-10-30): every one of the 60 exercises is played like a learner would,
+// Training in In 1 Code+ (Martin, 2026-10-30): every one of the 60 exercises is played like a learner would,
 // in the real sandbox: check (fails), check again, open the solution, check (passes), next. The step-by-step
 // simulation, the Parsons buttons and the hints are tried too, on PC and phone.
 // Run: npm run check:training (after npm run build).
@@ -19,7 +19,7 @@ for (const [name, vp] of [['pc', { width: 1440, height: 900 }], ['phone', { widt
   const p = await ctx.newPage();
   p.on('pageerror', e => out.push(`FAIL ${name} page error: ${e.message}`));
   await p.goto(`http://localhost:${PORT}/`); await p.waitForTimeout(400);
-  await p.locator('.slab:has-text("Office Code+")').first().click(); await p.waitForTimeout(1200);
+  await p.locator('.slab:has-text("In 1 Code+")').first().click(); await p.waitForTimeout(1200);
   const host = p.locator('.module-host:not([hidden])');
   const tab = host.locator('.ribbon-tabs [role=tab]:has-text("Entraînement")');
   await tab.click(); await p.waitForTimeout(250);

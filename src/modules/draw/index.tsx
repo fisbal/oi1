@@ -3,7 +3,7 @@ import type { OI1Module } from '../../shell/contract';
 import Draw, { EXTENSIONS } from './Draw';
 import './draw.css';
 
-// Office Draw: free drawing, shapes, diagrams and AI drawing, on every screen.
+// In 1 Draw: free drawing, shapes, diagrams and AI drawing, on every screen.
 const drawApp: OI1Module = {
   id: 'draw',
   extensions: EXTENSIONS,

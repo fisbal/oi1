@@ -23,10 +23,10 @@ const SHORT_BY_NATURE = {
   'More': 'a short menu of whole-slide actions',
   'Order': 'lists the animations of the slide, so it grows with them',
   'From Class': 'lists the open sheets, so it grows with them',
-  'Table from Office Class': 'lists the open sheets',
+  'Table from In 1 Class': 'lists the open sheets',
   'Table from Class': 'lists the open sheets',
   'Send to Letter': 'lists the open letters',
-  'Outline to Office Letter': 'lists the open letters',
+  'Outline to In 1 Letter': 'lists the open letters',
   'Send code to Letter': 'lists the open letters',
   'Cite again': 'lists the sources already cited, so it grows with them',
   'My dictionary': 'lists the words the user added, so it grows with them',
@@ -64,7 +64,7 @@ try {
     page.on('pageerror', e => problems.push(`${app}: script error: ${e.message}`));
     await page.goto(url);
     await page.waitForTimeout(400);
-    const slab = page.locator(`.slab:has-text("Office ${app}")`);
+    const slab = page.locator(`.slab:has-text("In 1 ${app}")`);
     if (!(await slab.count())) { await ctx.close(); continue; }
     await slab.first().click();
     await page.waitForTimeout(1200);
@@ -120,7 +120,7 @@ try {
     page.on('dialog', d => d.dismiss());
     await page.goto(url);
     await page.waitForTimeout(400);
-    const slab = page.locator(`.slab:has-text("Office ${app}")`);
+    const slab = page.locator(`.slab:has-text("In 1 ${app}")`);
     if (!(await slab.count())) { await ctx.close(); continue; }
     await slab.first().click();
     await page.waitForTimeout(1200);

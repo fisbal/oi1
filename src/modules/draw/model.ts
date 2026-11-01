@@ -1,5 +1,5 @@
-// Office Draw's drawings: shapes on a page, kept as plain data and drawn as SVG. A drawing saves as an .svg file
-// any app can show, with its own data inside (<metadata>) so Office Draw opens it again with every shape editable.
+// In 1 Draw's drawings: shapes on a page, kept as plain data and drawn as SVG. A drawing saves as an .svg file
+// any app can show, with its own data inside (<metadata>) so In 1 Draw opens it again with every shape editable.
 
 import type { Geom } from '../../formats/slides';
 import { geomPath } from '../stage/geom';
@@ -18,7 +18,7 @@ export interface Style {
 }
 
 interface Base extends Style { id: string; name?: string; locked?: boolean; hidden?: boolean }
-/** A shape in a box: rectangle, ellipse, star, arrow… (the same 20 shapes as Office Stage). */
+/** A shape in a box: rectangle, ellipse, star, arrow… (the same 20 shapes as In 1 Stage). */
 export interface GeomShape extends Base { kind: 'geom'; geom: Geom; x: number; y: number; w: number; h: number; rot: number; text?: string; textColor?: string }
 /** A free hand line: points x0,y0,x1,y1… on the page. */
 export interface PathShape extends Base { kind: 'path'; points: number[]; marker?: boolean }
@@ -275,13 +275,13 @@ export function paperSvg(d: Drawing, ink = 'rgba(80,90,110,.22)'): string {
   }
 }
 
-/** The whole drawing as a standalone SVG file, with its data inside for Office Draw. */
+/** The whole drawing as a standalone SVG file, with its data inside for In 1 Draw. */
 export function toSvg(d: Drawing, withData = true): string {
   const data = withData ? `<metadata id="oi1-draw">${esc(JSON.stringify({ v: 1, ...d }))}</metadata>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${d.w}" height="${d.h}" viewBox="0 0 ${d.w} ${d.h}">${data}<rect width="${d.w}" height="${d.h}" fill="${esc(d.background)}"/>${paperSvg(d)}${d.shapes.map(shapeSvg).join('')}</svg>`;
 }
 
-/** A drawing from an .svg Office Draw saved; any other SVG comes in as one picture. */
+/** A drawing from an .svg In 1 Draw saved; any other SVG comes in as one picture. */
 export function fromSvg(text: string): Drawing | null {
   const m = text.match(/<metadata id="oi1-draw">([\s\S]*?)<\/metadata>/);
   if (!m) return null;

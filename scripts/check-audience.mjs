@@ -1,4 +1,4 @@
-// Who is watching? (Martin, 2026-10-31): in Office Stage, pick an audience (children, seniors, investors …) and
+// Who is watching? (Martin, 2026-10-31): in In 1 Stage, pick an audience (children, seniors, investors …) and
 // Claude adapts the whole deck; the person compares before and after, then keeps it or goes back. Used like a
 // person would, on PC and phone. Claude's answer is played back, so the check never needs the network or a key.
 // Run after `npm run build`:
@@ -54,7 +54,7 @@ async function run(name, viewport, mobile) {
     await route.fulfill({ status: 200, contentType: 'text/event-stream', body: claudeAnswer(route.request().postData()) });
   });
   await page.goto(url);
-  await page.locator('.slab:has-text("Office Stage")').first().click();
+  await page.locator('.slab:has-text("In 1 Stage")').first().click();
   await page.waitForTimeout(1200);
   const host = page.locator('.module-host:not([hidden])');
   const title = page.locator('.st-canvas .st-item').first();

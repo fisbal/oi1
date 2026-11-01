@@ -1,4 +1,4 @@
-// Synchro (Martin, 2026-10-31): a table shared between Office Class and Office Letter is one live part. A change
+// Synchro (Martin, 2026-10-31): a table shared between In 1 Class and In 1 Letter is one live part. A change
 // on either side shows on the other by itself, fast, survives a reload, and each copy says it is up to date.
 // Used like a person would, on PC and phone. Run after `npm run build`:
 //   node scripts/check-sync.mjs
@@ -30,7 +30,7 @@ async function clickCell(page, text) {
   const box = await page.locator(`.module-host:not([hidden]) .cells .cell:has(span:text-is("${text}"))`).first().boundingBox();
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 }
-const showTab = (page, app) => page.locator(`nav.tabs .tab[title^="Office ${app}"]`).first().click();
+const showTab = (page, app) => page.locator(`nav.tabs .tab[title^="In 1 ${app}"]`).first().click();
 
 async function run(name, viewport, mobile) {
   const ctx = await browser.newContext({ viewport, locale: 'en-US', isMobile: mobile, hasTouch: mobile });
@@ -39,7 +39,7 @@ async function run(name, viewport, mobile) {
   page.on('dialog', d => d.dismiss());
   await page.goto(url);
   await page.waitForTimeout(400);
-  await page.locator('.slab:has-text("Office Class")').first().click();
+  await page.locator('.slab:has-text("In 1 Class")').first().click();
   await page.waitForTimeout(1200);
   const host = page.locator('.module-host:not([hidden])');
   // A small table, typed like a person: A1 then across and down.

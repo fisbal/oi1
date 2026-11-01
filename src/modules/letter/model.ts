@@ -1,4 +1,4 @@
-// The whole letter as Office Letter keeps it: body, header, footer, page setup and styles.
+// The whole letter as In 1 Letter keeps it: body, header, footer, page setup and styles.
 // Word files are read into this shape and written back from it (see docx/read.ts and docx/write.ts).
 
 import type { JSONContent } from '@tiptap/react';

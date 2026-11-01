@@ -1,4 +1,4 @@
-// The "Convert" ribbon tab, the same in Office Letter, Class, Stage and Code+ (Martin, 2026-11-01). Five rows of
+// The "Convert" ribbon tab, the same in In 1 Letter, Class, Stage and Code+ (Martin, 2026-11-01). Five rows of
 // targets (the other Offices, documents, data, slides and pictures), sharing, "Convert a file…", and the language of
 // the result: pick one of 38 languages and every conversion is translated, "Translate here" translates this document
 // (the original is always kept and comes back with "Original text"), "Translated copy" opens a translated copy.

@@ -1,4 +1,4 @@
-// Office Letter's copilot: what Claude sees (the selection or the whole letter), the quick actions,
+// In 1 Letter's copilot: what Claude sees (the selection or the whole letter), the quick actions,
 // and the ways an answer goes back into the letter. Corrections come back as tracked changes, word by word,
 // so every fix can be accepted or rejected like a colleague's edit in Word.
 
@@ -62,7 +62,7 @@ async function correct(body: Editor, ai: AiApi, where: Where, signal: AbortSigna
   if (!blocks.length) return t('ai.letter.nothing');
   const texts = blocks.map(b => b.node.textBetween(0, b.node.content.size, undefined, LEAF));
   const answer = await ai.ask({
-    system: 'You are a meticulous proofreader inside Office Letter, a word processor. You fix spelling, grammar, agreement, punctuation and typography mistakes in the language each paragraph is written in. You never change the meaning, the tone, the wording that is already correct, names, numbers or the language. Keep every ￼ character exactly where it is: it stands for a picture or a field. Return the same number of paragraphs, in the same order.',
+    system: 'You are a meticulous proofreader inside In 1 Letter, a word processor. You fix spelling, grammar, agreement, punctuation and typography mistakes in the language each paragraph is written in. You never change the meaning, the tone, the wording that is already correct, names, numbers or the language. Keep every ￼ character exactly where it is: it stands for a picture or a field. Return the same number of paragraphs, in the same order.',
     messages: [{ role: 'user', content: `Correct these ${texts.length} paragraphs. Return them all, corrected, as JSON.\n\n${JSON.stringify({ paragraphs: texts })}` }],
     schema: CORRECT_SCHEMA,
     effort: 'low',
@@ -109,7 +109,7 @@ so the user can fill it in. No Markdown other than this, no ** or code fences, n
 /** Asks Claude for a whole letter or document in the template markup, so its unknown details become fields to fill. */
 async function writeDoc(body: Editor, ai: AiApi, request: string, docLang: 'fr' | 'en', signal: AbortSignal): Promise<string> {
   const answer = await ai.ask({
-    system: `You write administrative, government, military and personal letters, memos, reports and CVs inside Office Letter. You follow the conventions of the genre (block letter, military memorandum with file number and numbered paragraphs, SITREP, five-paragraph order, CV sections) and the official style of the country the user names, or Canada by default. Write in the language of the request (${docLang === 'fr' ? 'French' : 'English'} if unclear). ${MARKUP_RULES}`,
+    system: `You write administrative, government, military and personal letters, memos, reports and CVs inside In 1 Letter. You follow the conventions of the genre (block letter, military memorandum with file number and numbered paragraphs, SITREP, five-paragraph order, CV sections) and the official style of the country the user names, or Canada by default. Write in the language of the request (${docLang === 'fr' ? 'French' : 'English'} if unclear). ${MARKUP_RULES}`,
     messages: [{ role: 'user', content: request }],
     signal,
   });
@@ -133,7 +133,7 @@ async function fillWithAi(body: Editor, ai: AiApi, details: string, signal: Abor
   const fields = fieldList(body.state.doc).map(f => f.label);
   if (!fields.length) return t('ai.letter.noFields');
   const answer = await ai.ask({
-    system: 'You fill in the [bracketed] fields of a letter or CV in Office Letter from the details the user gives. For each field you can answer from the details (or write well from them, for fields that ask for a sentence or a paragraph), return its exact label and the text that replaces it, in the language of the letter. Leave out fields you cannot answer: never invent names, numbers, dates or addresses.',
+    system: 'You fill in the [bracketed] fields of a letter or CV in In 1 Letter from the details the user gives. For each field you can answer from the details (or write well from them, for fields that ask for a sentence or a paragraph), return its exact label and the text that replaces it, in the language of the letter. Leave out fields you cannot answer: never invent names, numbers, dates or addresses.',
     messages: [{ role: 'user', content: `The letter:\n<letter>\n${body.getText({ blockSeparator: '\n' })}\n</letter>\n\nFields: ${JSON.stringify(fields)}\n\nDetails from the user: ${details}` }],
     schema: FILL_SCHEMA,
     signal,
@@ -170,8 +170,8 @@ export function letterCopilot(body: Editor, title: string, docLang: 'fr' | 'en' 
   };
   const langs = LANGUAGES.map(l => ({ label: l.name, prompt: `Translate the context into ${l.name}. Keep the paragraphs, lists and headings. Reply with only the translation.` }));
   return {
-    app: 'Office Letter',
-    role: `Office Letter is a word processor like Word. The open letter is "${title}". Answers you write as content can be put into the letter with formatting (paragraphs, headings with #, lists, **bold**).`,
+    app: 'In 1 Letter',
+    role: `In 1 Letter is a word processor like Word. The open letter is "${title}". Answers you write as content can be put into the letter with formatting (paragraphs, headings with #, lists, **bold**).`,
     context,
     actions: [
       { id: 'correct', icon: 'spell', label: t('ai.letter.correct'), needsContext: true, run: (ai, c, signal) => correct(body, ai, c!.at as Where, signal) },

@@ -1,6 +1,6 @@
-// Office Stage: presentations, like PowerPoint. Slides with placeholders, text boxes, shapes, pictures and
+// In 1 Stage: presentations, like PowerPoint. Slides with placeholders, text boxes, shapes, pictures and
 // tables on a theme; thumbnails to reorder, speaker notes, transitions and a slide show with presenter view;
-// .pptx open and save, printing and PDF, Claude as copilot, and links with Office Letter and Office Class.
+// .pptx open and save, printing and PDF, Claude as copilot, and links with In 1 Letter and In 1 Class.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal, flushSync } from 'react-dom';
@@ -849,7 +849,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   };
   const outlineToLetter = async (tabId: string | null) => {
     const h: Handoff = { kind: 'html', title, html: outlineHtml(deckRef.current, title) };
-    if (tabId && await shell.send(tabId, h)) { shell.notify(t('stage.outlineSent', { title: letters.find(x => x.tabId === tabId)?.title ?? 'Office Letter' })); shell.showTab(tabId); }
+    if (tabId && await shell.send(tabId, h)) { shell.notify(t('stage.outlineSent', { title: letters.find(x => x.tabId === tabId)?.title ?? 'In 1 Letter' })); shell.showTab(tabId); }
     else shell.openModule('letter', undefined, h);
   };
   const tableToClass = () => {
@@ -859,7 +859,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const mine = { tabId: shell.tabId, id, moduleId: 'stage', title };
     if (one.link && shell.tabs('class').some(x => x.tabId === one.link!.tabId)) { void shell.send(one.link.tabId, { kind: 'table', title, table, link: mine }); shell.showTab(one.link.tabId); return; }
     const tabId = shell.openModule('class', undefined, { kind: 'table', title, table, link: mine });
-    if (tabId) changeItems([one.id], it => ({ ...it, link: { tabId, id, moduleId: 'class', title: 'Office Class' } } as Item));
+    if (tabId) changeItems([one.id], it => ({ ...it, link: { tabId, id, moduleId: 'class', title: 'In 1 Class' } } as Item));
   };
 
   // ---------- copilot (Claude) ----------
@@ -1658,7 +1658,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           saveChoices={[
             { id: 'pptx', icon: 'save', label: t('stage.format.pptx'), hint: '.pptx' },
             { id: 'pdf', icon: 'pdf', label: t('stage.format.pdf'), hint: '.pdf' },
-            { id: 'letter', icon: 'letter', label: t('stage.format.outline'), hint: 'Office Letter' },
+            { id: 'letter', icon: 'letter', label: t('stage.format.outline'), hint: 'In 1 Letter' },
           ]}
           onSaveAs={f => (f === 'pptx' ? void save(true) : f === 'pdf' ? print() : void outlineToLetter(null))}
           listRecent={shell.recent.list} onOpenRecent={r => void openRecent(r)} />

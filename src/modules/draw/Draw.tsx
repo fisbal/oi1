@@ -1,4 +1,4 @@
-// Office Draw: drawing for everyone, on a computer, a tablet or a phone. Free hand with a pen, a marker or a
+// In 1 Draw: drawing for everyone, on a computer, a tablet or a phone. Free hand with a pen, a marker or a
 // highlighter, clean shapes, lines and arrows, text, pictures and stickers; 26 ready drawings (flowchart, mind map,
 // org chart, floor plan, cards…), pages and papers, colour sets. Beyond a usual drawing app: "Tidy" turns a sketched
 // circle, box, triangle or line into a clean shape offline, and "Draw with AI" turns words into editable shapes.
@@ -594,8 +594,8 @@ function DrawEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   // ---------- copilot ----------
   useCopilotShortcut(() => setCopilot(o => !o), rootRef);
   const copilotHost: CopilotHost = {
-    app: 'Office Draw',
-    role: 'Office Draw is a drawing app: free hand lines, shapes with labels, arrows, text, pictures and stickers on a page. You can see the labels and texts of the drawing. Help the person plan, improve or explain their drawing. To have shapes drawn, they use "Draw with AI" on the AI tab.',
+    app: 'In 1 Draw',
+    role: 'In 1 Draw is a drawing app: free hand lines, shapes with labels, arrows, text, pictures and stickers on a page. You can see the labels and texts of the drawing. Help the person plan, improve or explain their drawing. To have shapes drawn, they use "Draw with AI" on the AI tab.',
     context: () => {
       const words = docRef.current.shapes.map(s => (s.kind === 'text' ? s.text : s.kind === 'geom' ? s.text ?? '' : '')).filter(Boolean);
       return { label: t('draw.copilotContext', { n: docRef.current.shapes.length }), text: `${docRef.current.shapes.length} shapes. Labels: ${words.join(' | ') || '(none)'}` };

@@ -38,7 +38,7 @@ export function tableToCells(table: TableData, c0 = 0, r0 = 0): Record<string, C
 
 const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-/** HTML for the clipboard; Word, Excel, Google Docs and Office Letter all paste it as a table. */
+/** HTML for the clipboard; Word, Excel, Google Docs and In 1 Letter all paste it as a table. */
 export function tableToHtml(table: TableData): string {
   const body = table.rows.map((row, r) => `<tr>${row.map(c => {
     const tag = table.header && r === 0 ? 'th' : 'td';

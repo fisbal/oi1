@@ -4,12 +4,12 @@ import { buildPreview, resolvePath } from './build';
 import { unpackRun } from './project';
 
 export async function startRunner(packed: string) {
-  document.title = 'Office Code+';
+  document.title = 'In 1 Code+';
   document.body.style.margin = '0';
   document.body.style.background = '#fff';
   const root = document.getElementById('root')!;
   root.replaceChildren();
-  const frame = Object.assign(document.createElement('iframe'), { title: 'Office Code+' });
+  const frame = Object.assign(document.createElement('iframe'), { title: 'In 1 Code+' });
   frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-modals allow-popups allow-downloads');
   frame.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0';
   root.append(frame);

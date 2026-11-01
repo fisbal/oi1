@@ -1,4 +1,4 @@
-/* Office Code+ in the scene look: files on the left, code in the middle, the live preview on the right. */
+/* In 1 Code+ in the scene look: files on the left, code in the middle, the live preview on the right. */
 .code {
   flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative;
   --syn-keyword: #E8A0D8; --syn-string: #B8E05F; --syn-number: #F2B66B; --syn-comment: #8C8A96; --syn-function: #F2D78B;

@@ -1,4 +1,4 @@
-// Ready-made pieces for Office Stage's Insert tab: diagrams (steps, cycle, timeline, pyramid, grid) built from a
+// Ready-made pieces for In 1 Stage's Insert tab: diagrams (steps, cycle, timeline, pyramid, grid) built from a
 // list of points, WordArt titles, slide numbers and footers. They are made of ordinary shapes and text boxes, so
 // they can be edited, moved and saved in a .pptx like anything else.
 

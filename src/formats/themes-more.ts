@@ -1,4 +1,4 @@
-// More Office Stage themes: 20 for everyday life (family, school, travel, seasons...) and 5 military ones.
+// More In 1 Stage themes: 20 for everyday life (family, school, travel, seasons...) and 5 military ones.
 // Each has its colors, two bundled fonts and decorations drawn behind the slides (and saved in the .pptx master).
 // Decorations are in parts of the slide (0 to 1); `geom` draws a star, heart, chevron... instead of a box.
 

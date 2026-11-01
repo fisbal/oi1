@@ -116,10 +116,10 @@ jobs:
       - name: Adapting a Stage deck to its audience works on PC and phone
         if: env.FULL_CHECKS == 'true'
         run: npm run check:audience
-      - name: Office Class knows Excel's functions (440+, Insert function, DEVISE) on PC and phone
+      - name: In 1 Class knows Excel's functions (440+, Insert function, DEVISE) on PC and phone
         if: env.FULL_CHECKS == 'true'
         run: npm run check:formulas
-      - name: Office Class Business tab (ready finance and accounting sheets, currency converter) on PC and phone
+      - name: In 1 Class Business tab (ready finance and accounting sheets, currency converter) on PC and phone
         if: env.FULL_CHECKS == 'true'
         run: npm run check:metiers
       - name: Manual zoom in Class, Letter and Stage (pinch, Ctrl+wheel, See it all, side scroll bar) on PC and phone
@@ -155,19 +155,19 @@ jobs:
       - name: Word fidelity (Conversion Test A opens, prints to 3 pages and saves back with tab stops, lists and table)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:fidelity
-      - name: The Tuto tab explains every button (all of Office Class) on PC and phone
+      - name: The Tuto tab explains every button (all of In 1 Class) on PC and phone
         if: env.FULL_CHECKS == 'true'
         run: npm run check:tuto
       - name: Choosing the copilot (Claude, ChatGPT, Gemini, Microsoft …) works on PC and phone
         if: env.FULL_CHECKS == 'true'
         run: npm run check:copilot
-      - name: Office Assistant makes linked documents in the Offices from plain words, with and without AI (PC + phone)
+      - name: In 1 Assistant makes linked documents in the Offices from plain words, with and without AI (PC + phone)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:assistant
       - name: The shield checks files, links and pasted scams, makes vaccines (PC + phone)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:shield
-      - name: Office Draw works on phone, tablet, PC and Mac, both ways (check:draw)
+      - name: In 1 Draw works on phone, tablet, PC and Mac, both ways (check:draw)
         run: npm run check:draw
       - name: Keep the screenshots
         if: always()

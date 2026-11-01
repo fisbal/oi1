@@ -1,4 +1,4 @@
-// PowerPoint .pptx for Office Stage: writing a deck as a real presentation (theme, slide master and layouts,
+// PowerPoint .pptx for In 1 Stage: writing a deck as a real presentation (theme, slide master and layouts,
 // slides with placeholders, shapes, pictures, tables, speaker notes and transitions) and reading one back,
 // including files made by PowerPoint, Keynote or Google Slides (placeholders that take their place and look
 // from the layout and master, theme colors, groups, tables, pictures and notes).
@@ -398,7 +398,7 @@ function transitionXml(s: Slide) {
 /** Writes a deck as a .pptx file. `lang` is the language tag put on the text, like "fr-FR". */
 // ---------- animations ----------
 // PowerPoint's timing tree for the slide's click sequence, with the closest standard effects (appear, fade,
-// fly, zoom, wipe in and out, a pulse for emphasis), so the show works there too. The exact Office Stage
+// fly, zoom, wipe in and out, a pulse for emphasis), so the show works there too. The exact In 1 Stage
 // effects (bounce, typewriter, loops…) also travel in an extension PowerPoint ignores, and come back on opening.
 
 const OI1_ANIMS_URI = '{6E1F3B2A-0A11-4C6B-9D0E-0F1A5E7A0A11}';
@@ -482,7 +482,7 @@ function spidHasText(s: Slide, id: string) {
 
 const EFFECT_IDS: AnimEffect[] = ['appear', 'fade', 'fly', 'zoom', 'pop', 'bounce', 'drop', 'wipe', 'blur', 'spin', 'float', 'typewriter', 'pulse', 'shake', 'wiggle', 'glow', 'grow', 'flash', 'fadeOut', 'flyOut', 'zoomOut', 'shrink', 'bob', 'beat', 'sway', 'twinkle', 'rotate', 'jelly'];
 
-/** The slide's animations: Office Stage's own when the file has them, otherwise read from PowerPoint's timing. */
+/** The slide's animations: In 1 Stage's own when the file has them, otherwise read from PowerPoint's timing. */
 function readAnims(root: El, spids: Map<string, string>): Anim[] {
   const ext = all(root, 'ext').find(e => e.getAttribute('uri') === OI1_ANIMS_URI);
   if (ext) {
@@ -931,7 +931,7 @@ const LAYOUT_FROM: Record<string, LayoutId> = {
 };
 
 /** Reads a .pptx file into a deck. */
-/** One of the decorations Office Stage writes on a theme's master (see masterXml), back as a decoration. */
+/** One of the decorations In 1 Stage writes on a theme's master (see masterXml), back as a decoration. */
 function decoOf(sp: El, w: number, h: number): Deco | null {
   const spPr = kid(sp, 'spPr');
   const xf = kid(spPr, 'xfrm'), off = kid(xf, 'off'), ext = kid(xf, 'ext');

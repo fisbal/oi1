@@ -1,4 +1,4 @@
-// Office Code+'s copilot: Claude sees the selected code (or the open file), the project's files and the
+// In 1 Code+'s copilot: Claude sees the selected code (or the open file), the project's files and the
 // console's errors, and its code goes back into the editor in place of the selection or at the cursor.
 
 import type { EditorView } from '@codemirror/view';
@@ -52,9 +52,9 @@ export function codeCopilot(b: CodeBridge): CopilotHost {
     view.focus();
   };
   return {
-    app: 'Office Code+',
+    app: 'In 1 Code+',
     role: [
-      `Office Code+ is a code editor that runs websites, Python and SQL in the browser. The project "${b.project}" has these files: ${b.files.slice(0, 200).join(', ')}.`,
+      `In 1 Code+ is a code editor that runs websites, Python and SQL in the browser. The project "${b.project}" has these files: ${b.files.slice(0, 200).join(', ')}.`,
       'When you give code to put into the editor, give one fenced code block with the complete replacement for what was selected (or the whole file when no code was selected), and keep the file\'s style. Explain in a sentence or two, outside the block.',
     ].join('\n'),
     context,

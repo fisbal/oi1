@@ -1,4 +1,4 @@
-/* Office Class in the scene look: an obsidian grid, cream figures, gold selection. */
+/* In 1 Class in the scene look: an obsidian grid, cream figures, gold selection. */
 .class { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
 
 .fmt-label { min-width: 92px; text-align: left; }

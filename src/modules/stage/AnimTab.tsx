@@ -1,4 +1,4 @@
-// The Animations tab of Office Stage: effects for the selected items (in, attention, out and looping), their
+// The Animations tab of In 1 Stage: effects for the selected items (in, attention, out and looping), their
 // options and order, animated stickers (emojis and words like "Hello" or "Merci"), automatic animation by rules
 // or by Claude, and a preview right on the slide.
 

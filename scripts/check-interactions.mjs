@@ -29,7 +29,7 @@ async function open(app, viewport = { width: 1440, height: 900 }, mobile = false
   page.on('dialog', d => d.accept('Caption'));
   page.on('pageerror', e => problems.push(`${app}: script error: ${e.message}`));
   await page.goto(url);
-  await page.locator(`.slab:has-text("Office ${app}")`).first().click();
+  await page.locator(`.slab:has-text("In 1 ${app}")`).first().click();
   await page.waitForTimeout(1200);
   return { ctx, page, host: page.locator('.module-host:not([hidden])') };
 }

@@ -1,7 +1,7 @@
 // AutoSave to the cloud (Martin, 2026-10-31: "enregistrement auto sur l'appareil ou cloud"). First GitHub:
 // the person's documents go to a private repository of their own, each save one commit, so every earlier
 // version stays in its history. Google Drive and OneDrive come next, behind the same three calls.
-// The token is the one Office Code+ already uses (one sign-in for both), kept on this device only.
+// The token is the one In 1 Code+ already uses (one sign-in for both), kept on this device only.
 
 import { GitHubError, TOKEN_URL, ensureRepo, savedAccount, saveAccount, signIn, type Account } from '../modules/code/github';
 import { store } from './storage';

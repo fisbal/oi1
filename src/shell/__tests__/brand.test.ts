@@ -13,7 +13,7 @@ describe('brand names never change (rule 15)', () => {
   it('every language keeps the brand names the English text has', () => {
     const bad: string[] = [];
     for (const [key, text] of Object.entries(en)) {
-      // Longest first, so "Office Letter" is not also counted as "Office".
+      // Longest first, so "In 1 Letter" is not also counted as "Office".
       const used = [...BRANDS].sort((a, b) => b.length - a.length).filter(b => text.includes(b));
       for (const l of LANGUAGES.slice(1)) {
         const other = (l.messages as Record<string, string>)[key] ?? '';

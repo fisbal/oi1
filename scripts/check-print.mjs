@@ -1,4 +1,4 @@
-// Printing in Office Class (Martin, 2026-11-01: "plusieurs types d'impression (cellule, page, sélection, colonne…)").
+// Printing in In 1 Class (Martin, 2026-11-01: "plusieurs types d'impression (cellule, page, sélection, colonne…)").
 // Checks like a person, on PC, phone and phone sideways: the Page Layout tab and its lists (24 paper sizes, 26 scales,
 // 21 headers and footers), the Print window fits the screen, every "Print what" choice gives the right pages in the
 // preview (selection, active cell, columns, rows, the page of the active cell, the print area, formulas, the whole
@@ -74,7 +74,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
     if (!sessionStorage.getItem('set')) { localStorage.setItem('oi1:language', 'en'); sessionStorage.setItem('set', '1'); }
   });
   await page.goto(url);
-  await page.locator('.slab:has-text("Office Class")').first().click();
+  await page.locator('.slab:has-text("In 1 Class")').first().click();
   await page.waitForTimeout(1200);
   await goTo(page, 'A1');
   await page.evaluate(text => {

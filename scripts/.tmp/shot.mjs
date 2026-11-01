@@ -7,7 +7,7 @@ for (const [n, vp, m, lang] of [['pc', { width: 1440, height: 900 }, false, 'fr'
   const p = await b.newPage({ viewport: vp, isMobile: m, hasTouch: m });
   await p.addInitScript(l => localStorage.setItem('oi1:language', l), lang);
   await p.goto('http://localhost:4291/');
-  await p.locator('.slab:has-text("Office Class")').first().click(); await p.waitForTimeout(1500);
+  await p.locator('.slab:has-text("In 1 Class")').first().click(); await p.waitForTimeout(1500);
   await p.locator('.module-host:not([hidden]) .ribbon-tuto').click(); await p.waitForTimeout(300);
   await p.locator('.tuto-item').nth(5).click(); await p.waitForTimeout(300);
   await p.screenshot({ path: `/tmp/claude-0/-home-claude/233e9053-4864-5525-913d-192c4c790e83/scratchpad/tuto-${n}.png` });

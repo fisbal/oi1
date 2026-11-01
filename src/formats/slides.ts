@@ -1,4 +1,4 @@
-// A presentation as Office Stage keeps it: slides of positioned items (text, shapes, pictures, tables),
+// A presentation as In 1 Stage keeps it: slides of positioned items (text, shapes, pictures, tables),
 // a theme, and speaker notes. Sizes are pixels at 96 per inch, so a 16:9 slide is 1280 x 720 like PowerPoint's
 // 13.333 x 7.5 inches. Text is HTML from the editor (paragraphs, lists, bold, colors, sizes in pt).
 // .pptx files are read into this shape and written back from it (see pptx.ts).
@@ -47,7 +47,7 @@ export interface TableItem extends Base {
   color?: string;
   /** Column widths as parts of the table's width. */
   cols?: number[];
-  /** A table linked to an Office Class sheet, updated from it. */
+  /** A table linked to an In 1 Class sheet, updated from it. */
   link?: HandoffLink;
 }
 
@@ -56,7 +56,7 @@ export type Item = ShapeItem | ImageItem | TableItem;
 export type Transition = 'none' | 'fade' | 'push' | 'wipe' | 'cover' | 'zoom';
 export const TRANSITIONS: Transition[] = ['none', 'fade', 'push', 'wipe', 'cover', 'zoom'];
 
-/** in: comes in; em: gets attention; out: leaves; loop: keeps moving while on screen (Office Stage's own). */
+/** in: comes in; em: gets attention; out: leaves; loop: keeps moving while on screen (In 1 Stage's own). */
 export type AnimKind = 'in' | 'em' | 'out' | 'loop';
 export type AnimEffect =
   | 'appear' | 'fade' | 'fly' | 'zoom' | 'pop' | 'bounce' | 'drop' | 'wipe' | 'blur' | 'spin' | 'float' | 'typewriter'

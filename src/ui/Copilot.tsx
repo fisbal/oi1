@@ -51,7 +51,7 @@ export interface CopilotApply {
 }
 
 export interface CopilotHost {
-  /** The app's name, like "Office Letter". */
+  /** The app's name, like "In 1 Letter". */
   app: string;
   /** What the app is and how its content works, for Claude. */
   role: string;

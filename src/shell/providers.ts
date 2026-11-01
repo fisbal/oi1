@@ -1,7 +1,7 @@
 // The copilot's AI, chosen by each person (Martin, 2026-10-31: "que chacun puisse choisir son copilot"): Claude by
 // default, or ChatGPT, Gemini, Microsoft (Azure OpenAI or GitHub Models), Mistral, DeepSeek, a model on this computer
 // (Ollama, LM Studio) and more. Each one uses the person's own key, kept on this device only and sent only to that
-// provider. One AI for every app, or a different one for an app. Office Code+'s Master corrector uses the same keys.
+// provider. One AI for every app, or a different one for an app. In 1 Code+'s Master corrector uses the same keys.
 
 import type { AiRequest } from './contract';
 import { browserAiHere } from './webAi';

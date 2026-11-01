@@ -1,4 +1,4 @@
-// The page setup of a sheet in an .xlsx file, so Excel prints it like Office Class does and the other way round:
+// The page setup of a sheet in an .xlsx file, so Excel prints it like In 1 Class does and the other way round:
 // paper, orientation, margins, scaling, gridlines, headings, centering, page order, header and footer, print area
 // and print titles (ECMA-376 part 1, §18.3.1.62 pageSetup, §18.3.1.70 printOptions, §18.3.1.46 headerFooter,
 // §18.2.5 definedName _xlnm.Print_Area / _xlnm.Print_Titles).

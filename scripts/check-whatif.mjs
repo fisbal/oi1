@@ -1,4 +1,4 @@
-// Office Class rivals Excel's Data tab (Martin, 2026-10-31): Goal Seek, Scenarios, Solver and Data validation.
+// In 1 Class rivals Excel's Data tab (Martin, 2026-10-31): Goal Seek, Scenarios, Solver and Data validation.
 // Checks like a person, on PC and phone: a loan's amount found from the monthly payment (and Undo brings it back),
 // the classic product mix solved by Solver (2, 6 → 36), a best-case scenario shown and summed up in a new sheet, a
 // list rule with its arrow and choices, a wrong entry refused (Retry), and "Circle invalid data". Every window fits
@@ -53,7 +53,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   const page = await ctx.newPage();
   page.on('pageerror', e => problems.push(`${name}: script error: ${e.message}`));
   await page.goto(url);
-  await page.locator('.slab:has-text("Office Class")').first().click();
+  await page.locator('.slab:has-text("In 1 Class")').first().click();
   await page.waitForTimeout(1200);
 
   // 1. Goal Seek: what loan gives a payment of 300 a month over 5 years at 5 %?

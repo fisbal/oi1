@@ -42,7 +42,7 @@ try {
       await page.goto(url);
       await page.waitForTimeout(400);
       if (app !== 'home') {
-        const slab = page.locator(`.slab:has-text("Office ${app}")`);
+        const slab = page.locator(`.slab:has-text("In 1 ${app}")`);
         if (!(await slab.count()) || await slab.first().evaluate(el => el.classList.contains('soon') || el.hasAttribute('disabled'))) { await ctx.close(); continue; }
         await slab.first().click();
         await page.waitForTimeout(1200);
@@ -122,7 +122,7 @@ try {
       appZoom: async page => { const t = await page.locator('.module-host:not([hidden]) .status-zoom .pct').first().textContent({ timeout: 500 }).catch(() => null); return t ? Number(t.replace(/\D/g, '')) : null; },
       prepare: async page => {
         if (app === 'home') return;
-        await page.locator(`.slab:has-text("Office ${app}")`).first().click();
+        await page.locator(`.slab:has-text("In 1 ${app}")`).first().click();
         await page.waitForTimeout(1200);
       },
     });

@@ -16,7 +16,7 @@ for (let i = 0; i < 60; i++) { try { if ((await fetch(url)).ok) break; } catch {
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const problems = [], passed = [];
 const check = (ok, what) => (ok ? passed : problems).push(what);
-const APPS = ['Office Letter', 'Office Class', 'Office Stage', 'Office Letter', 'Office Class', 'Office Stage', 'Office Letter'];
+const APPS = ['In 1 Letter', 'In 1 Class', 'In 1 Stage', 'In 1 Letter', 'In 1 Class', 'In 1 Stage', 'In 1 Letter'];
 
 for (const [name, viewport, mobile] of [['PC', { width: 1280, height: 800 }, false], ['Phone', { width: 390, height: 844 }, true]]) {
   const ctx = await browser.newContext({ viewport, locale: 'en-US', isMobile: mobile, hasTouch: mobile });

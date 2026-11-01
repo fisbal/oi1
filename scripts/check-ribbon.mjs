@@ -10,7 +10,7 @@ const b = await chromium.launch();
 const out=[];
 const ok=(n,c)=>out.push((c?'OK  ':'FAIL')+' '+n);
 for (const [name,vp] of [['pc',{width:1440,height:900}],['phone',{width:390,height:844}]]) {
-  for (const app of ['Office Letter','Office Stage','Office Class','Office Code+']) {
+  for (const app of ['In 1 Letter','In 1 Stage','In 1 Class','In 1 Code+']) {
   const ctx = await b.newContext({viewport:vp,locale:'fr-FR',hasTouch:name==='phone',isMobile:name==='phone'});
   const p = await ctx.newPage(); p.on('pageerror', e => out.push('ERR '+e.message));
   await p.goto(`http://localhost:${PORT}/`); await p.waitForTimeout(400);
@@ -42,7 +42,7 @@ for (const [name,vp] of [['pc',{width:1440,height:900}],['phone',{width:390,heig
   const ctx = await b.newContext({viewport:vp,locale:'fr-FR'});
   const p = await ctx.newPage(); await p.goto(`http://localhost:${PORT}/`); await p.waitForTimeout(400);
   // remember choice
-  await p.locator(`.slab:has-text("Office Letter")`).first().click(); await p.waitForTimeout(1000);
+  await p.locator(`.slab:has-text("In 1 Letter")`).first().click(); await p.waitForTimeout(1000);
   await p.locator('.module-host:not([hidden]) .ribbon-toggle').click(); await p.waitForTimeout(200);
   await p.reload(); await p.waitForTimeout(800);
   ok(`${name} choice remembered after reload`, (name==="phone") !== await p.evaluate(()=>document.documentElement.classList.contains('ribbon-min')));

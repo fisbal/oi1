@@ -1,4 +1,4 @@
-// Office Letter's ribbon: Word's tabs (File, Home, Insert, Layout, Review, View, Table) plus what Word lacks:
+// In 1 Letter's ribbon: Word's tabs (File, Home, Insert, Layout, Review, View, Table) plus what Word lacks:
 // Design themes, a Smart tab with one-click tools, an Office In 1 tab that links Letter to every other app,
 // and a command search that finds any command by name.
 
@@ -930,7 +930,7 @@ function TemplateDrop({ cat, icon, actions }: { cat: LetterCat; icon: string; su
   );
 }
 
-/** Insert a table from an open Office Class sheet or from an .xlsx or .csv file. */
+/** Insert a table from an open In 1 Class sheet or from an .xlsx or .csv file. */
 function SheetDrop({ suite, actions }: { suite: SuiteState; actions: RibbonActions }) {
   return (
     <Drop big icon="sheet" title="letter.fromClass">

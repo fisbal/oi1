@@ -4,16 +4,16 @@ One office suite, one app:
 
 | Module | Like | Status |
 | --- | --- | --- |
-| **Office Letter** | Word | Works for everyday letters and documents |
-| **Office Class** | Excel | Works for everyday sheets, charts and Excel files |
-| **Office ProDFos** | PDF reader and tools | Opens inside OI1 from its web version ([fisbal/prodfos](https://github.com/fisbal/prodfos), Flutter) |
-| **Office Stage** | PowerPoint | Works for everyday decks, slide shows and PowerPoint files |
-| **Office Assistant** | Copilot | Planned (Phase 6): AI help inside every module |
-| **Office Notes** | OneNote | Planned (Phase 6) |
-| **Office Plan** | Outlook calendar, To Do | Planned (Phase 6) |
-| **Office Mail** | Outlook mail | Planned (Phase 7) |
-| **Office Draw** | Visio, whiteboard | Planned (Phase 7) |
-| **Office Form** | Microsoft Forms | Planned (Phase 7) |
+| **In 1 Letter** | Word | Works for everyday letters and documents |
+| **In 1 Class** | Excel | Works for everyday sheets, charts and Excel files |
+| **In 1 ProDFos** | PDF reader and tools | Opens inside OI1 from its web version ([fisbal/prodfos](https://github.com/fisbal/prodfos), Flutter) |
+| **In 1 Stage** | PowerPoint | Works for everyday decks, slide shows and PowerPoint files |
+| **In 1 Assistant** | Copilot | Planned (Phase 6): AI help inside every module |
+| **In 1 Notes** | OneNote | Planned (Phase 6) |
+| **In 1 Plan** | Outlook calendar, To Do | Planned (Phase 6) |
+| **In 1 Mail** | Outlook mail | Planned (Phase 7) |
+| **In 1 Draw** | Visio, whiteboard | Planned (Phase 7) |
+| **In 1 Form** | Microsoft Forms | Planned (Phase 7) |
 
 ## Try it
 
@@ -21,7 +21,7 @@ One office suite, one app:
 - **Android:** [OfficeIn1.apk](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1.apk)
 - **Windows:** [OfficeIn1-Setup.exe](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1-Setup.exe)
 - **Mac:** [OfficeIn1.dmg](https://github.com/fisbal/oi1/releases/latest/download/OfficeIn1.dmg)
-- The installed apps update themselves. Every merge to `main` builds the web, Android, Windows and Mac versions, checks every app on phone, tablet, PC and Mac screens, checks that every tab has working buttons and every list at least 20 choices (`npm run check:content`, also opening each list on a phone), checks the ribbon folds away for more room (`npm run check:ribbon`), checks that no text overlaps or is cut in any of the 5 languages (`npm run check:text`), plays all 60 Code+ training exercises like a learner (`npm run check:training`), checks that a table shared between Class and Letter stays in step both ways, fast and after a reload (`npm run check:sync`), checks that spelling and grammar mistakes are underlined while typing in Letter and Stage and fixed from the bubble (`npm run check:proof`), checks that every word of every Doc adm/Mil letter, CV and design theme is readable on what is behind it (`npm run check:contrast`), checks that a Stage deck adapts to the audience picked, with before/after, keep and go back (`npm run check:audience`), checks that Office Class works out Excel's finance and statistics functions like Excel, finds a function by what it does and converts money with =DEVISE() (`npm run check:formulas`), checks that the Business tab adds ready finance and accounting sheets with working formulas and converts 300+ currencies with the day's rates, adds Economics sheets and writes audit reports (Benford, outliers, formula check) (`npm run check:metiers`), checks that two fingers or Ctrl + wheel zoom the sheet, page or slide, that "See it all" fits it on the screen and that the side scroll bar moves through it (`npm run check:zoom`), checks that changing the language asks whether to translate everything, only the menus or only the document, that the document keeps its layout, formulas and numbers and that one Undo brings it back (`npm run check:translate`), checks that Letter's References follow APA 7 in English and in French (et, Dans, dir., p., s. d.), show the layout rules and a model per type of document for all 23 styles, and that Check sources completes a citation everywhere (`npm run check:refs`), checks that with many documents open the last tab is reached with the little › arrow or the list of all open documents, that every strip that is cut gets its arrows, and that the language bubble fits the screen (`npm run check:arrows`), checks that the "I want…" capsule of every app finds the right buttons from everyday words in French or English, opens their tab and numbers them in order, and that the suggestion bubbles guide to the button and can be turned off (`npm run check:want`), checks that Office Class finds a loan amount with Goal Seek, solves the product mix with Solver, shows and sums up scenarios, and that a Data validation list shows its arrow and refuses a wrong entry (`npm run check:whatif`), checks that the Convert tab of Letter, Class, Stage and Code+ makes real Word, PDF, PNG, EPUB, CSV, JSON, Excel and PowerPoint files and opens the other Offices, that a picked language translates the result, that "Translate here" keeps the exact original and that "Convert a file…" turns a CSV into JSON (`npm run check:convert`), checks that every icon sits in the middle of its capsule in every ribbon tab of every app, on PC and phone (`npm run check:icons`), checks that Office Class prints the sheet, the selection, the active cell, whole columns or rows, the page of the active cell, the print area, formulas or the whole workbook, with a real page preview, fit to one page, rows repeated on every page, headings, landscape and Save as PDF, on PC, phone and phone sideways (`npm run check:print`), checks that every tab of Office In 1 can be renamed with a double-click, a right-click or ✎, that its document takes the name and keeps it after a reload (`npm run check:rename`), checks that the Tuto tab of every app lists its buttons by tab, explains every Office Class button, explains a ribbon button when it is clicked and runs it with "Try it" (`npm run check:tuto`), checks that every change is saved on the device and AutoSave writes the document's file by itself (`npm run check:autosave`), checks that with the cloud on every document is saved to the person's private GitHub repository by itself and opens again from there (`npm run check:cloud`), checks that each person can choose the AI behind the copilot, with their own key, on PC and phone (`npm run check:copilot`), opens the 3-page Conversion Test A in Letter on PC and phone and checks it prints to exactly 3 pages with its tab stops at 2″, 4″ and 6.5″, lists, footnote, link and table, and saves back to .docx without losing them (`npm run check:fidelity`), checks that the Tuto tab of every app lists its buttons by tab, explains every button of Letter, Class, Stage and Code+, explains a ribbon button when it is clicked and runs it with "Try it" (`npm run check:tuto`), and
+- The installed apps update themselves. Every merge to `main` builds the web, Android, Windows and Mac versions, checks every app on phone, tablet, PC and Mac screens, checks that every tab has working buttons and every list at least 20 choices (`npm run check:content`, also opening each list on a phone), checks the ribbon folds away for more room (`npm run check:ribbon`), checks that no text overlaps or is cut in any of the 5 languages (`npm run check:text`), plays all 60 Code+ training exercises like a learner (`npm run check:training`), checks that a table shared between Class and Letter stays in step both ways, fast and after a reload (`npm run check:sync`), checks that spelling and grammar mistakes are underlined while typing in Letter and Stage and fixed from the bubble (`npm run check:proof`), checks that every word of every Doc adm/Mil letter, CV and design theme is readable on what is behind it (`npm run check:contrast`), checks that a Stage deck adapts to the audience picked, with before/after, keep and go back (`npm run check:audience`), checks that In 1 Class works out Excel's finance and statistics functions like Excel, finds a function by what it does and converts money with =DEVISE() (`npm run check:formulas`), checks that the Business tab adds ready finance and accounting sheets with working formulas and converts 300+ currencies with the day's rates, adds Economics sheets and writes audit reports (Benford, outliers, formula check) (`npm run check:metiers`), checks that two fingers or Ctrl + wheel zoom the sheet, page or slide, that "See it all" fits it on the screen and that the side scroll bar moves through it (`npm run check:zoom`), checks that changing the language asks whether to translate everything, only the menus or only the document, that the document keeps its layout, formulas and numbers and that one Undo brings it back (`npm run check:translate`), checks that Letter's References follow APA 7 in English and in French (et, Dans, dir., p., s. d.), show the layout rules and a model per type of document for all 23 styles, and that Check sources completes a citation everywhere (`npm run check:refs`), checks that with many documents open the last tab is reached with the little › arrow or the list of all open documents, that every strip that is cut gets its arrows, and that the language bubble fits the screen (`npm run check:arrows`), checks that the "I want…" capsule of every app finds the right buttons from everyday words in French or English, opens their tab and numbers them in order, and that the suggestion bubbles guide to the button and can be turned off (`npm run check:want`), checks that In 1 Class finds a loan amount with Goal Seek, solves the product mix with Solver, shows and sums up scenarios, and that a Data validation list shows its arrow and refuses a wrong entry (`npm run check:whatif`), checks that the Convert tab of Letter, Class, Stage and Code+ makes real Word, PDF, PNG, EPUB, CSV, JSON, Excel and PowerPoint files and opens the other Offices, that a picked language translates the result, that "Translate here" keeps the exact original and that "Convert a file…" turns a CSV into JSON (`npm run check:convert`), checks that every icon sits in the middle of its capsule in every ribbon tab of every app, on PC and phone (`npm run check:icons`), checks that In 1 Class prints the sheet, the selection, the active cell, whole columns or rows, the page of the active cell, the print area, formulas or the whole workbook, with a real page preview, fit to one page, rows repeated on every page, headings, landscape and Save as PDF, on PC, phone and phone sideways (`npm run check:print`), checks that every tab of Office In 1 can be renamed with a double-click, a right-click or ✎, that its document takes the name and keeps it after a reload (`npm run check:rename`), checks that the Tuto tab of every app lists its buttons by tab, explains every In 1 Class button, explains a ribbon button when it is clicked and runs it with "Try it" (`npm run check:tuto`), checks that every change is saved on the device and AutoSave writes the document's file by itself (`npm run check:autosave`), checks that with the cloud on every document is saved to the person's private GitHub repository by itself and opens again from there (`npm run check:cloud`), checks that each person can choose the AI behind the copilot, with their own key, on PC and phone (`npm run check:copilot`), opens the 3-page Conversion Test A in Letter on PC and phone and checks it prints to exactly 3 pages with its tab stops at 2″, 4″ and 6.5″, lists, footnote, link and table, and saves back to .docx without losing them (`npm run check:fidelity`), checks that the Tuto tab of every app lists its buttons by tab, explains every button of Letter, Class, Stage and Code+, explains a ribbon button when it is clicked and runs it with "Try it" (`npm run check:tuto`), and
   publishes them, with the source code, as a GitHub Release (see [docs/builds.md](docs/builds.md)).
 - **On your computer:** install Node.js 22, then in this folder run `npm install` and `npm run dev`,
   and open the address it prints. `npm test` runs the tests, `npm run build` makes the site in `dist/`.
@@ -42,7 +42,7 @@ One office suite, one app:
   document is saved to a file, **AutoSave** (the switch in that bar) writes that file by itself after each pause.
 - **Apps link together:** every app has an "Office In 1" tab. Send a Class table to a letter and keep it linked
   ("Update letter"), insert the cells selected in Class from Letter, edit a letter's table in Class, open ProDFos.
-- **Office Letter** (TipTap / ProseMirror editor) with a Word-style ribbon:
+- **In 1 Letter** (TipTap / ProseMirror editor) with a Word-style ribbon:
   - **Home:** paste, cut, copy, format painter; font and size, grow/shrink, change case, clear formatting;
     bold, italic, underline, strikethrough, subscript, superscript, text and highlight colors; lists, indents,
     alignment, line and paragraph spacing, shading, borders, formatting marks; a styles gallery
@@ -90,7 +90,7 @@ One office suite, one app:
     Also opens `.html` and `.txt`, and saves as web page or plain text.
   - **Files like a desktop app:** in Chrome and Edge, Save writes back to the file you opened; File › Save as
     asks where. Recent files are on the home screen and in the File menu. Everything autosaves in the browser.
-- **Office Class v1**: a fast sheet with its own formula engine.
+- **In 1 Class v1**: a fast sheet with its own formula engine.
   - **Formulas:** 130 functions (lookups like VLOOKUP, XLOOKUP, INDEX/MATCH; SUMIFS and COUNTIFS; text, date,
     statistics and money functions), formulas across sheets (`Prices!B2`, `'My sheet'!A1:B3`), point-and-click formulas.
   - **Formatting like Excel:** fonts and sizes, bold, italic, underline, strikethrough, borders, fill and text colors,
@@ -105,7 +105,7 @@ One office suite, one app:
     over empty cells, print and PDF.
   - **Files:** `.xlsx` keeps all of the above, charts included (checked with openpyxl and LibreOffice);
     `.csv` open and save.
-- **Office Code+** (phase 1): write websites and apps in the browser, nothing to install.
+- **In 1 Code+** (phase 1): write websites and apps in the browser, nothing to install.
   - **Editor:** CodeMirror 6 with colors and completion for about 40 languages (HTML, CSS, JavaScript, TypeScript, JSX, JSON,
     Markdown, Python, SQL, Dart, Java, Kotlin, Swift, C/C++, C#, Rust, Go, PHP, Ruby, shell and more), a file tree
     (new file or folder, rename, delete, add files or a whole folder), file tabs with their own undo, find and replace,
@@ -119,7 +119,7 @@ One office suite, one app:
     get files from GitHub, and **Publish website** to GitHub Pages (TypeScript compiled to plain JavaScript on a `gh-pages` branch).
   - **Files:** save and open projects as `.zip`, save a ready-to-host site, open a folder.
   - **Linked:** send code to Letter; turn the cells selected in Class into a JSON data file; Class can ask Code+ for a JSON or CSV table.
-- **Office Stage v1**: slides like PowerPoint.
+- **In 1 Stage v1**: slides like PowerPoint.
   - **Themes:** 34 themes in a gallery by kind: 9 classic, 20 for everyday life (wedding, birthday, baby, family, travel,
     beach, cooking, garden, sport, fitness, school, graduation, faith, Christmas, the four seasons, music, health, home)
     and 5 military (army, navy, air force, camouflage, command). Each has its colors, fonts and decorations (stars,
@@ -172,11 +172,11 @@ src/ui/                  shared ribbon, buttons, dialogs, file menu and the Copi
   Copilot.tsx            Claude beside every app; each app describes itself with a CopilotHost
   proof/                 spelling (Hunspell in a worker), grammar (LanguageTool), style (Claude), the fix bubble
 src/formats/             formula engine, sheet model, .xlsx and .csv, tables passed between apps
-src/modules/letter/      Office Letter (React + TipTap; docx/ = Word open/save, pagination.ts = pages)
-src/modules/class/       Office Class (the sheet)
-src/modules/stage/       Office Stage (slides; Show.tsx = slide show and presenter view; formats/pptx.ts = PowerPoint files)
-src/modules/code/        Office Code+ (build.ts = runs projects in the browser, github.ts = GitHub REST API)
-src/modules/prodfos/     Office ProDFos (its Flutter web app in a tab)
+src/modules/letter/      In 1 Letter (React + TipTap; docx/ = Word open/save, pagination.ts = pages)
+src/modules/class/       In 1 Class (the sheet)
+src/modules/stage/       In 1 Stage (slides; Show.tsx = slide show and presenter view; formats/pptx.ts = PowerPoint files)
+src/modules/code/        In 1 Code+ (build.ts = runs projects in the browser, github.ts = GitHub REST API)
+src/modules/prodfos/     In 1 ProDFos (its Flutter web app in a tab)
 docs/                    module contract and notes
 ```
 
@@ -197,12 +197,12 @@ The full plan (architecture, stack choice, roadmap, sources) is in the blueprint
 3. ProDFos joins the suite
 4. Stage v1: slides, slide show, .pptx (done)
 5. Windows and Android apps with Tauri, updating themselves (done); then cloud save and co-editing
-6. Office Notes and Plan (the Assistant is already in every app as the Copilot)
-7. Office Mail, Draw and Form
+6. In 1 Notes and Plan (the Assistant is already in every app as the Copilot)
+7. In 1 Mail, Draw and Form
 
 ## License and security
 
 Copyright (c) 2026 Martin Balla. All rights reserved: see [LICENSE](LICENSE). Libraries keep their own licences: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 Office In 1 is independent software. It is not affiliated with, sponsored by or endorsed by Microsoft. Microsoft, Microsoft Office, Word, Excel, PowerPoint and Outlook are trademarks of Microsoft Corporation; LibreOffice is a trademark of The Document Foundation. They are named only to describe file compatibility. / Office In 1 est un logiciel indépendant, ni affilié à Microsoft ni approuvé par Microsoft.
 
-Report a security problem privately: [SECURITY.md](SECURITY.md). How the app protects itself: [docs/securite.md](docs/securite.md).
+Terms of use and legal notice: [public/terms.html](public/terms.html) (live at https://fisbal.github.io/oi1/terms.html). Report a security problem privately: [SECURITY.md](SECURITY.md). How the app protects itself: [docs/securite.md](docs/securite.md).

@@ -1,4 +1,4 @@
-// Writes Office Letter's document as a real Word .docx file with the docx library.
+// Writes In 1 Letter's document as a real Word .docx file with the docx library.
 // Styles become Word styles (Normal, Title, Heading 1...), everything else is direct formatting,
 // and the page setup, page color, page border, header and footer go into the section.
 

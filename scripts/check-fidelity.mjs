@@ -1,4 +1,4 @@
-// Word fidelity in Office Letter (Martin, 2026-10-31: "teste Convertir avec Office Letter, vérifier si tout est ok" with his
+// Word fidelity in In 1 Letter (Martin, 2026-10-31: "teste Convertir avec In 1 Letter, vérifier si tout est ok" with his
 // 3-page Conversion Test A). Opens that file like a person, on PC and phone, and checks what his checklist asks: 3 pages
 // when printed to PDF, the tab stops at 2", 4" (center) and 6.5" (right), the numbered list going 1, a, b, 2, 3, the
 // bullets on 3 levels, the footnote, the link, the table and the control sentence; then saves it as .docx and checks
@@ -26,7 +26,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   page.on('pageerror', e => problems.push(`${name}: script error: ${e.message}`));
   await page.addInitScript(() => { delete window.showOpenFilePicker; delete window.showSaveFilePicker; });
   await page.goto(url);
-  await page.locator('.slab:has-text("Office Letter")').first().click();
+  await page.locator('.slab:has-text("In 1 Letter")').first().click();
   await page.waitForTimeout(1500);
   await page.locator(BODY).first().click();
   const chooser = page.waitForEvent('filechooser');

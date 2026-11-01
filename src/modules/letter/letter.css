@@ -62,10 +62,10 @@
 .doc-text .tableWrapper { overflow-x: auto; }
 .doc-text .selectedCell::after { content: ''; position: absolute; inset: 0; background: rgba(212,168,67,.22); pointer-events: none; }
 .doc-text .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: 0; width: 4px; background: var(--gold); pointer-events: none; }
-/* A table linked to an Office Class sheet shows a small gold tag while the pointer is on it. */
+/* A table linked to an In 1 Class sheet shows a small gold tag while the pointer is on it. */
 .doc-text .tableWrapper:has(table[data-link]) { position: relative; }
 .doc-text .tableWrapper:has(table[data-link])::before {
-  content: var(--link-label, 'Office Class'); position: absolute; right: 0; top: -15px; font: 600 10px var(--sans); letter-spacing: .5px;
+  content: var(--link-label, 'In 1 Class'); position: absolute; right: 0; top: -15px; font: 600 10px var(--sans); letter-spacing: .5px;
   color: var(--on-gold); background: var(--gold-gradient); padding: 1px 7px; border-radius: 99px; opacity: 0; transition: opacity .2s; pointer-events: none;
 }
 .doc-text .tableWrapper:has(table[data-link]):hover::before { opacity: 1; }

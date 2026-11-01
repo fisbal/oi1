@@ -1,4 +1,4 @@
-// Tuto explanations for Office Code+. [English, French]: what it does, then how to use it.
+// Tuto explanations for In 1 Code+. [English, French]: what it does, then how to use it.
 import type { HelpText } from './help';
 
 export const HELP_CODE: Record<string, HelpText> = {
@@ -80,5 +80,5 @@ export const HELP_CODE: Record<string, HelpText> = {
   'code.gh.openSite': ['Opens the published website.', 'Ouvre le site publié.'],
   // Office In 1
   'code.sendToLetter': ['Puts the selected code (or the file) into a Letter document, coloured and in a box.', 'Met le code choisi (ou le fichier) dans un document Letter, coloré et encadré.'],
-  'code.tableFromClass': ['Takes a table from an open Office Class sheet and writes it as data in your code (JSON, CSV, array…).', 'Prend un tableau d’une feuille Office Class ouverte et l’écrit en données dans votre code (JSON, CSV, tableau…).'],
+  'code.tableFromClass': ['Takes a table from an open In 1 Class sheet and writes it as data in your code (JSON, CSV, array…).', 'Prend un tableau d’une feuille In 1 Class ouverte et l’écrit en données dans votre code (JSON, CSV, tableau…).'],
 };

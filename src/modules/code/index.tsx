@@ -3,7 +3,7 @@ import type { OI1Module } from '../../shell/contract';
 import Code, { EXTENSIONS } from './Code';
 import './code.css';
 
-// Office Code+: websites and apps written, run and published from the browser.
+// In 1 Code+: websites and apps written, run and published from the browser.
 const codeApp: OI1Module = {
   id: 'code',
   extensions: EXTENSIONS,

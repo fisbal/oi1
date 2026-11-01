@@ -1,4 +1,4 @@
-// The Print window of Office Class: what to print on the left, the real pages on the right ("Page 2 of 5"), then
+// The Print window of In 1 Class: what to print on the left, the real pages on the right ("Page 2 of 5"), then
 // Print or Save as PDF. Every choice except "Print what" is the sheet's page setup, saved with the workbook (and in
 // the .xlsx, so Excel prints the same way).
 

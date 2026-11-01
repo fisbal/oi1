@@ -1,4 +1,4 @@
-// Office Stage's copilot: Claude sees the slide (or the selected boxes) and the outline of the deck. It can make
+// In 1 Stage's copilot: Claude sees the slide (or the selected boxes) and the outline of the deck. It can make
 // a whole presentation from a subject (slides, diagrams and the theme that suits it), create a new theme or pick
 // fonts on request, turn a slide into a diagram, rewrite a slide, write the speaker notes and correct the text.
 // Its slides come back as real slides on the deck's layouts and theme.
@@ -201,7 +201,7 @@ const themeList = (themes: DeckTheme[]) => themes.map(th => `${th.id}: ${th.name
 async function askSlides(ai: AiApi, request: string, d: Deck, signal: AbortSignal, themes: DeckTheme[] = THEMES): Promise<{ slides: SlideSpec[]; theme: string }> {
   const answer = await ai.ask({
     system: [
-      'You write presentation slides for Office Stage, a presentation app like PowerPoint.',
+      'You write presentation slides for In 1 Stage, a presentation app like PowerPoint.',
       'Good slides: one idea each, a short title (under 8 words), 3 to 5 short bullets (under 12 words, no final period), concrete facts and numbers, no filler.',
       'Layouts: "title" for the first slide (title + subtitle), "section" to open a part (title + one line in subtitle), "content" (title + bullets), "two" (title + bullets on the left + right column, for comparisons).',
       'Set "diagram" on a content slide whose bullets are steps ("process"), a loop ("cycle"), dates or stages in time ("timeline"), levels ("pyramid") or equal parts ("grid"); the bullets then become the diagram, so keep them to 2 to 5 words. Use a diagram on about one slide in four; otherwise "none".',
@@ -248,7 +248,7 @@ const THEME_SCHEMA = {
 };
 
 const THEME_RULES = [
-  'You design presentation themes for Office Stage, a presentation app like PowerPoint (16:9 slides).',
+  'You design presentation themes for In 1 Stage, a presentation app like PowerPoint (16:9 slides).',
   'Colors are "#RRGGBB". The title and text colors must be easy to read on the background (strong contrast); "dark" is true when the background is dark.',
   '"background2" is a second color for a soft gradient, or "" for a plain background. Give exactly 6 accent colors that go together and stand out on the background (they color shapes, charts and bullets).',
   'Pick a heading font and a body font that fit the mood; the body font must be easy to read.',
@@ -321,9 +321,9 @@ export function stageCopilot(b: StageBridge): CopilotHost {
   };
 
   return {
-    app: 'Office Stage',
+    app: 'In 1 Stage',
     role: [
-      'Office Stage is a presentation app like PowerPoint. Slides have a title, bullet points, text boxes, shapes, pictures and tables, and speaker notes.',
+      'In 1 Stage is a presentation app like PowerPoint. Slides have a title, bullet points, text boxes, shapes, pictures and tables, and speaker notes.',
       'When you rewrite slide text for the user to put back, give only the new text: one line per paragraph, bullets starting with "- ", and nothing else.',
       'When asked to make slides or a presentation, write each slide as a line "# Slide title" followed by 3 to 5 lines "- short bullet" (two spaces before "-" for a sub-point), and nothing else, so they can be added as real slides.',
     ].join('\n'),

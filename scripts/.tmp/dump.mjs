@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-const app = process.argv[2] || 'Office Class';
+const app = process.argv[2] || 'In 1 Class';
 const srv = spawn('npx', ['vite', 'preview', '--port', '4290', '--strictPort'], { cwd: '/tmp/oi1', detached: true, stdio: 'ignore' });
 await new Promise(r => setTimeout(r, 2500));
 const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1500, height: 900 } });

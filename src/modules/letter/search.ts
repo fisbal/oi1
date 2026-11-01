@@ -1,4 +1,4 @@
-// Find and replace for Office Letter: highlights every match and moves through them.
+// Find and replace for In 1 Letter: highlights every match and moves through them.
 
 import { Extension, type Editor } from '@tiptap/core';
 import { Plugin, PluginKey, TextSelection, type EditorState } from '@tiptap/pm/state';

@@ -102,7 +102,7 @@ export function readme(name: string, files: Files, site?: string): string {
   const py = paths.some(p => p.endsWith('.py'));
   const run = files['package.json'] !== undefined
     ? ['```', 'npm install', ...(['dev', 'start', 'build', 'test'].filter(s => scripts[s]).map(s => `npm run ${s}`)), '```'].join('\n')
-    : py ? '```\npython main.py\n```' : 'Open `index.html` in a browser, or press Run in Office Code+.';
+    : py ? '```\npython main.py\n```' : 'Open `index.html` in a browser, or press Run in In 1 Code+.';
   const tree = paths.slice(0, 40).map(p => `- \`${p}\``).join('\n') + (paths.length > 40 ? `\n- … ${paths.length - 40} more` : '');
   return `# ${name}
 

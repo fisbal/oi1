@@ -1,5 +1,5 @@
 // Spreadsheet formulas, written for OI1 (no GPL engine): =SUM(A1:B3)*2, =IF(A1>10,"big","small"), …
-// Shared by Office Class and anything else that reads sheets. Cells are addressed by column and row from 0.
+// Shared by In 1 Class and anything else that reads sheets. Cells are addressed by column and row from 0.
 
 import { moreFunctions } from './formulaMore';
 import { convert, ratesNow } from '../shell/rates';

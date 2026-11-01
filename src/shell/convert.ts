@@ -91,9 +91,9 @@ export interface ConvertSource {
   /** Outputs the app makes better itself; `tr` is set when the result must be translated. A Blob is saved, true
    *  means the app did it all (like printing), undefined lets the engine make it. */
   native?: Partial<Record<TargetId, (tr: TranslateTexts | null) => Promise<Blob | true | undefined>>>;
-  /** The deck, for PowerPoint and Stage (Office Stage itself). */
+  /** The deck, for PowerPoint and Stage (In 1 Stage itself). */
   deck?(tr: TranslateTexts | null): Promise<Deck>;
-  /** The workbook, for Excel and Class (Office Class itself). */
+  /** The workbook, for Excel and Class (In 1 Class itself). */
   book?(tr: TranslateTexts | null): Promise<WorkbookData>;
   /** The app's own pages for images (slides, sheets); otherwise the HTML is laid out on A4 pages. */
   pages?(tr: TranslateTexts | null): Promise<Pages>;
@@ -225,7 +225,7 @@ export async function deckFromPrepared(p: Prepared): Promise<Deck> {
   return deck;
 }
 
-/** A Word file for any HTML, through Office Letter's own writer (styles, lists, tables, images). */
+/** A Word file for any HTML, through In 1 Letter's own writer (styles, lists, tables, images). */
 export async function docxFromHtml(html: string, title: string): Promise<Blob> {
   const [{ generateJSON }, { letterExtensions }, { letterToDocx }, { emptyDoc }] = await Promise.all([
     import('@tiptap/core'), import('../modules/letter/setup'), import('../modules/letter/docx/write'), import('../modules/letter/model'),

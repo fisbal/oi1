@@ -1,4 +1,4 @@
-// Office Assistant (Martin, 2026-11-01): the AI of Office In 1, an app of its own. You say a task in plain words,
+// In 1 Assistant (Martin, 2026-11-01): the AI of Office In 1, an app of its own. You say a task in plain words,
 // like "a budget and a letter for the bank"; it plans it, shows the plan as cards you can change, then makes each
 // document in the right Office (Letter, Class, Stage, Code+, a PDF for ProDFos) and links them (a Class table
 // inside a letter stays the same on both sides). It does not replace the copilot each app has: that one helps
@@ -217,7 +217,7 @@ export default function Assistant({ shell, handoff }: { shell: ShellApi; handoff
         <header className="as-head">
           <span className="as-orb" aria-hidden="true">✦</span>
           <div>
-            <h1>Office Assistant</h1>
+            <h1>In 1 Assistant</h1>
             <p>{t('assistant.lead')}</p>
           </div>
         </header>

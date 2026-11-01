@@ -1,4 +1,4 @@
-// The windows of Data › What-If Analysis (Goal Seek, Scenarios, Solver) and Data › Data Validation, in Office Class.
+// The windows of Data › What-If Analysis (Goal Seek, Scenarios, Solver) and Data › Data Validation, in In 1 Class.
 // They follow Excel's, so people find their way, with plainer words and a result they can keep or undo.
 
 import { useState } from 'react';

@@ -84,7 +84,7 @@ describe('phone and chat-site answers', () => {
     expect(p.startsWith('Hello! I use Office In 1')).toBe(true);
     expect(p).toContain('"A thank-you card"');
     expect(p).toContain('French');
-    expect(p).not.toContain('You are Office Assistant');
+    expect(p).not.toContain('You are In 1 Assistant');
     expect(encodeURIComponent(p).length).toBeLessThan(3000);
   });
   it('takes JSON bent by a chat app (curly quotes, trailing commas)', () => {

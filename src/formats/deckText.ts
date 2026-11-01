@@ -1,5 +1,5 @@
 // A deck as plain text and back: the outline sent to Letter or converted, and slides made from a document's HTML
-// (each heading starts a slide). Shared by Office Stage and the Convert tab of every app.
+// (each heading starts a slide). Shared by In 1 Stage and the Convert tab of every app.
 import { t } from '../shell/i18n';
 import { itemText, linesToHtml, newSlide, slideTitle, type Deck, type LayoutId, type Slide } from './slides';
 

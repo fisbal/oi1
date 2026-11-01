@@ -1,6 +1,6 @@
 // The Tuto (Martin, 2026-10-31: a Tuto tab in every app, pick a category, every button with an explanation on the
 // right of how to use it). On PC and phone: the Tuto tab opens a panel that fits the screen; its categories are the
-// ribbon's tabs; every Office Class button has a real explanation; a click on a ribbon button explains it instead of
+// ribbon's tabs; every In 1 Class button has a real explanation; a click on a ribbon button explains it instead of
 // running it; "Try it" really runs it. The other apps get the panel now and their explanations next: the numbers
 // of buttons still without one may only go down.
 // Run after `npm run build`:
@@ -30,7 +30,7 @@ try {
       page.on('pageerror', e => problems.push(`${device} ${app}: script error: ${e.message}`));
       await page.addInitScript(() => { if (!sessionStorage.getItem('set')) { localStorage.setItem('oi1:language', 'en'); sessionStorage.setItem('set', '1'); } });
       await page.goto(url);
-      await page.locator(`.slab:has-text("${app === 'Code+' ? 'Code+' : `Office ${app}`}")`).first().click();
+      await page.locator(`.slab:has-text("${app === 'Code+' ? 'Code+' : `In 1 ${app}`}")`).first().click();
       await page.waitForTimeout(1500);
       const name = `${device} ${app}`;
 
