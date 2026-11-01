@@ -78,6 +78,8 @@ jobs:
         run: npm run check:arrows
       - name: The I want… search finds the buttons, tips guide to them (PC + phone)
         run: npm run check:want
+      - name: Class Goal Seek, Scenarios, Solver and Data validation work like Excel (PC + phone)
+        run: npm run check:whatif
       - name: Word fidelity (Conversion Test A opens, prints to 3 pages and saves back with tab stops, lists and table)
         run: npm run check:fidelity
       - name: The Tuto tab explains every button (all of Office Class) on PC and phone

@@ -7,7 +7,7 @@ import { chartLayout } from './chartdata';
 import { cellName, colName, isError, moveRefs, parseCell, type Scalar } from './formula';
 import {
   computeBook, display, key, literal, unkey,
-  type BorderLine, type Cell, type CellStyle, type Chart, type CondRule, type Merge, type NumberFormat, type SheetData, type WorkbookData,
+  type BorderLine, type Cell, type CellStyle, type Chart, type CondRule, type Merge, type NumberFormat, type SheetData, type Validation, type VKind, type VOp, type WorkbookData,
 } from './sheet';
 
 const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
@@ -257,7 +257,7 @@ export async function xlsxBytes(book: WorkbookData, lang = 'en'): Promise<ArrayB
       zip.file(`xl/drawings/_rels/drawing${d}.xml.rels`, `${XML_HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join('')}</Relationships>`);
       contentOverrides.push(`<Override PartName="/xl/drawings/drawing${d}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`);
     }
-    return `${XML_HEAD}<worksheet xmlns="${NS}" xmlns:r="${R_NS}">${pr}${views}<sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${rows}</sheetData>${autoFilter}${merges}${cond}<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>${drawing}</worksheet>`;
+    return `${XML_HEAD}<worksheet xmlns="${NS}" xmlns:r="${R_NS}">${pr}${views}<sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${rows}</sheetData>${autoFilter}${merges}${cond}${validationsXml(sheet)}<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>${drawing}</worksheet>`;
   };
 
   const condXml = (rule: CondRule, priority: number): string => {
@@ -359,6 +359,49 @@ export async function xlsxBytes(book: WorkbookData, lang = 'en'): Promise<ArrayB
 }
 
 // ---------- reading ----------
+
+
+// ---------- data validation ----------
+
+const V_TYPE: Record<string, string> = { whole: 'whole', decimal: 'decimal', list: 'list', date: 'date', time: 'time', length: 'textLength', custom: 'custom' };
+const V_OP: Record<string, string> = { between: 'between', notBetween: 'notBetween', eq: 'equal', ne: 'notEqual', gt: 'greaterThan', lt: 'lessThan', ge: 'greaterThanOrEqual', le: 'lessThanOrEqual' };
+/** A rule's bound as Excel writes it: a number (dates as serials, times as fractions of a day) or a reference. */
+function boundXml(text: string | undefined, kind: string): string {
+  const s = (text ?? '').trim().replace(/^=/, '');
+  if (!s) return '';
+  const tm = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (tm) return String((Number(tm[1]) * 3600 + Number(tm[2]) * 60 + Number(tm[3] ?? 0)) / 86400);
+  const d = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (d) return String(Math.round((Date.UTC(+d[1], +d[2] - 1, +d[3]) - Date.UTC(1899, 11, 30)) / 86400000));
+  if (kind === 'custom') return s;
+  return s.replace(',', '.');
+}
+function validationsXml(sheet: SheetData): string {
+  const list = (sheet.validations ?? []).filter(v => v.kind !== 'any' || v.prompt?.text);
+  if (!list.length) return '';
+  const body = list.map(v => {
+    const sq = v.range.c1 === v.range.c2 && v.range.r1 === v.range.r2 ? cellName(v.range.c1, v.range.r1) : `${cellName(v.range.c1, v.range.r1)}:${cellName(v.range.c2, v.range.r2)}`;
+    const attrs = [
+      v.kind !== 'any' ? ` type="${V_TYPE[v.kind]}"` : '',
+      v.error && v.error.style !== 'stop' ? ` errorStyle="${v.error.style === 'info' ? 'information' : 'warning'}"` : '',
+      v.kind !== 'any' && v.kind !== 'list' && v.kind !== 'custom' && v.op !== 'between' ? ` operator="${V_OP[v.op]}"` : '',
+      v.ignoreBlank ? ' allowBlank="1"' : '',
+      v.kind === 'list' && v.dropdown === false ? ' showDropDown="1"' : '', // Excel's attribute means "hide the arrow"
+      v.prompt?.text ? ` showInputMessage="1" promptTitle="${esc(v.prompt.title)}" prompt="${esc(v.prompt.text)}"` : '',
+      ` showErrorMessage="1"${v.error?.title ? ` errorTitle="${esc(v.error.title)}"` : ''}${v.error?.text ? ` error="${esc(v.error.text)}"` : ''}`,
+    ].join('');
+    let f = '';
+    if (v.kind === 'list') {
+      const src = (v.list ?? '').trim();
+      f = `<formula1>${esc(src.startsWith('=') ? src.slice(1) : `"${src.split(/[;,]/).map(x => x.trim()).filter(Boolean).join(',').replace(/"/g, '""')}"`)}</formula1>`;
+    } else if (v.kind !== 'any') {
+      f = `<formula1>${esc(boundXml(v.a, v.kind))}</formula1>`;
+      if (v.kind !== 'custom' && (v.op === 'between' || v.op === 'notBetween')) f += `<formula2>${esc(boundXml(v.b, v.kind))}</formula2>`;
+    }
+    return `<dataValidation${attrs} sqref="${sq}">${f}</dataValidation>`;
+  });
+  return `<dataValidations count="${body.length}">${body.join('')}</dataValidations>`;
+}
 
 const kids = (el: Element | null | undefined, name: string) => (el ? Array.from(el.children).filter(c => c.localName === name) : []);
 const kid = (el: Element | null | undefined, name: string) => kids(el, name)[0] ?? null;
@@ -548,6 +591,35 @@ export async function readXlsx(data: ArrayBuffer): Promise<WorkbookData> {
       }
       sheet.filter = { range: afRange, hidden };
     }
+    // Data validation rules.
+    const vals: Validation[] = [];
+    const KIND: Record<string, VKind> = { whole: 'whole', decimal: 'decimal', list: 'list', date: 'date', time: 'time', textLength: 'length', custom: 'custom' };
+    const OP: Record<string, VOp> = { between: 'between', notBetween: 'notBetween', equal: 'eq', notEqual: 'ne', greaterThan: 'gt', lessThan: 'lt', greaterThanOrEqual: 'ge', lessThanOrEqual: 'le' };
+    for (const dv of kids(kid(root, 'dataValidations'), 'dataValidation')) {
+      const kind = KIND[dv.getAttribute('type') ?? ''] ?? 'any';
+      const f1 = (kid(dv, 'formula1')?.textContent ?? '').trim(), f2 = (kid(dv, 'formula2')?.textContent ?? '').trim();
+      const asText = (f: string) => {
+        if (kind === 'date' && /^\d+(\.\d+)?$/.test(f)) return new Date(Date.UTC(1899, 11, 30) + Math.round(Number(f)) * 86400000).toISOString().slice(0, 10);
+        if (kind === 'time' && /^0?\.\d+$/.test(f)) { const m = Math.round(Number(f) * 1440); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
+        return /^\$?[A-Z]{1,3}\$?\d+$/i.test(f) ? `=${f}` : f;
+      };
+      const style = dv.getAttribute('errorStyle');
+      const prompt = dv.getAttribute('prompt');
+      const errText = dv.getAttribute('error'), errTitle = dv.getAttribute('errorTitle');
+      for (const ref of (dv.getAttribute('sqref') ?? '').split(/\s+/)) {
+        const range = rangeOf(ref);
+        if (!range) continue;
+        vals.push({
+          id: `xv${vals.length}`, range, kind, op: OP[dv.getAttribute('operator') ?? 'between'] ?? 'between',
+          a: kind === 'custom' ? `=${f1}` : asText(f1), ...(f2 ? { b: asText(f2) } : {}),
+          ...(kind === 'list' ? { list: f1.startsWith('"') ? f1.slice(1, -1).replace(/""/g, '"').split(',').map(x => x.trim()).join(', ') : `=${f1}`, dropdown: dv.getAttribute('showDropDown') !== '1' } : {}),
+          ignoreBlank: dv.getAttribute('allowBlank') === '1',
+          ...(prompt ? { prompt: { title: dv.getAttribute('promptTitle') ?? '', text: prompt } } : {}),
+          ...(style || errText || errTitle ? { error: { style: style === 'information' ? 'info' : style === 'warning' ? 'warning' : 'stop', title: errTitle ?? '', text: errText ?? '' } } : {}),
+        });
+      }
+    }
+    if (vals.length) sheet.validations = vals;
     // Conditional formatting that OI1 can show.
     const rules: CondRule[] = [];
     for (const cf of kids(root, 'conditionalFormatting')) {
