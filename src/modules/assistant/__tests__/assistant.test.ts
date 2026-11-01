@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { jsonOf, planFrom, readySteps, safePath, square, TABLE_MARK } from '../plan';
+import { chatPrompt, jsonOf, planFrom, planFromAnswer, readySteps, safePath, square, TABLE_MARK } from '../plan';
 import { linesHtml, matchRecipe, recipePlan, RECIPES } from '../recipes';
 import { computedTable, linkedTableHtml, placeTableInHtml } from '../run';
 
@@ -75,5 +75,31 @@ describe('making the documents', () => {
     expect(table).toBe('<table data-link="lp_1"><tr><th>A</th></tr><tr><td>&lt;b&gt;</td></tr></table>');
     expect(placeTableInHtml(`<p>Hi</p><p>${TABLE_MARK}</p><p>Bye</p>`, '<table></table>')).toBe('<p>Hi</p><table></table><p>Bye</p>');
     expect(placeTableInHtml('<p>Hi</p><p>Bye</p>', '<table></table>')).toBe('<p>Hi</p><table></table><p>Bye</p>');
+  });
+});
+
+describe('phone and chat-site answers', () => {
+  it('asks a public chat in a short readable message', () => {
+    const p = chatPrompt('A thank-you card', [], 'fr');
+    expect(p.startsWith('Hello! I use Office In 1')).toBe(true);
+    expect(p).toContain('"A thank-you card"');
+    expect(p).toContain('French');
+    expect(p).not.toContain('You are Office Assistant');
+    expect(encodeURIComponent(p).length).toBeLessThan(3000);
+  });
+  it('takes JSON bent by a chat app (curly quotes, trailing commas)', () => {
+    const bent = 'Here you go:\n{“title”: “Card”, “summary”: “”, “steps”: [{“app”: “letter”, “name”: “Thanks”, “html”: “<p>Merci</p>”,},],}';
+    const p = planFromAnswer(bent, 'card');
+    expect(p.steps).toHaveLength(1);
+    expect(p.steps[0].app).toBe('letter');
+    expect(p.steps[0].html).toContain('Merci');
+  });
+  it('keeps a plain-text answer as a letter', () => {
+    const p = planFromAnswer('# Thank you\n\nDear Anna,\n\nThank you for **everything**.\n\n- the flowers\n- the cake', 'Thank-you card');
+    expect(p.steps).toHaveLength(1);
+    expect(p.steps[0].app).toBe('letter');
+    expect(p.steps[0].html).toContain('<h2>Thank you</h2>');
+    expect(p.steps[0].html).toContain('<strong>everything</strong>');
+    expect(p.steps[0].html).toContain('<li>the cake</li>');
   });
 });

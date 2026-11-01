@@ -19,6 +19,8 @@ export interface WebWait {
   reopen: () => void;
   /** Whether the request fitted in the address; if not, it is only on the clipboard. */
   inUrl: boolean;
+  /** The request itself, so the clipboard still holding it is not taken for the answer. */
+  sent: string;
   answer: (text: string) => void;
   cancel: () => void;
 }
@@ -45,6 +47,7 @@ export function exampleOf(schema: Schema): unknown {
 
 /** The whole request as one message a person can paste in any chat. */
 export function webPrompt(req: AiRequest): string {
+  if (req.chatPrompt) return req.chatPrompt;
   const turns = req.messages.map((m, i) => (req.messages.length === 1 ? m.content : `${m.role === 'user' ? 'Me' : 'You'}: ${m.content}${i === req.messages.length - 1 ? '' : '\n'}`));
   // A plain example of the answer's shape reads better than a JSON schema in a chat (Martin, 2026-10-31).
   const json = req.schema
@@ -90,7 +93,7 @@ export function askWeb(site: string, template: string, req: AiRequest): Promise<
     const id = nextId++;
     const done = () => { if (waiting?.id === id) { waiting = null; changed(); } };
     waiting = {
-      id, site, inUrl,
+      id, site, inUrl, sent: prompt,
       reopen: () => { void navigator.clipboard?.writeText(prompt).catch(() => {}); openSite(url); },
       answer: text => { done(); resolve(cleanAnswer(text, !!req.schema)); },
       cancel: () => { done(); reject(new DOMException('Cancelled', 'AbortError')); },
@@ -126,15 +129,16 @@ export async function browserAiState(): Promise<'none' | 'download' | 'ready'> {
 export async function askBrowser(req: AiRequest): Promise<string> {
   const a = api();
   if (!a) throw new Error('This browser has no built-in AI');
-  const history = req.messages.slice(0, -1);
+  // The small model in the browser has a short memory: an app's short plain request, when it has one, fits it.
+  const history = req.chatPrompt ? [] : req.messages.slice(0, -1);
   const session = await a.create({
-    initialPrompts: [{ role: 'system', content: req.system }, ...history.map(m => ({ role: m.role, content: m.content }))],
+    initialPrompts: [{ role: 'system', content: req.chatPrompt ? 'You help with office documents. Answer exactly in the asked format.' : req.system }, ...history.map(m => ({ role: m.role, content: m.content }))],
     signal: req.signal,
   });
   try {
     // Older versions give the whole text so far at each step, newer ones only the new part.
     let text = '';
-    for await (const chunk of session.promptStreaming(req.messages[req.messages.length - 1].content, { signal: req.signal, ...(req.schema ? { responseConstraint: req.schema } : {}) })) {
+    for await (const chunk of session.promptStreaming(req.chatPrompt ?? req.messages[req.messages.length - 1].content, { signal: req.signal, ...(req.schema ? { responseConstraint: req.schema } : {}) })) {
       text = chunk.startsWith(text) && text ? chunk : text + chunk;
       req.onText?.(text);
     }

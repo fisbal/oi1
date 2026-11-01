@@ -163,6 +163,65 @@ try {
     check(await overflow(page) <= 1, `${name}: the plan fits the width`);
     await ctx.close();
   }
+  // ---------- 4. The default AI (Claude's website) on a phone (both ways), a tablet, a Windows PC, a Mac, a big screen ----------
+  // Martin's phone, 2026-11-01: an idea card is made at once from its template (no trip to the Claude app); a task
+  // no template knows goes to the site as one short readable message, and the answer pasted back, even plain text,
+  // becomes the documents.
+  const MAC_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
+  for (const d of [
+    { name: 'phone', viewport: { width: 390, height: 844 }, mobile: true },
+    { name: 'phone sideways', viewport: { width: 844, height: 390 }, mobile: true },
+    { name: 'tablet', viewport: { width: 820, height: 1180 }, mobile: true },
+    { name: 'Windows PC', viewport: { width: 1366, height: 768 }, mobile: false },
+    { name: 'Mac', viewport: { width: 1440, height: 900 }, mobile: false, ua: MAC_UA },
+    { name: 'web big screen', viewport: { width: 1920, height: 1080 }, mobile: false },
+  ]) {
+    const ctx = await browser.newContext({ viewport: d.viewport, locale: 'fr-FR', isMobile: d.mobile, hasTouch: d.mobile, ...(d.ua ? { userAgent: d.ua } : {}) });
+    const page = await ctx.newPage();
+    page.on('pageerror', e => problems.push(`${d.name}: script error: ${e.message}`));
+    page.on('dialog', x => x.dismiss());
+    await page.addInitScript(() => {
+      try {
+        window.open = u => { (window.__opened ||= []).push(String(u)); return null; };
+        if (!sessionStorage.getItem('set')) {
+          localStorage.setItem('oi1:language', 'fr');
+          localStorage.setItem('oi1.ai.providers', JSON.stringify({ main: 'web-claude', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' }, v: 2 }));
+          sessionStorage.setItem('set', '1');
+        }
+      } catch { /* sandboxed preview */ }
+    });
+    const n = `${d.name} web AI`;
+    await openAssistant(page);
+    check((await page.locator('.as-who').textContent()).includes('Claude'), `${n}: the AI is Claude's website`);
+    await page.locator('.as-idea[data-recipe="thanks"]').click();
+    await page.locator('.as-plan').waitFor({ timeout: 5000 });
+    check(await page.evaluate(() => (window.__opened?.length ?? 0)) === 0 && !(await page.locator('.web-answer').count()), `${n}: the thank-you card idea is made at once, without leaving the app`);
+    check(await page.locator('.as-step').count() >= 1 && await page.locator('.as-redo').count() === 1, `${n}: the template plan has its document and offers "Redo it with the AI"`);
+    await page.locator('.as-plan-bar button.as-tool').last().click();
+    await page.locator('.as-input').fill('écris un poème sur la mer pour ma grand-mère');
+    await page.locator('.as-go').click();
+    await page.locator('.web-answer').waitFor({ timeout: 5000 });
+    const sent = await page.evaluate(() => window.__opened?.[0] ?? '');
+    const q = (() => { try { return new URL(sent).searchParams.get('q') ?? ''; } catch { return ''; } })();
+    check(q.startsWith('Hello! I use Office In 1') && q.includes('poème sur la mer') && !q.includes('You are Office Assistant') && sent.length < 7000,
+      `${n}: the site gets one short readable message in the address (${sent.length} characters)`);
+    if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/wa-${d.name.replace(/ /g, '-')}.png` });
+    const paste = await page.locator('.web-answer button.primary').boundingBox();
+    const card = await page.locator('.web-answer').boundingBox();
+    check(!!card && card.x >= 0 && card.x + card.width <= d.viewport.width + 1 && card.y + card.height <= d.viewport.height + 1, `${n}: the Paste card is fully on screen`);
+    if (d.mobile) check(!!paste && paste.height >= 44 && paste.width >= 300, `${n}: the Paste button is big enough for a thumb (${Math.round(paste?.width ?? 0)}×${Math.round(paste?.height ?? 0)})`);
+    await page.locator('.web-answer textarea').fill('# La mer\n\nChère mamie,\n\nLa mer chante pour toi.');
+    await page.locator('.web-answer textarea').press('Control+Enter');
+    await page.locator('.as-plan').waitFor({ timeout: 5000 });
+    check((await page.locator('.as-step .as-badge').allTextContents()).join(',') === 'L', `${n}: a plain-text answer becomes a letter`);
+    await page.locator('.as-plan-bar .as-go').click();
+    await page.locator('.as-done').waitFor({ timeout: 15000 });
+    await showTab(page, 'Letter');
+    await page.waitForTimeout(1200);
+    check(await page.locator(`${H} .sheet .ProseMirror:not(.header-text):not(.footer-text)`).first().evaluate(el => el.textContent.includes('La mer chante pour toi')), `${n}: the letter holds the pasted answer`);
+    check(await overflow(page) <= 1, `${n}: no sideways scrolling`);
+    await ctx.close();
+  }
 } finally {
   await browser.close();
   try { process.kill(-server.pid); } catch { /* already stopped */ }

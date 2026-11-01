@@ -121,7 +121,7 @@ export interface AiApi {
   /** Ask the AI. The answer streams through `onText` (the whole text so far) and the promise gives all of it. */
   ask(req: AiRequest): Promise<string>;
   /** Which AI answers (Claude unless the person chose another), for the copilot's header. */
-  provider?(): { id: string; name: string };
+  provider?(): { id: string; name: string; kind?: string };
 }
 
 export interface AiRequest {
@@ -132,6 +132,11 @@ export interface AiRequest {
   /** A JSON schema the answer must follow, for results an app applies itself (like corrected paragraphs). */
   schema?: Record<string, unknown>;
   effort?: 'low' | 'medium' | 'high';
+  /**
+   * The whole request as one short plain message, used instead of `system` and `schema` when it goes to an AI's
+   * public chat site (they show it to the person and take it in the address, so it must be short and readable).
+   */
+  chatPrompt?: string;
 }
 
 export interface AppInfo {

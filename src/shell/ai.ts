@@ -81,7 +81,7 @@ async function ask(req: AiRequest): Promise<string> {
 export function aiFor(app?: string): AiApi {
   return {
     ready: () => providerReady(aiChoice.forApp(app), aiSettings.key()),
-    provider: () => { const p = aiChoice.forApp(app); return { id: p.id, name: p.name }; },
+    provider: () => { const p = aiChoice.forApp(app); return { id: p.id, name: p.name, kind: p.kind }; },
     ask: async req => {
       const p = aiChoice.forApp(app);
       if (p.kind === 'anthropic') return ask(req);
