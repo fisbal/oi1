@@ -94,8 +94,10 @@ function place() {
       if (!show) return;
       b.style.cssText = `top:${top}px;left:${x}px;width:${size}px;height:${size}px`;
     };
-    set(p.left, showL, r.left + 2);
-    set(p.right, showR, r.right - size - 2);
+    // Off the screen's edge, where phones take the back swipe.
+    const edge = 8;
+    set(p.left, showL, Math.max(r.left, 0) + edge);
+    set(p.right, showR, Math.min(r.right, document.documentElement.clientWidth) - size - edge);
   }
 }
 

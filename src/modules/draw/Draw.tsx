@@ -279,7 +279,21 @@ function DrawEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   };
   const selBox = useMemo(() => unionBox(doc.shapes.filter(s => sel.includes(s.id)).map(bounds)), [doc, sel]);
 
+  // Fingers on the page: a second finger means a pinch or a scroll, never a drawing.
+  const touches = useRef(new Set<number>());
+  const touchTap = useRef(false);
   const down = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') {
+      if (e.isPrimary) touches.current.clear(); // a new gesture: forget fingers whose lifting was not seen
+      touches.current.add(e.pointerId);
+      if (touches.current.size > 1) {
+        // Undo whatever the first finger began (a dot, a line, a box) and let the pinch zoom.
+        if (drag && 'start' in drag && drag.kind !== 'scale' && drag.kind !== 'rotate') setDoc(drag.start);
+        setDrag(null);
+        return;
+      }
+    }
+    touchTap.current = e.pointerType === 'touch';
     // A tap outside the text being typed ends the typing and keeps the words (blur saves them).
     if (editing) { (document.activeElement as HTMLElement | null)?.blur?.(); e.preventDefault(); return; }
     if (e.button === 2) return;
@@ -397,7 +411,8 @@ function DrawEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     }
   };
 
-  const up = () => {
+  const up = (e?: React.PointerEvent) => {
+    if (e) touches.current.delete(e.pointerId);
     if (!drag) return;
     const d = drag;
     setDrag(null);
@@ -417,6 +432,8 @@ function DrawEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
       // A click without dragging: a shape of a usual size; a dot for the pen; nothing for a line.
       if (s?.kind === 'geom' && s.w < 4 && s.h < 4) now = { ...now, shapes: now.shapes.map(x => (x.id === d.id ? { ...s, x: s.x - 80, y: s.y - 60, w: 160, h: 120 } : x)) };
       else if (s?.kind === 'line' && Math.hypot(s.x2 - s.x1, s.y2 - s.y1) < 3) now = { ...now, shapes: now.shapes.filter(x => x.id !== d.id) };
+      // A finger that only touched the page (to close a menu, or the start of a pinch) leaves no dot.
+      else if (s?.kind === 'path' && touchTap.current && s.points.length <= 4) now = { ...now, shapes: now.shapes.filter(x => x.id !== d.id) };
       else if (s?.kind === 'path') now = { ...now, shapes: now.shapes.map(x => (x.id === d.id ? { ...s, points: simplify(s.points, 0.6) } : x)) };
       setDoc(now);
       if ((tool === 'shape' || tool === 'line' || tool === 'arrow') && now.shapes.some(x => x.id === d.id)) setSel([d.id]);
@@ -859,7 +876,7 @@ function DrawEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
               {doc.shapes.map(s => (
                 <g key={s.id} data-id={s.id} className={`dr-shape k-${s.kind}${s.locked ? ' locked' : ''}`} style={editing === s.id ? { opacity: 0.25 } : undefined}>
                   <g dangerouslySetInnerHTML={{ __html: shapeSvg(s) }} />
-                  {(s.kind === 'path' || s.kind === 'line') && !s.hidden && <path className="dr-hit" d={s.kind === 'line' ? `M${s.x1} ${s.y1}L${s.x2} ${s.y2}` : `M${s.points.join(' ')}`.replace(/^M(\S+) (\S+)/, 'M$1 $2L')} strokeWidth={Math.max(s.width + 10, 14 / k)} />}
+                  {(s.kind === 'path' || s.kind === 'line') && !s.hidden && <path className="dr-hit" d={s.kind === 'line' ? `M${s.x1} ${s.y1}L${s.x2} ${s.y2}` : (s.points.length <= 2 ? `M${s.points[0]} ${s.points[1]}L${s.points[0]} ${s.points[1]}` : `M${s.points.join(' ')}`.replace(/^M(\S+) (\S+)/, 'M$1 $2L'))} strokeWidth={Math.max(s.width + 10, 14 / k)} />}
                 </g>
               ))}
               {selBox && tool === 'select' && (
