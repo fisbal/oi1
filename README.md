@@ -26,6 +26,17 @@ One office suite, one app:
 - **On your computer:** install Node.js 22, then in this folder run `npm install` and `npm run dev`,
   and open the address it prints. `npm test` runs the tests, `npm run build` makes the site in `dist/`.
 
+## Promo kit (Facebook, Instagram, TikTok, WhatsApp)
+
+- **Kit:** https://fisbal.github.io/oi1/promo/ — the demo, MP4 videos (9:16, French and English), PDF guides,
+  posters, the install QR code and ready-to-paste texts for each network.
+- **Install page (QR target):** https://fisbal.github.io/oi1/get/ — Microsoft Store on Windows, APK on Android,
+  Home Screen on iPhone, DMG on Mac. Its address never changes, so printed codes keep working.
+- Every build makes the kit again from the real app (`node scripts/promo.mjs` after `npm run build`): the ready
+  apps and their lines are read from the home screen, every app is screenshotted, the HTML demo
+  (`public/promo/video.html`) is filmed into MP4 and the guide (`public/promo/guide.html`) printed to PDF.
+  Links live in `public/promo/config.json`; texts and feature lines in `public/promo/kit.js`.
+
 ## What works today
 
 - **Scene look** (the ProDFos design): a breathing gold nebula, glass panels, 3D app slabs with small
