@@ -247,6 +247,16 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   const inTable = useEditorState({ editor: body, selector: ({ editor }) => !!editor && editor.isActive('table') }) ?? false;
   const linkedTable = useEditorState({ editor: body, selector: ({ editor }) => (editor ? !!tableAt(editor)?.node.attrs.link : false) }) ?? false;
   useEffect(() => { shell.setTitle(title); }, [title, shell]);
+  // Renaming the tab renames the letter: it saves and exports under that name.
+  useEffect(() => {
+    shell.onRename?.(name => {
+      const file = `${name}.docx`;
+      setFileName(file);
+      latest.current.fileName = file;
+      shell.storage.set('name', file);
+    });
+    return () => shell.onRename?.(null);
+  }, [shell]);
 
   // ---------- page geometry and pagination ----------
   const inches = pageInches(page);

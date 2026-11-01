@@ -219,6 +219,8 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
 
   const title = fileName ? fileName.replace(/\.(xlsx|csv|tsv)$/i, '') : t('class.untitled');
   useEffect(() => { shell.setTitle(title); }, [shell, title]);
+  // Renaming the tab renames the workbook: it saves and exports under that name.
+  useEffect(() => { shell.onRename?.(name => setFileName(`${name}.xlsx`)); return () => shell.onRename?.(null); }, [shell]);
 
   /** Every change goes through here, so Undo can bring the workbook back. */
   const commit = (next: WorkbookData) => {
