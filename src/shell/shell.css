@@ -474,3 +474,48 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tabs-menu-closeall:hover:not(:disabled) { border-color: color-mix(in srgb, #E25C5C 50%, transparent); color: #D04545; }
 .tabs-menu-closeall:disabled { opacity: .4; cursor: default; }
 @media (max-width: 640px) { .tabs-menu { position: fixed; top: 58px; right: 12px; } }
+
+/* ---------- Bouclier (shield): button, warnings, Protection panel ---------- */
+.shield-btn:not(.glass-pill) { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 20px; padding: 0; border: 1px solid var(--line); border-radius: 999px; background: none; font-size: 12px; line-height: 1; cursor: pointer; flex: none; }
+.shield-btn.glass-pill { display: inline-flex; align-items: center; gap: 6px; }
+.sh-dialog, .sh-panel { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; }
+.sh-card { padding: 20px 22px 18px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; line-height: 1.45; }
+.sh-card header { display: flex; align-items: center; gap: 10px; }
+.sh-card h2 { margin: 0; flex: 1; font-family: var(--display); font-size: 20px; overflow-wrap: anywhere; }
+.sh-badge { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: rgba(179, 38, 30, .14); font-size: 20px; flex: none; }
+.sh-badge.on, .sh-warn .sh-badge { background: color-mix(in srgb, var(--gold) 22%, transparent); }
+.sh-what { margin: 0; padding: 6px 10px; border-radius: 10px; background: rgba(var(--fg-rgb), .06); font-family: var(--mono, monospace); font-size: 12px; overflow-wrap: anywhere; }
+.sh-findings { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.sh-findings li { display: flex; gap: 8px; align-items: flex-start; overflow-wrap: anywhere; }
+.sh-findings .sh-danger span:first-child { color: #c62828; }
+.sh-findings .sh-warn span:first-child { color: #b26a00; }
+.sh-fine { margin: 0; color: var(--muted); font-size: 12px; }
+.sh-buttons, .sh-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.sh-row { justify-content: flex-start; }
+.sh-card button:not(.sh-x):not([role="tab"]) { min-height: 36px; padding: 0 16px; border: 1px solid var(--line); border-radius: 99px; background: rgba(var(--fg-rgb), .05); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.sh-card button.primary { background: var(--gold-gradient, var(--gold)); color: var(--on-gold, #1b1407); border-color: transparent; }
+.sh-card button.sh-weak { background: none; font-weight: 500; color: var(--muted); }
+.sh-x { border: 0; background: none; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; padding: 4px 6px; }
+.sh-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.sh-tabs button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; padding: 8px 10px; min-height: 36px; border-bottom: 2px solid transparent; cursor: pointer; }
+.sh-tabs button.on { color: var(--ink); border-bottom-color: var(--gold); }
+.sh-body { display: flex; flex-direction: column; gap: 10px; }
+.sh-body p { margin: 0; }
+.sh-ok { color: #2e7d32; font-weight: 700; }
+.sh-stats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 6px; }
+.sh-stats li { padding: 8px 10px; border-radius: 12px; background: rgba(var(--fg-rgb), .05); font-size: 12px; color: var(--muted); }
+.sh-stats b { display: block; font-size: 18px; color: var(--ink); }
+.sh-body textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(var(--bg-rgb), .8); color: var(--ink); font: inherit; font-size: 13px; resize: vertical; }
+.sh-verdict { font-weight: 700; }
+.sh-verdict.sh-danger { color: #c62828; } .sh-verdict.sh-warn { color: #b26a00; } .sh-verdict.sh-ok { color: #2e7d32; }
+.sh-ai { white-space: pre-wrap; padding: 8px 10px; border-radius: 12px; background: rgba(var(--fg-rgb), .05); font-size: 13px; }
+.sh-vacc { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow: auto; }
+.sh-vacc li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 8px; border-radius: 10px; background: rgba(var(--fg-rgb), .04); }
+.sh-vname { flex: 1 1 160px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-vacc small { color: var(--muted); }
+.sh-vacc a { color: var(--gold-deep, var(--gold)); font-size: 12px; }
+.sh-switch { display: flex; align-items: center; gap: 10px; min-height: 36px; }
+.sh-note { position: fixed; z-index: 90; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100vw - 32px); display: flex; align-items: center; gap: 6px; padding: 8px 8px 8px 14px; border-radius: 999px; background: rgba(var(--bg-rgb), .98); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0, 0, 0, .25); font-size: 13px; }
+.sh-note > button:first-child { border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; text-decoration: underline; }
+/* Phones: the app bar is full (app name, "I want…", AutoSave, cloud); the shield keeps working and its panel stays on the home screen. */
+@media (max-width: 520px) { .app-bar .shield-btn { display: none; } }
