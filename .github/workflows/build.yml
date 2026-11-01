@@ -202,6 +202,24 @@ jobs:
       - name: In 1 Image works on phone, tablet, PC and Mac, both ways, with and without AI (check:image)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:image
+      - name: Make the promo kit again from this build (demo video, PDF guides, posters, QR, captures)
+        # Martin, 2026-11-01: the Facebook / Instagram / TikTok / WhatsApp kit must follow every update.
+        # Runs on PRs too, so a broken kit shows before merging. Never blocks publishing the app: if it fails,
+        # the publish step keeps the previous kit's missing files.
+        id: promo
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          npx playwright install --with-deps chromium
+          command -v ffmpeg || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; }
+          node scripts/promo.mjs
+      - name: Keep the promo kit
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: promo-kit
+          path: dist/promo/
+          if-no-files-found: ignore
       - name: Keep the screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -225,6 +243,8 @@ jobs:
             done
             # The shield's daily world list (shield-feed.yml) lives on the site, next to the app.
             [ -d prev/shield ] && cp -r prev/shield dist/shield
+            # If the promo kit could not be made this time, keep the previous kit's files that are missing.
+            if [ "${{ steps.promo.outcome }}" != success ] && [ -d prev/promo ]; then cp -rn prev/promo/. dist/promo/; fi
             rm -rf prev
           fi
           cd dist

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google" content="notranslate">
+<meta name="theme-color" content="#07070A">
+<title>Office In 1 — Kit de présentation</title>
+<link rel="icon" href="../icons/icon.svg">
+<!-- The promo kit: the demo, the MP4 videos, the PDF guides, posters, QR and ready-to-paste texts.
+     Everything here is made again from the real app at every build (scripts/promo.mjs). -->
+<style>
+@font-face { font-family: 'Playfair Display Variable'; src: url(fonts/playfair-display-latin-wght-normal.woff2) format('woff2'); font-weight: 400 900; font-display: swap; }
+@font-face { font-family: 'DM Sans Variable'; src: url(fonts/dm-sans-latin-wght-normal.woff2) format('woff2'); font-weight: 100 1000; font-display: swap; }
+:root { --ink: #07070A; --panel: rgba(255,255,255,.04); --line: rgba(242,215,139,.2); --text: #F4EFE6; --dim: #B9B1A3; --gold-hi: #F2D78B;
+  --goldfill: linear-gradient(135deg, #B8892E, #F2D78B 55%, #D4A843); }
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--ink); color: var(--text); font: 15px/1.5 'DM Sans Variable', system-ui, sans-serif; padding: 28px 16px 60px;
+  background-image: radial-gradient(50% 30% at 20% 0%, rgba(212,168,67,.18), transparent 70%); min-height: 100vh; }
+main { max-width: 1080px; margin: 0 auto; }
+header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+header img { width: 56px; height: 56px; }
+h1 { font: 700 34px/1.1 'Playfair Display Variable', Georgia, serif; }
+h2 { font: 700 22px/1.2 'Playfair Display Variable', Georgia, serif; margin-bottom: 12px; }
+b.g { background: var(--goldfill); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.ver { color: var(--dim); font-size: 13px; }
+.top { margin-left: auto; display: flex; gap: 8px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 99px; text-decoration: none; color: var(--gold-hi); border: 1px solid var(--line); background: var(--panel); font: 600 14px inherit; cursor: pointer; font-family: inherit; }
+.btn.gold { background: var(--goldfill); color: #17130a; border: 0; }
+.btn:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px; }
+.grid { display: grid; grid-template-columns: minmax(0, 340px) 1fr; gap: 24px; margin-top: 26px; }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .top { margin-left: 0; } }
+.player { aspect-ratio: 9 / 16; width: 100%; border: 0; border-radius: 22px; background: #000; box-shadow: 0 0 0 1px var(--line), 0 30px 60px -20px rgba(0,0,0,.8); }
+section.card { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 20px; margin-bottom: 16px; }
+.files { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.file { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); text-decoration: none; color: inherit; }
+.file:hover, .file:focus-visible { border-color: var(--gold-hi); outline: none; }
+.file .k { font: 800 11px inherit; letter-spacing: .08em; padding: 5px 7px; border-radius: 6px; background: rgba(212,168,67,.18); color: var(--gold-hi); flex: none; min-width: 42px; text-align: center; }
+.file small { display: block; color: var(--dim); font-size: 12.5px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.tabs button { all: unset; cursor: pointer; padding: 7px 14px; border-radius: 99px; border: 1px solid var(--line); font-size: 14px; }
+.tabs button[aria-selected=true] { background: var(--goldfill); color: #17130a; border-color: transparent; font-weight: 700; }
+.tabs button:focus-visible { outline: 2px solid var(--gold-hi); }
+pre { white-space: pre-wrap; font: 14px/1.5 inherit; font-family: inherit; background: rgba(0,0,0,.35); border-radius: 12px; padding: 14px; border: 1px solid var(--line); max-height: 280px; overflow: auto; }
+.row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+.qrrow { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.qrrow img { width: 150px; height: 150px; background: #fff; border-radius: 14px; padding: 8px; }
+.qrrow p { color: var(--dim); max-width: 420px; }
+.qrrow code { color: var(--gold-hi); word-break: break-all; }
+.posters { display: flex; gap: 12px; flex-wrap: wrap; }
+.posters a img { height: 160px; border-radius: 12px; border: 1px solid var(--line); display: block; }
+.auto { margin-top: 10px; font-size: 13px; color: var(--dim); }
+.auto::before { content: '⟳ '; color: var(--gold-hi); }
+.copied { color: var(--gold-hi); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="../icons/icon.svg" alt="">
+    <div><h1>Office In <b class="g">1</b> — <span id="title"></span></h1><p class="ver" id="ver"></p></div>
+    <div class="top"><button class="btn" id="lg" type="button"></button><a class="btn gold" id="getbtn" href="../get/"></a></div>
+  </header>
+  <div class="grid">
+    <div>
+      <iframe class="player" id="player" title="Office In 1" loading="eager"></iframe>
+      <div class="row"><a class="btn" id="full" href="video.html"></a></div>
+    </div>
+    <div>
+      <section class="card"><h2 id="h-files"></h2><div class="files" id="files"></div><p class="auto" id="auto"></p></section>
+      <section class="card"><h2 id="h-texts"></h2>
+        <div class="tabs" role="tablist" id="nets"></div>
+        <pre id="cap"></pre>
+        <div class="row"><button class="btn gold" id="copy" type="button"></button><span class="copied" id="copied" aria-live="polite"></span></div>
+      </section>
+      <section class="card"><h2 id="h-qr"></h2><div class="qrrow"><img src="qr.svg" alt="QR"><p id="qrp"></p></div>
+        <div class="row"><a class="btn" href="qr.png" download="OfficeIn1-QR.png">PNG</a><a class="btn" href="qr.svg" download="OfficeIn1-QR.svg">SVG</a></div></section>
+      <section class="card"><h2 id="h-posters"></h2><div class="posters" id="posters"></div></section>
+    </div>
+  </div>
+</main>
+<script src="kit.js"></script>
+<script>
+(async () => {
+  const L = OI1Kit.lang(), FR = L === 'fr', tx = (f, e) => FR ? f : e;
+  document.documentElement.lang = L;
+  const d = await OI1Kit.load(), k = d.links;
+  const $ = id => document.getElementById(id);
+  document.title = 'Office In 1 — ' + tx('Kit de présentation', 'Presentation kit');
+  $('title').textContent = tx('kit réseaux sociaux', 'social media kit');
+  const when = d.built ? new Date(d.built).toLocaleString(FR ? 'fr-CA' : 'en-CA', { dateStyle: 'long', timeStyle: 'short' }) : '';
+  $('ver').textContent = [d.version && 'v' + d.version, when && tx('refait le ', 'made ') + when].filter(Boolean).join(' · ');
+  $('lg').textContent = FR ? 'English' : 'Français';
+  $('lg').onclick = () => { const q = new URLSearchParams(location.search); q.set('lang', FR ? 'en' : 'fr'); location.search = q.toString(); };
+  $('getbtn').textContent = tx('Page d’installation', 'Install page');
+  $('player').src = `video.html?lang=${L}`;
+  $('full').href = `video.html?lang=${L}`;
+  $('full').textContent = tx('▶ Démo en plein écran', '▶ Full-screen demo');
+
+  const U = L.toUpperCase(), O = FR ? 'EN' : 'FR';
+  const files = [
+    ['MP4', `OfficeIn1-Demo-${U}.mp4`, tx('Vidéo 9:16 — TikTok, Reels, Statut', 'Video 9:16 — TikTok, Reels, Status')],
+    ['MP4', `OfficeIn1-Demo-${O}.mp4`, tx('Vidéo en anglais', 'Video in French')],
+    ['PDF', `OfficeIn1-Guide-${U}.pdf`, tx('Guide : comment présenter et installer', 'Guide: how to present and install')],
+    ['PDF', `OfficeIn1-Guide-${O}.pdf`, tx('Guide en anglais', 'Guide in French')],
+  ];
+  $('h-files').textContent = tx('Fichiers à publier', 'Files to post');
+  $('files').innerHTML = files.map(([kind, f, s]) => `<a class="file" href="${f}" download><span class="k">${kind}</span><span><strong>${f}</strong><small>${s}</small></span></a>`).join('');
+  $('auto').textContent = tx('Tout ce kit est refait automatiquement à chaque mise à jour d’Office In 1 (applis, captures, vidéo, PDF). Le code QR ne change jamais.', 'This whole kit is made again automatically with every Office In 1 update (apps, screenshots, video, PDF). The QR code never changes.');
+
+  $('h-texts').textContent = tx('Textes prêts à coller', 'Ready-to-paste texts');
+  const nets = ['facebook', 'instagram', 'tiktok', 'whatsapp'];
+  let net = 'facebook';
+  const pick = n => { net = n; $('cap').textContent = OI1Kit.caption(L, n, d); [...$('nets').children].forEach(b => b.setAttribute('aria-selected', String(b.dataset.n === n))); $('copied').textContent = ''; };
+  $('nets').innerHTML = nets.map(n => `<button role="tab" data-n="${n}" type="button">${n[0].toUpperCase() + n.slice(1)}</button>`).join('');
+  $('nets').onclick = e => { const b = e.target.closest('button'); if (b) pick(b.dataset.n); };
+  pick(net);
+  $('copy').textContent = tx('Copier le texte', 'Copy the text');
+  $('copy').onclick = async () => { try { await navigator.clipboard.writeText($('cap').textContent); $('copied').textContent = tx('Copié ✓', 'Copied ✓'); } catch { $('copied').textContent = tx('Sélectionnez le texte et copiez-le', 'Select the text and copy it'); } };
+
+  $('h-qr').textContent = tx('Code QR d’installation', 'Install QR code');
+  $('qrp').innerHTML = tx(`Mène à <code>${k.get}</code>, qui reconnaît l’appareil : Microsoft Store sur Windows, APK sur Android, écran d’accueil sur iPhone, DMG sur Mac.`, `Leads to <code>${k.get}</code>, which recognizes the device: Microsoft Store on Windows, APK on Android, Home Screen on iPhone, DMG on Mac.`);
+  $('h-posters').textContent = tx('Affiches', 'Posters');
+  $('posters').innerHTML = ['square', 'story'].map(f => `<a href="poster-${L}-${f}.png" download><img src="poster-${L}-${f}.png" alt="${f}"></a>`).join('');
+})();
+</script>
+</body>
+</html>
