@@ -527,3 +527,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .sh-note > button:first-child { border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; text-decoration: underline; }
 /* Phones: the app bar is full (app name, "I want…", AutoSave, cloud); the shield keeps working and its panel stays on the home screen. */
 @media (max-width: 520px) { .app-bar .shield-btn { display: none; } }
+
+/* Keeps "In 1" on one line in the home title (never a lone "1" on the next line). */
+.nowrap { white-space: nowrap; }

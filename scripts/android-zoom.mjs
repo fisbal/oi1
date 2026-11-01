@@ -32,3 +32,12 @@ if (!code.includes('builtInZoomControls')) {
   writeFileSync(activity, code);
 }
 console.log(`Pinch zoom on and no orientation lock:\n${readFileSync(activity, 'utf8')}`);
+
+// Google Play only accepts apps built for a recent Android (target API 35 since Aug 2025, 36 from Aug 2026).
+// Tauri's template may lag behind, so the app is raised to at least API 36 here.
+const PLAY_SDK = 36;
+const gradle = 'src-tauri/gen/android/app/build.gradle.kts';
+let g = readFileSync(gradle, 'utf8');
+g = g.replace(/\b(compileSdk|targetSdk)\s*=\s*(\d+)/g, (m, k, n) => `${k} = ${Math.max(Number(n), PLAY_SDK)}`);
+writeFileSync(gradle, g);
+console.log(`Android SDK levels: ${(g.match(/\b(compileSdk|targetSdk|minSdk)\s*=\s*\d+/g) || []).join(', ')}`);
