@@ -34,6 +34,8 @@ import { AUDITS, AUDIT_SHORT, runAudit, type AuditId } from './pro/audit';
 import { tx, type Lang } from './pro/build';
 import { CondDialog, FilterMenu, FindPanel, HIGHLIGHT_KINDS, TOP_KINDS, type CondKind, type FindOptions } from './panels';
 import { borderCss, printHtml, sheetHtml } from './print';
+import { PrintPanel, fitLabel, hfSample, hfTemplates, marginLabel, paperLabel } from './PrintPanel';
+import { FITS, MARGINS, PAPERS, filteredRows, pagesHtml, planPages, setupOf, type PrintScope, type PrintSetup } from './printSetup';
 import { ConvertPanel } from '../../ui/convert/ConvertPanel';
 import type { ConvertSource } from '../../shell/convert';
 import { GoalSeekDialog, ScenarioDialog, SolverDialog, ValidationAlert, ValidationDialog, setRule } from './whatIfUi';
@@ -59,7 +61,7 @@ const ZOOMS = [0.25, 0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 3, 4];
 interface Pos { c: number; r: number }
 interface Sel { a: Pos; f: Pos }
 interface Saved { book: WorkbookData; active: number; link: HandoffLink | null; name: string }
-type Tab = 'home' | 'insert' | 'formulas' | 'metiers' | 'data' | 'view' | 'chart' | 'oi1' | 'convert';
+type Tab = 'home' | 'insert' | 'formulas' | 'metiers' | 'data' | 'layout' | 'view' | 'chart' | 'oi1' | 'convert';
 
 const boxOf = (s: Sel): Range => ({ c1: Math.min(s.a.c, s.f.c), r1: Math.min(s.a.r, s.f.r), c2: Math.max(s.a.c, s.f.c), r2: Math.max(s.a.r, s.f.r) });
 const newId = (p: string) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -712,13 +714,13 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   // ---------- charts ----------
   const seriesName = (n: number) => t('class.chart.series', { n });
   /** A chart drawn on its own, light like a printed page, as a PNG. */
-  const chartPng = async (ch: Chart): Promise<string> => {
+  const chartPng = async (ch: Chart, si = active): Promise<string> => {
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:-10000px;top:0';
     document.body.appendChild(host);
     const root = createRoot(host);
     try {
-      flushSync(() => root.render(<ChartSvg chart={ch} data={chartData(sheet, values, ch, lang, currency, seriesName)} look={LIGHT} lang={lang} />));
+      flushSync(() => root.render(<ChartSvg chart={ch} data={chartData(book.sheets[si] ?? sheet, allValues[si] ?? values, ch, lang, currency, seriesName)} look={LIGHT} lang={lang} />));
       return await svgToPng(host.querySelector('svg')!);
     } finally {
       root.unmount();
@@ -810,11 +812,42 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     if (navigator.canShare?.({ files: [f] })) await navigator.share({ files: [f], title }).catch(() => {});
     else void save(true);
   };
-  const print = async () => {
-    const pngs = [];
-    for (const ch of sheet.charts ?? []) pngs.push(await chartPng(ch));
-    printHtml(sheetHtml(sheet, values, looks, lang, currency, pngs, hiddenRows), () => gridRef.current?.focus());
+  /** The Print window: what to print, the page setup and the real pages before printing. */
+  const [printing, setPrinting] = useState<null | { scope: PrintScope; charts: string[][] }>(null);
+  const print = async (scope?: PrintScope) => {
+    const charts: string[][] = [];
+    for (let i = 0; i < book.sheets.length; i++) {
+      const list: string[] = [];
+      for (const ch of book.sheets[i].charts ?? []) list.push(await chartPng(ch, i));
+      charts.push(list);
+    }
+    setPrinting({ scope: scope ?? (sheet.print?.area ? 'area' : single ? 'sheet' : 'selection'), charts });
   };
+  /** Prints the sheet at once with its page setup, without the window. */
+  const quickPrint = async () => {
+    const charts: string[][] = [];
+    const list: string[] = [];
+    for (const ch of sheet.charts ?? []) list.push(await chartPng(ch));
+    charts[active] = list;
+    const input = printInput(charts);
+    const scope: PrintScope = sheet.print?.area ? 'area' : 'sheet';
+    const setup = setupOf(sheet);
+    printHtml(pagesHtml(input, planPages(input, { scope, sel: range, at: sel.a }, setup), setup, scope), () => gridRef.current?.focus());
+  };
+  const changePrint = (p: Partial<PrintSetup>) => changeSheet(s => { s.print = { ...s.print, ...p }; });
+  const setPrintArea = (how: 'set' | 'add' | 'clear') => changeSheet(s => {
+    if (how === 'clear') { if (s.print) delete s.print.area; return; }
+    const a = s.print?.area;
+    const b = { c1: range.c1, r1: range.r1, c2: range.c2, r2: range.r2 };
+    s.print = { ...s.print, area: how === 'add' && a ? { c1: Math.min(a.c1, b.c1), r1: Math.min(a.r1, b.r1), c2: Math.max(a.c2, b.c2), r2: Math.max(a.r2, b.r2) } : b };
+  });
+  const printInput = (charts: string[][]) => ({
+    sheets: book.sheets, values: allValues, active, lang, currency, file: fileName || `${title}.xlsx`,
+    looks: (i: number) => (i === active ? looks : condLooks(book.sheets[i], allValues[i] ?? new Map())),
+    hidden: (i: number) => (i === active ? hiddenRows : filteredRows(book.sheets[i], allValues[i] ?? new Map(), lang, currency)),
+    charts: (i: number) => charts[i] ?? [],
+  });
+  const ps = setupOf(sheet);
 
   // ---------- Convert tab: the sheet as a table, every sheet's table, the workbook (translated when asked) ----------
   const convertSource: ConvertSource = {
@@ -1705,7 +1738,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
 
   const tabs: { id: Tab; label: MessageKey }[] = [
     { id: 'home', label: 'letter.tab.home' }, { id: 'insert', label: 'letter.tab.insert' }, { id: 'formulas', label: 'class.tab.formulas' },
-    { id: 'metiers', label: 'class.tab.metiers' }, { id: 'data', label: 'class.tab.data' }, { id: 'view', label: 'letter.tab.view' },
+    { id: 'metiers', label: 'class.tab.metiers' }, { id: 'data', label: 'class.tab.data' }, { id: 'layout', label: 'class.tab.layout' }, { id: 'view', label: 'letter.tab.view' },
   ];
   const shownTab: Tab = tab === 'chart' && !chart ? 'insert' : tab;
   const formats: NumberFormat[] = ['general', 'number', 'integer', 'currency', 'accounting', 'percent', 'fraction', 'scientific', 'date', 'longDate', 'time', 'dateTime', 'text'];
@@ -1975,6 +2008,57 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               <Btn big icon="table" title="class.pro.table" onClick={() => addProSheet(toolById('currencies')!)} />
             </Group>
           </>}
+          {shownTab === 'layout' && <>
+            <Group label="class.group.pageSetup">
+              <Drop big icon="margins" title="class.print.margins">
+                {close => Object.keys(MARGINS).map(m => <MenuItem key={m} active={ps.margins === m} label={marginLabel(m)} onClick={() => { close(); changePrint({ margins: m }); }} />)}
+              </Drop>
+              <Drop big icon="orientation" title="class.print.orientation">
+                {close => (['portrait', 'landscape'] as const).map(o => <MenuItem key={o} active={ps.orientation === o} label={t(`class.print.${o}` as MessageKey)} onClick={() => { close(); changePrint({ orientation: o }); }} />)}
+              </Drop>
+              <Drop big icon="size" title="class.print.paper">
+                {close => Object.keys(PAPERS).map(k => <MenuItem key={k} active={ps.paper === k} label={paperLabel(k)} onClick={() => { close(); changePrint({ paper: k }); }} />)}
+              </Drop>
+              <Drop big icon="select" title="class.print.scope.area">
+                {close => <>
+                  {ps.area && <span className="kicker">{t('class.print.area.now', { range: `${cellName(ps.area.c1, ps.area.r1)}:${cellName(ps.area.c2, ps.area.r2)}` })}</span>}
+                  <MenuItem label={t('class.print.area.set')} hint={nameBox} onClick={() => { close(); setPrintArea('set'); }} />
+                  <MenuItem label={t('class.print.area.add')} hint={nameBox} onClick={() => { close(); setPrintArea('add'); }} />
+                  {ps.area && <MenuItem label={t('class.print.area.clear')} onClick={() => { close(); setPrintArea('clear'); }} />}
+                </>}
+              </Drop>
+              <Drop big icon="headerrow" title="class.print.titles">
+                {close => <>
+                  <MenuItem active={!ps.titleRows && !ps.titleCols} label={t('class.print.none')} onClick={() => { close(); changePrint({ titleRows: 0, titleCols: 0 }); }} />
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(n => <MenuItem key={`r${n}`} active={ps.titleRows === n && !ps.titleCols} label={t('class.print.firstRows', { n })} onClick={() => { close(); changePrint({ titleRows: n, titleCols: 0 }); }} />)}
+                  {Array.from({ length: 6 }, (_, i) => i + 1).map(n => <MenuItem key={`c${n}`} active={ps.titleCols === n && !ps.titleRows} label={t('class.print.firstCols', { n, col: colName(n - 1) })} onClick={() => { close(); changePrint({ titleCols: n, titleRows: 0 }); }} />)}
+                  <MenuItem active={ps.titleRows === 1 && ps.titleCols === 1} label={t('class.print.bothFirst')} onClick={() => { close(); changePrint({ titleRows: 1, titleCols: 1 }); }} />
+                </>}
+              </Drop>
+            </Group>
+            <Group label="class.group.scale">
+              <Drop big icon="onepage" title="class.print.fit">
+                {close => FITS.map(f => <MenuItem key={f} active={ps.fit === f} label={fitLabel(f)} onClick={() => { close(); changePrint({ fit: f }); }} />)}
+              </Drop>
+            </Group>
+            <Group label="class.group.sheetOptions">
+              <Btn big icon="gridlines" title="class.print.grid" active={!!ps.grid} onClick={() => changePrint({ grid: !ps.grid })} />
+              <Btn big icon="headings" title="class.print.headings" active={!!ps.headings} onClick={() => changePrint({ headings: !ps.headings })} />
+              <Btn big icon="center" title="class.print.center" active={!!ps.center} onClick={() => changePrint({ center: !ps.center })} />
+            </Group>
+            <Group label="class.group.headerFooter">
+              <Drop big icon="header" title="class.print.header">
+                {close => ['', ...hfTemplates()].map((v, i) => <MenuItem key={i} active={(ps.header ?? '') === v} label={hfSample(v, sheet.name, fileName || `${title}.xlsx`, lang)} onClick={() => { close(); changePrint({ header: v }); }} />)}
+              </Drop>
+              <Drop big icon="footer" title="class.print.footer">
+                {close => ['', ...hfTemplates()].map((v, i) => <MenuItem key={i} active={(ps.footer ?? '') === v} label={hfSample(v, sheet.name, fileName || `${title}.xlsx`, lang)} onClick={() => { close(); changePrint({ footer: v }); }} />)}
+              </Drop>
+            </Group>
+            <Group label="class.group.print">
+              <Btn big icon="print" title="class.print.open" onClick={() => void print()} />
+              <Btn big icon="play" title="class.print.quick" onClick={() => void quickPrint()} />
+            </Group>
+          </>}
           {shownTab === 'view' && <>
             <Group label="class.group.show">
               <Btn big icon="gridlines" title="class.gridlines" active={!sheet.noGrid} onClick={() => changeSheet(s => { if (s.noGrid) delete s.noGrid; else s.noGrid = true; })} />
@@ -2213,6 +2297,12 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       )}
       {condDialog && <CondDialog kind={condDialog} range={single ? currentRegion(sel.a) : range} onClose={() => setCondDialog(null)} onOk={rule => addRule(rule)} />}
 
+      {printing && (
+        <PrintPanel input={printInput(printing.charts)} what={{ scope: printing.scope, sel: range, at: sel.a }}
+          onSetup={p => changePrint(p)}
+          onSave={async (name, blob) => { await shell.saveFile(name, blob, 'application/pdf', { saveAs: true }); }}
+          onClose={() => { setPrinting(null); gridRef.current?.focus(); }} />
+      )}
       {panel === 'file' && (
         <FileMenu fileName={fileName || `${title}.xlsx`} onClose={() => setPanel(null)}
           onNew={() => shell.openModule('class')} onOpen={() => void openFile()} onSave={() => void save()}
