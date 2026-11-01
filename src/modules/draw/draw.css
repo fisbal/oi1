@@ -8,7 +8,7 @@
   box-shadow: 0 20px 60px rgba(var(--shade-rgb), calc(.5 * var(--shade-k))), 0 0 0 1px rgba(var(--fg-rgb), .08);
 }
 .dr-shape.locked { cursor: not-allowed; }
-.dr-hit { fill: none; stroke: transparent; pointer-events: stroke; }
+.dr-hit { fill: none; stroke: transparent; pointer-events: stroke; stroke-linecap: round; stroke-linejoin: round; }
 .dr-sel rect { fill: none; stroke: #2F7CF6; }
 .dr-handle { fill: #fff; stroke: #2F7CF6; }
 .dr-handle.rot { fill: #F2D78B; stroke: #8b6a1f; cursor: grab; }
