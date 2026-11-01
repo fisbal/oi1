@@ -28,6 +28,7 @@
     "check:refs": "node scripts/check-refs.mjs",
     "check:arrows": "node scripts/check-arrows.mjs",
     "check:want": "node scripts/check-want.mjs",
+    "check:whatif": "node scripts/check-whatif.mjs",
     "check:fidelity": "node scripts/check-fidelity.mjs",
     "check:tuto": "node scripts/check-tuto.mjs",
     "check:autosave": "node scripts/check-autosave.mjs",

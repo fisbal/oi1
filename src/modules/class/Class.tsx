@@ -34,6 +34,8 @@ import { AUDITS, AUDIT_SHORT, runAudit, type AuditId } from './pro/audit';
 import { tx, type Lang } from './pro/build';
 import { CondDialog, FilterMenu, FindPanel, HIGHLIGHT_KINDS, TOP_KINDS, type CondKind, type FindOptions } from './panels';
 import { borderCss, printHtml, sheetHtml } from './print';
+import { GoalSeekDialog, ScenarioDialog, SolverDialog, ValidationAlert, ValidationDialog, setRule } from './WhatIf';
+import { customValue, invalidCells, isValid, listChoices, validationAt, withValues, type Validation } from './whatif';
 
 const FN_ICON: Record<'financial' | 'logical' | 'text' | 'date' | 'lookup' | 'math', string> = {
   financial: 'currency', logical: 'check', text: 'case', date: 'date', lookup: 'search', math: 'sum',
@@ -152,6 +154,20 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const [proDialog, setProDialog] = useState<null | 'gallery' | 'converter'>(null);
   const [chartSel, setChartSel] = useState<string | null>(null);
   const [fillTo, setFillTo] = useState<Box | null>(null);
+  const [whatIf, setWhatIf] = useState<null | 'seek' | 'scen' | 'solver' | 'val'>(null);
+  const [circles, setCircles] = useState<string[] | null>(null);
+  const [vAlert, setVAlert] = useState<null | { rule: Validation; c: number; r: number; text: string; move?: Pos }>(null);
+  const [listMenu, setListMenu] = useState<null | { c: number; r: number; left: number; top: number; choices: string[] }>(null);
+  // The list of a cell's choices closes when the selection moves, on Escape, or on a click elsewhere.
+  useEffect(() => { setListMenu(null); }, [sel, active]);
+  useEffect(() => {
+    if (!listMenu) return;
+    const down = (e: PointerEvent) => { if (!(e.target as Element).closest?.('.val-list, .val-drop')) setListMenu(null); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setListMenu(null); };
+    document.addEventListener('pointerdown', down, true);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('pointerdown', down, true); document.removeEventListener('keydown', onKey); };
+  }, [listMenu]);
   const undo = useRef<WorkbookData[]>([]);
   const redo = useRef<WorkbookData[]>([]);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -234,10 +250,25 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     if (!input && !style) delete cells[k];
     else cells[k] = { input, ...(style ? { style } : {}) };
   };
+  /** The rule an entry would break in this cell, or null (Data › Data validation). */
+  const breaks = (c: number, r: number, text: string): Validation | null => {
+    const v = validationAt(sheet.validations, c, r);
+    if (!v || v.kind === 'any') return null;
+    const b = bookRef.current, s = b.sheets[active];
+    const cells = { ...s.cells };
+    setEntry(cells, c, r, text);
+    const next = { ...b, sheets: b.sheets.map((x, i) => (i === active ? { ...s, cells } : x)) };
+    const vals = computeBook(next)[active];
+    const k = key(c, r);
+    return isValid(v, vals.get(k), cells[k]?.input ?? '', vals, () => customValue(next, active, v, c, r)) ? null : v;
+  };
   const commitEdit = (move?: Pos) => {
     if (!edit) return;
     const { c, r } = sel.a;
-    if ((sheet.cells[key(c, r)]?.input ?? '') !== edit.text) changeSheet(s => setEntry(s.cells, c, r, edit.text));
+    const changed = (sheet.cells[key(c, r)]?.input ?? '') !== edit.text;
+    const broken = changed ? breaks(c, r, edit.text) : null;
+    if (broken) { setVAlert({ rule: broken, c, r, text: edit.text, move }); setEdit(null); return; }
+    if (changed) changeSheet(s => setEntry(s.cells, c, r, edit.text));
     setEdit(null);
     if (move) go(move.c, move.r);
     gridRef.current?.focus();
@@ -478,6 +509,18 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     for (let r = f.range.r1 + 1; r <= f.range.r2; r++) set.add(display(values.get(key(c, r)) ?? '', sheet.cells[key(c, r)]?.style, lang, currency));
     return [...set].sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b, lang, { numeric: true })));
   };
+  // ---------- data validation and what-if ----------
+  const circleInvalid = () => {
+    const bad = invalidCells(bookRef.current, active, values);
+    setCircles(bad);
+    shell.notify(bad.length ? t('class.val.invalidN', { n: bad.length }) : t('class.val.allValid'));
+  };
+  /** Values written by Goal Seek, Solver or a scenario: one change, so one Undo brings the old ones back. */
+  const writeValues = (entries: [string, string][], extra?: (s: SheetData) => void) => changeSheet(s => {
+    const next = withValues(s, entries);
+    s.cells = next.cells;
+    extra?.(s);
+  });
   const removeDuplicates = () => {
     const rg = tableRange();
     const header = hasHeader(rg);
@@ -1455,7 +1498,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       if (b) (style as Record<string, string>)[`border${side[0].toUpperCase()}${side.slice(1)}`] = borderCss({ ...b, color: b.color ?? (dark ? 'rgba(242,237,226,.8)' : '#000') });
     }
     return (
-      <div key={k} className={`cell${isError(v) ? ' err' : ''}${st?.wrap ? ' wrap' : ''}`} style={style} title={isError(v) ? cell?.input : undefined}>
+      <div key={k} data-cell={cellName(c, r)} className={`cell${isError(v) ? ' err' : ''}${st?.wrap ? ' wrap' : ''}`} style={style} title={isError(v) ? cell?.input : undefined}>
         {look?.bar && <i className="cell-bar" style={{ width: `calc(${Math.max(0, Math.min(1, look.bar.pct)) * 100}% - 4px)`, background: look.bar.color }} />}
         <span style={spillTo ? { width: spillTo - (7 + (st?.indent ?? 0) * 12) * z, flex: 'none' } : undefined}>{text}</span>
       </div>
@@ -1526,6 +1569,37 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           </button>,
         );
       }
+    }
+    // Circles around entries that break their rule (Data › Circle invalid data).
+    if (circles) for (const k of circles) {
+      const { c, r } = unkey(k);
+      if (c < ca || c > cb || r < ra || r > rb) continue;
+      const b = rect({ c1: c, r1: r, c2: c, r2: r }) as { left: number; top: number; width: number; height: number };
+      out.push(<div key={`ci${k}`} className="invalid-circle" style={{ left: b.left - 4, top: b.top - 3, width: b.width + 8, height: b.height + 6 }} />);
+    }
+    // A list rule shows its arrow beside the active cell, like Excel.
+    const vr = !edit && !chartSel ? validationAt(sheet.validations, sel.a.c, sel.a.r) : undefined;
+    if (vr?.kind === 'list' && vr.dropdown !== false && sel.a.c >= ca && sel.a.c <= cb && sel.a.r >= ra && sel.a.r <= rb) {
+      const am = mergeAt(sel.a.c, sel.a.r) ?? { c1: sel.a.c, r1: sel.a.r, c2: sel.a.c, r2: sel.a.r };
+      const b = rect(am) as { left: number; top: number; width: number; height: number };
+      const w = Math.max(18, Math.min(24, b.height));
+      out.push(
+        <button key="vl" type="button" className="val-drop" aria-label={t('class.val.choose')} title={t('class.val.choose')}
+          style={{ left: b.left + b.width + 1, top: b.top, width: w, height: b.height }}
+          onMouseDown={e => {
+            e.preventDefault(); e.stopPropagation();
+            if (listMenu) { setListMenu(null); return; }
+            const bb = e.currentTarget.getBoundingClientRect();
+            setListMenu({ c: sel.a.c, r: sel.a.r, left: Math.max(8, Math.min(bb.right - 220, window.innerWidth - 228)), top: bb.bottom + 2, choices: listChoices(vr, values) });
+          }}>
+          <Icon name="caret" size={10} />
+        </button>,
+      );
+    }
+    // The rule's input message under the active cell.
+    if (vr?.prompt?.text && main && sel.a.c >= ca && sel.a.c <= cb && sel.a.r >= ra && sel.a.r <= rb) {
+      const b = rect({ c1: sel.a.c, r1: sel.a.r, c2: sel.a.c, r2: sel.a.r }) as { left: number; top: number; width: number; height: number };
+      out.push(<div key="vp" className="val-prompt" role="note" style={{ left: b.left + 8, top: b.top + b.height + 6 }}>{vr.prompt.title && <b>{vr.prompt.title}</b>}{vr.prompt.text}</div>);
     }
     // Selection, the active cell, the fill handle and the fill preview.
     if (!chartSel) {
@@ -1823,6 +1897,18 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
               <Btn big icon="dedupe" title="class.removeDuplicates" onClick={removeDuplicates} />
               <Btn big icon="find" title="class.findReplace" onClick={() => setFind({ replace: true })} />
             </Group>
+            <Group label="class.group.dataTools">
+              <Btn big icon="validate" title="class.validation" onClick={() => { if (edit) commitEdit(); setWhatIf('val'); }} />
+              <div className="stack">
+                <Btn icon="circle" title="class.circleInvalid" text onClick={circleInvalid} />
+                <Btn icon="clear" title="class.clearCircles" text disabled={!circles} onClick={() => setCircles(null)} />
+              </div>
+            </Group>
+            <Group label="class.group.whatif">
+              <Btn big icon="target" title="class.goalSeek" onClick={() => { if (edit) commitEdit(); setWhatIf('seek'); }} />
+              <Btn big icon="scenario" title="class.scenarios" onClick={() => { if (edit) commitEdit(); setWhatIf('scen'); }} />
+              <Btn big icon="solver" title="class.solver" onClick={() => { if (edit) commitEdit(); setWhatIf('solver'); }} />
+            </Group>
             <Group label="class.group.sheets">
               <Btn big icon="new" title="class.addSheet" onClick={addSheet} />
               <Btn big icon="rename" title="class.renameSheet" onClick={() => renameSheet(active)} />
@@ -2064,6 +2150,29 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
         hasSelection={[...Array(range.r2 - range.r1 + 1)].some((_, i) => typeof values.get(key(range.c2, range.r1 + i)) === 'number')}
         onFormula={putFormula} onConvertSelection={convertSelection} onClose={() => setProDialog(null)} />}
       {fnDialog && <InsertFunction start={fnDialog} onClose={() => setFnDialog(null)} onPick={fn => startEdit(`=${fn}(`, 'edit')} />}
+      {whatIf === 'seek' && <GoalSeekDialog book={book} sheet={active} at={cellName(sel.a.c, sel.a.r)} onClose={() => setWhatIf(null)} onKeep={(k, v) => writeValues([[k, v]])} />}
+      {whatIf === 'scen' && <ScenarioDialog book={book} sheet={active} selection={nameBox} onClose={() => setWhatIf(null)}
+        onSave={list => changeSheet(s => { if (list.length) s.scenarios = list; else delete s.scenarios; })}
+        onShow={sc => writeValues(sc.cells.map((k, i) => [k, sc.values[i]] as [string, string]))}
+        onSummary={sum => { const b = bookRef.current; let nm = t('class.scen.summary'); for (let i = 2; b.sheets.some(x => x.name.toLowerCase() === nm.toLowerCase()); i++) nm = `${t('class.scen.summary')} ${i}`; commit({ ...b, sheets: [...b.sheets, { ...sum, name: nm }] }); pickSheet(b.sheets.length); }} />}
+      {whatIf === 'solver' && <SolverDialog book={book} sheet={active} at={cellName(sel.a.c, sel.a.r)} onClose={() => setWhatIf(null)}
+        onRemember={m => { const b = bookRef.current; setBook({ ...b, sheets: b.sheets.map((x, i) => (i === active ? { ...x, solver: m } : x)) }); }}
+        onKeep={(entries, m) => writeValues(entries, s => { s.solver = m; })} />}
+      {whatIf === 'val' && <ValidationDialog range={range} existing={validationAt(sheet.validations, sel.a.c, sel.a.r)} onClose={() => setWhatIf(null)}
+        onSave={rule => { changeSheet(s => { const list = setRule(s.validations, range, rule); if (list.length) s.validations = list; else delete s.validations; }); setCircles(null); }} />}
+      {vAlert && <ValidationAlert rule={vAlert.rule}
+        onCancel={() => { setVAlert(null); gridRef.current?.focus(); }}
+        onRetry={() => { const a = vAlert; setVAlert(null); go(a.c, a.r); setEdit({ text: a.text, mode: 'edit', where: 'cell' }); }}
+        onKeep={() => { const a = vAlert; setVAlert(null); changeSheet(s => setEntry(s.cells, a.c, a.r, a.text)); if (a.move) go(a.move.c, a.move.r); gridRef.current?.focus(); }} />}
+      {listMenu && (
+        <div className="val-list" role="listbox" aria-label={t('class.val.choose')} style={{ left: listMenu.left, top: listMenu.top }}>
+          {listMenu.choices.map(ch => (
+            <button key={ch} type="button" role="option" aria-selected={display(values.get(key(listMenu.c, listMenu.r)) ?? '', undefined, lang, currency) === ch}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { const m = listMenu; setListMenu(null); changeSheet(s => setEntry(s.cells, m.c, m.r, ch)); gridRef.current?.focus(); }}>{ch}</button>
+          ))}
+        </div>
+      )}
       {condDialog && <CondDialog kind={condDialog} range={single ? currentRegion(sel.a) : range} onClose={() => setCondDialog(null)} onOk={rule => addRule(rule)} />}
 
       {panel === 'file' && (

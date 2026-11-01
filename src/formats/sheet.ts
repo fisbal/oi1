@@ -71,6 +71,38 @@ export interface Chart {
 /** An AutoFilter: the table it covers and the values hidden in each of its columns. */
 export interface Filter { range: Merge; hidden: Record<number, string[]>; sort?: { c: number; dir: 1 | -1 } }
 
+/** A named set of values for some cells (Data › What-If › Scenarios). */
+export interface Scenario { id: string; name: string; cells: string[]; values: string[]; comment?: string }
+
+/** A Solver model kept with its sheet, like Excel keeps it. */
+export interface SolverSaved {
+  objective: string;
+  goal: 'max' | 'min' | 'value';
+  target?: number;
+  vars: string;
+  constraints: { left: string; op: '<=' | '>=' | '=' | 'int' | 'bin'; right: string }[];
+  nonNegative: boolean;
+}
+
+/** What a cell accepts (Data › Data Validation). */
+export type VKind = 'any' | 'whole' | 'decimal' | 'list' | 'date' | 'time' | 'length' | 'custom';
+export type VOp = 'between' | 'notBetween' | 'eq' | 'ne' | 'gt' | 'lt' | 'ge' | 'le';
+export interface Validation {
+  id: string;
+  range: Merge;
+  kind: VKind;
+  op: VOp;
+  a: string;
+  b?: string;
+  /** For a list: "Yes, No, Maybe" or a range "=A1:A5". */
+  list?: string;
+  ignoreBlank: boolean;
+  /** Show the arrow with the choices (lists). */
+  dropdown?: boolean;
+  prompt?: { title: string; text: string };
+  error?: { style: 'stop' | 'warning' | 'info'; title: string; text: string };
+}
+
 export interface Cell {
   /** What the user typed: text, a number, or a formula starting with '='. */
   input: string;
@@ -95,6 +127,12 @@ export interface SheetData {
   noGrid?: boolean;
   /** Text color of the sheet's tab. */
   tabColor?: string;
+  /** Data validation rules. */
+  validations?: Validation[];
+  /** What-if scenarios. */
+  scenarios?: Scenario[];
+  /** The last Solver model. */
+  solver?: SolverSaved;
 }
 
 export interface WorkbookData {
