@@ -219,9 +219,11 @@ try {
     check(await cardEl.waitFor({ timeout: 6000 }).then(() => true, () => false), `${n}: a card explains how to bring Claude's answer back`);
     const sent = await page.evaluate(() => window.__opened?.[0] ?? '');
     check(sent.includes('claude.ai') && sent.length < 7000, `${n}: Claude's site gets one short message (${sent.length})`);
+    const said = (() => { try { return decodeURIComponent(sent); } catch { return sent; } })();
+    check(said.includes('Bonjour') && said.includes('plan') && !/JSON|[{}]/.test(said), `${n}: the message to Claude is plain French, with no code`);
     const bx = await cardEl.boundingBox();
     check(!!bx && bx.x >= 0 && bx.x + bx.width <= d.viewport.width + 1, `${n}: the Paste card is on screen`);
-    await cardEl.locator('textarea').fill('Voici :\n```json\n' + JSON.stringify(AI_PLAN) + '\n```');
+    await cardEl.locator('textarea').fill(d === DEVICES[4] ? 'Voici le plan :\n1. Choisir la date (1 jour) !\n2. Réserver la salle (2 jours)\n3. Envoyer les invitations (1 jour)\nBon courage !' : 'Voici :\n```json\n' + JSON.stringify(AI_PLAN) + '\n```');
     await cardEl.locator('textarea').press('ControlOrMeta+Enter');
     await page.waitForFunction(() => document.querySelectorAll('.module-host:not([hidden]) .plan .pl-tl-bar').length >= 3, null, { timeout: 8000 }).catch(() => {});
     check(await page.locator(`${P} .pl-tl-bar`).count() === 3, `${n}: the pasted answer becomes 3 tasks (${await page.locator(`${P} .pl-tl-bar`).count()})`);

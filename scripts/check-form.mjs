@@ -188,7 +188,7 @@ try {
       check(await overflow(page) <= 1, `${n}: still no sideways scrolling`);
       if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/form-${n.replace(/ /g, '-')}.png` });
     } catch (e) {
-      problems.push(`${n}: stopped: ${String(e.message).split('\n')[0]}`);
+      problems.push(`${n}: stopped: ${String(e.message).split('\n').slice(0, 4).join(' | ')}`);
       if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/form-fail-${n.replace(/ /g, '-')}.png` });
     }
     await ctx.close();
@@ -223,9 +223,11 @@ try {
     check(await cardEl.waitFor({ timeout: 6000 }).then(() => true, () => false), `${n}: a card explains how to bring Claude's answer back`);
     const sent = await page.evaluate(() => window.__opened?.[0] ?? '');
     check(sent.includes('claude.ai') && sent.length < 7000, `${n}: Claude's site gets one short message (${sent.length})`);
+    const said = (() => { try { return decodeURIComponent(sent); } catch { return sent; } })();
+    check(said.includes('Bonjour') && said.includes('formulaire') && !/JSON|[{}]/.test(said), `${n}: the message to Claude is plain French, with no code`);
     const bx = await cardEl.boundingBox();
     check(!!bx && bx.x >= 0 && bx.x + bx.width <= d.viewport.width + 1, `${n}: the Paste card is on screen`);
-    await cardEl.locator('textarea').fill('Voici :\n```json\n' + JSON.stringify(AI_FORM) + '\n```');
+    await cardEl.locator('textarea').fill(d === DEVICES[4] ? 'Voici votre formulaire :\nTitre : Retour client\n1. Êtes-vous satisfait ? (Oui / Non)\n2. Quelle note donnez-vous ? (1 / 2 / 3 / 4 / 5)\n3. Votre e-mail ?\n4. Un commentaire ?\nMerci !' : 'Voici :\n```json\n' + JSON.stringify(AI_FORM) + '\n```');
     await cardEl.locator('textarea').press('ControlOrMeta+Enter');
     await page.waitForFunction(() => document.querySelectorAll('.module-host:not([hidden]) .formapp .fm-card').length >= 4, null, { timeout: 8000 }).catch(() => {});
     check(await page.locator(`${P} .fm-card`).count() === 4, `${n}: the pasted answer becomes 4 questions (${await page.locator(`${P} .fm-card`).count()})`);
