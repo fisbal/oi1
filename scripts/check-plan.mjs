@@ -167,6 +167,8 @@ try {
       await help(page, 'ui.fitAll').click();
       const z2 = await page.locator(`${P} .status-zoom .pct`).textContent();
       check(parseInt(z1) > parseInt(z2), `${n}: zoom in and "see it all" (${z1} → ${z2})`);
+      // The fit settles once the timeline is measured at the new zoom (one more frame on a slow machine).
+      await page.waitForFunction(h => { const t = document.querySelector(`${h} .pl-timeline`)?.getBoundingClientRect(), c = document.querySelector(`${h} .pl-scroll`)?.getBoundingClientRect(); return !!t && !!c && t.right <= c.right + 2; }, P, { timeout: 2500 }).catch(() => {});
       const tl = await page.locator(`${P} .pl-timeline`).boundingBox();
       const sc = await page.locator(`${P} .pl-scroll`).boundingBox();
       check(tl.x + tl.width <= sc.x + sc.width + 2, `${n}: after "see it all" the whole timeline is in view`);
@@ -182,7 +184,7 @@ try {
       check(await overflow(page) <= 1, `${n}: still no sideways scrolling`);
       if (process.env.SHOTS) { await view(page, 'Timeline'); await page.screenshot({ path: `${process.env.SHOTS}/plan-${n.replace(/ /g, '-')}.png` }); }
     } catch (e) {
-      problems.push(`${n}: stopped: ${String(e.message).split('\n')[0]}`);
+      problems.push(`${n}: stopped: ${String(e.message).split("\n").slice(0, 12).join(" | ")}`);
       if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/plan-fail-${n.replace(/ /g, '-')}.png` });
     }
     await ctx.close();

@@ -1,6 +1,7 @@
 /* ---------- In 1 Plan ---------- */
 .plan { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; outline: none; }
 .pl-body { flex: 1; min-height: 0; display: flex; position: relative; }
+.pl-main { flex: 1; min-width: 0; display: flex; position: relative; }
 .pl-scroll { flex: 1; min-width: 0; overflow: auto; background: rgba(var(--fg-rgb), .04); overscroll-behavior: contain; padding: 0 12px 24px; }
 .pl-bar-top { position: sticky; top: 0; left: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 -12px 10px; padding: 8px 12px; background: rgba(var(--bg-rgb), .92); backdrop-filter: blur(6px); }
 .pl-name { flex: 1 1 180px; min-width: 0; border: 0; background: none; color: var(--ink); font: 700 18px/1.3 var(--sans, Inter, sans-serif); outline: none; padding: 2px 4px; border-radius: 6px; }
@@ -144,7 +145,7 @@
   .pl-bar-top { margin: 0 -8px 8px; padding: 6px 8px; }
   .pl-col { width: min(272px, 78vw); }
   .pl-tl-names { width: 120px; }
-  .pl-panel { position: absolute; inset: 0 0 0 auto; z-index: 6; width: min(340px, 100%); box-shadow: -8px 0 30px rgba(0, 0, 0, .25); }
+  .pl-panel { position: absolute; inset: 0 0 0 auto; z-index: 8; width: min(340px, 100%); box-shadow: -8px 0 30px rgba(0, 0, 0, .25); }
   .pl-templates, .pl-labels { grid-template-columns: 1fr 1fr; }
   .pl-cal-day { min-height: 64px; }
   .pl-cal-task { font-size: 10.5px; padding: 1px 3px; }

@@ -631,6 +631,7 @@ function PlanEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     <div className="plan" ref={rootRef} tabIndex={-1} onKeyDown={onKey}>
       {ribbon}
       <div className="pl-body">
+        <div className="pl-main">
         <div className="pl-scroll" ref={scroller}>
           <div className="pl-bar-top">
             <input className="pl-name" value={plan.name} aria-label={t('plan.planName')} onChange={e => change(p => ({ ...p, name: e.target.value }))} />
@@ -657,6 +658,7 @@ function PlanEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
           </div>
         </div>
         <FastScroll target={scroller} />
+        </div>
         {openTask && <TaskPanel task={openTask} plan={plan} prioName={prioName} onChange={patch => setTask(openTask.id, patch)} onMove={b => moveTo(openTask.id, b)}
           onDelete={() => delTask(openTask.id)} onClose={() => setOpen(null)}
           onDeps={deps => { const bad = deps.find(d => makesLoop(planRef.current, openTask.id, d)); if (bad) { setNote(t('plan.loop')); return; } commit(shift({ ...planRef.current, tasks: planRef.current.tasks.map(y => (y.id === openTask.id ? { ...y, deps } : y)) }, openTask.id, 0)); }} />}
