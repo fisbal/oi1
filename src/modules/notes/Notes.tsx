@@ -20,6 +20,7 @@ import { getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import { idb } from '../../shell/db';
 import { safeHtml } from '../../shell/safeHtml';
+import { printWindow } from '../../shell/printWindow';
 import { Btn, ColorGrid, Dialog, Drop, Group, Icon, MenuItem, RibbonToggle } from '../../ui/kit';
 import { AppKeys, appColor } from '../../ui/AppKeys';
 import { FileMenu } from '../../ui/FileMenu';
@@ -370,11 +371,7 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
   const sendToLetter = () => { flush.current(); shell.openModule('letter', undefined, { kind: 'html', title, html: `<h1>${escapeHtml(title)}</h1>${ed?.getHTML() ?? page.html}` }); };
   const sendSection = () => { flush.current(); const s = where(libRef.current).sec; shell.openModule('letter', undefined, { kind: 'html', title: s.name, html: sectionHtml(s, untitled) }); };
   const print = () => {
-    const w = window.open('', '_blank');
-    if (!w) return;
-    w.document.write(`${pageDoc()}<style>body{font:12pt/1.5 Inter,Arial,sans-serif;margin:16mm}img{max-width:100%}table{border-collapse:collapse}td,th{border:1px solid #999;padding:4px 8px}</style>`);
-    w.document.close();
-    w.onload = () => w.print();
+    printWindow(title, `<h1>${escapeHtml(title)}</h1>${ed?.getHTML() ?? page.html}`, 'body{font:12pt/1.5 Inter,Arial,sans-serif;margin:16mm}img{max-width:100%}table{border-collapse:collapse}td,th{border:1px solid #999;padding:4px 8px}', lang);
   };
   const share = async () => {
     const text = `${title}\n\n${textOf(ed?.getHTML() ?? page.html)}`;
