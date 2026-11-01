@@ -1,0 +1,12 @@
+/* The capsule bubble that replaces the grey system tooltip (see tips.ts). */
+.oi1-tip {
+  position: fixed; z-index: 10000; max-width: min(320px, calc(100vw - 16px)); padding: 6px 14px;
+  border-radius: 999px; border: 1px solid color-mix(in srgb, var(--app, var(--gold, #D4A843)) 60%, transparent);
+  background: rgba(var(--bg-rgb, 24, 22, 30), .96); color: var(--ink, #f4f1ea);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, .28), 0 0 12px color-mix(in srgb, var(--app, var(--gold, #D4A843)) 22%, transparent);
+  font: 500 12.5px/1.35 var(--sans, system-ui, sans-serif); white-space: normal; overflow-wrap: anywhere; text-align: center;
+  pointer-events: none; opacity: 0; transform: translateY(-3px); transition: opacity .14s ease, transform .14s ease;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.oi1-tip.on { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .oi1-tip { transition: none; } }
