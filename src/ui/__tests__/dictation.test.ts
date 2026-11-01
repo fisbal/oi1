@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyVoiceCommands, cleanWhisper, joinDictation, whisperLanguage } from '../dictation';
+import { applyVoiceCommands, cleanWhisper, collapseRepeats, joinDictation, whisperLanguage } from '../dictation';
 
 describe('voice commands', () => {
   it('French punctuation', () => {
@@ -32,5 +32,11 @@ describe('voice commands', () => {
   it('maps languages', () => {
     expect(whisperLanguage('fr-FR')).toBe('french');
     expect(whisperLanguage('pt')).toBe('portuguese');
+  });
+  it('keeps a Whisper loop only once', () => {
+    expect(cleanWhisper('Je pas de mode pas de mode pas de mode pas de mode')).toBe('Je pas de mode');
+    expect(collapseRepeats('Bonjour tout le monde. Bonjour tout le monde.')).toBe('Bonjour tout le monde. Bonjour tout le monde.');
+    expect(collapseRepeats('oui oui oui oui, merci')).toBe('oui, merci');
+    expect(collapseRepeats('le chat dort sur le tapis')).toBe('le chat dort sur le tapis');
   });
 });

@@ -42,7 +42,7 @@ self.onmessage = async (ev: MessageEvent) => {
   } else if (m.type === 'asr' && m.audio) {
     try {
       const run = await load();
-      const out = await run(m.audio, { language: m.language, task: 'transcribe', chunk_length_s: 30 });
+      const out = await run(m.audio, { language: m.language, task: 'transcribe', chunk_length_s: 30, no_repeat_ngram_size: 5, repetition_penalty: 1.1 });
       const text = Array.isArray(out) ? out.map(x => x.text).join(' ') : out.text;
       post({ type: 'text', id: m.id, text });
     } catch (e) {

@@ -299,7 +299,8 @@ function deviceEngine(lang: string, emit: (t: string) => void, status: (s: Dicta
   (async () => {
     if (!hasMic()) return finish('unsupported');
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      // Raw sound for Whisper: noise suppression and echo cancelling smear speech and make it invent words.
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true, channelCount: 1 } });
     } catch (e) {
       const n = (e as DOMException).name;
       return finish(n === 'NotAllowedError' || n === 'SecurityError' ? 'denied' : n === 'NotFoundError' || n === 'OverconstrainedError' || n === 'NotReadableError' ? 'nomic' : 'failed');
@@ -312,9 +313,10 @@ function deviceEngine(lang: string, emit: (t: string) => void, status: (s: Dicta
         .catch(() => finish('failed'));
     }
     const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    ctx = new AC();
+    // Let the browser resample to 16 kHz itself (clean, no aliasing); Firefox cannot mix rates, so it keeps its own.
+    try { ctx = new AC({ sampleRate: RATE }); src = ctx.createMediaStreamSource(stream); }
+    catch { void ctx?.close().catch(() => undefined); ctx = new AC(); src = ctx.createMediaStreamSource(stream); }
     await ctx.resume().catch(() => undefined);
-    src = ctx.createMediaStreamSource(stream);
     node = ctx.createScriptProcessor(4096, 1, 1);
     const ratio = ctx.sampleRate / RATE;
     node.onaudioprocess = ev => {
@@ -345,7 +347,21 @@ export function cleanWhisper(text: string): string {
   if (/^[[(♪*].*[\])♪*]$/.test(s)) return '';
   if (/amara\.org|sous-titr|subtitles? by|thanks? for watching|merci d'avoir regardé|untertitel|subtítulos|legendas pela/i.test(s)) return '';
   if (/^(you|\.+|…)$/i.test(s)) return '';
-  return s;
+  return collapseRepeats(s);
+}
+
+/** Whisper sometimes loops ("pas de mode pas de mode pas de mode…"): a run of 3 or more of the same words is kept once. */
+export function collapseRepeats(text: string): string {
+  const words = text.split(' ');
+  for (let n = 1; n <= 8; n++) {
+    for (let i = 0; i + n * 3 <= words.length; i++) {
+      const key = (k: number) => words.slice(k, k + n).join(' ').toLowerCase().replace(/[.,!?;:…]+$/u, '');
+      let reps = 1;
+      while (i + (reps + 1) * n <= words.length && key(i + reps * n) === key(i)) reps++;
+      if (reps >= 3) { words[i + n - 1] = words[i + reps * n - 1]; words.splice(i + n, (reps - 1) * n); } // keeps the last one's full stop
+    }
+  }
+  return words.join(' ').trim();
 }
 
 // ------------------------------------------------------------ languages
