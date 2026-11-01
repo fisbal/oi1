@@ -39,7 +39,8 @@
     "check:cloud": "node scripts/check-cloud.mjs",
     "check:copilot": "node scripts/check-copilot.mjs",
     "check:assistant": "node scripts/check-assistant.mjs",
-    "check:shield": "node scripts/check-shield.mjs"
+    "check:shield": "node scripts/check-shield.mjs",
+    "check:draw": "node scripts/check-draw.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
