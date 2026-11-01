@@ -1,9 +1,13 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" translate="no" class="notranslate">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>Office In 1</title>
+  <!-- Office In 1 has its own languages (and translates documents itself, keeping the original: rule 13). The
+       browser's page translator must not run: it turned "Office In 1" into "Bureau en 1" and "Office Letter" into
+       "Lettre de bureau" (Martin, 2026-11-01, Microsoft Store app on Windows in French). Brand names never change. -->
+  <meta name="google" content="notranslate">
   <!-- Security (OWASP CSP Cheat Sheet): no plug-ins (<object>/<embed>) and no <base> tag can be injected.
        Scripts stay allowed because Code+ runs the user's own code in sandboxed previews, which inherit this policy;
        HTML coming from files or AI answers is cleaned by src/shell/safeHtml.ts instead. -->
