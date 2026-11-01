@@ -206,7 +206,7 @@ try {
       let paul;
       for (let i = 0; i < 8 && !paul?.html?.includes('you owe 80'); i++) paul = (await drafts(page))?.mails.find(m => m.subject === 'Invoice for Paul');
       const box = await drafts(page);
-      const seen = (box?.mails ?? []).slice(0, 4).map(m => `${m.subject} -> ${m.to?.[0]} : ${String(m.html).replace(/<[^>]+>/g, '').slice(0, 40)}`).join(' | ');
+      const seen = (box?.mails ?? []).slice(0, 4).map(m => `${m.subject} -> ${m.to?.[0]} : ${JSON.stringify(String(m.html).slice(0, 60))}`).join(' | ');
       check(!!paul && paul.to[0] === 'paul@example.com' && paul.html.includes('you owe 80 €'), `${n}: the merge makes one filled mail per person${paul ? '' : ` (saved: ${seen || 'nothing'}; on screen: ${(await page.locator(`${P} .ml-list`).first().innerText().catch(() => '?')).replace(/\s+/g, ' ').slice(0, 160)})`}`);
 
       // Contacts
