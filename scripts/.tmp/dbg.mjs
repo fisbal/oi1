@@ -8,7 +8,7 @@ p.on('pageerror', e => console.log('err', e.message));
 await p.addInitScript(() => { localStorage.setItem('oi1:ai:key', 'sk-ant-test'); localStorage.setItem('oi1:language', 'fr'); });
 await p.route('https://api.anthropic.com/**', r => { console.log('AI called'); r.fulfill({ status: 200, contentType: 'text/event-stream', body: '' }); });
 await p.goto('http://localhost:4293/');
-await p.locator('.slab:has-text("Office Letter")').first().click(); await p.waitForTimeout(1500);
+await p.locator('.slab:has-text("In 1 Letter")').first().click(); await p.waitForTimeout(1500);
 await p.locator('.module-host:not([hidden]) .sheet .ProseMirror:not(.header-text):not(.footer-text)').first().click();
 await p.keyboard.type('Bonjour le monde'); await p.waitForTimeout(300);
 await p.locator('select.lang').selectOption({ label: 'English' });

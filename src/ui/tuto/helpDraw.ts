@@ -1,4 +1,4 @@
-// Tuto explanations for Office Draw. [English, French]: what it does, then how to use it.
+// Tuto explanations for In 1 Draw. [English, French]: what it does, then how to use it.
 import type { HelpText } from './help';
 
 export const HELP_DRAW: Record<string, HelpText> = {
@@ -63,5 +63,5 @@ export const HELP_DRAW: Record<string, HelpText> = {
   'draw.actualSize': ['Shows the drawing at its real size (100 %).', 'Affiche le dessin à sa taille réelle (100 %).'],
   'draw.snap': ['Makes shapes jump to a grid of 20 when moved and turns jump by 15°, for neat drawings.', 'Fait sauter les formes sur une grille de 20 quand on les bouge et les rotations de 15°, pour des dessins nets.'],
   // Office In 1
-  'draw.toLetter': ['Opens a new Office Letter with the drawing inside as a picture.', 'Ouvre une nouvelle Office Letter avec le dessin dedans, en image.'],
+  'draw.toLetter': ['Opens a new In 1 Letter with the drawing inside as a picture.', 'Ouvre une nouvelle In 1 Letter avec le dessin dedans, en image.'],
 };

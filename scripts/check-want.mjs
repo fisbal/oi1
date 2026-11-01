@@ -19,10 +19,10 @@ const check = (ok, what) => (ok ? passed : problems).push(what);
 
 // What a person types, and a word the button found must contain.
 const APPS = [
-  ['Office Letter', [['mettre en gras', /bold/i], ['je veux un tableau', /insert table/i], ['imprimer', /print/i], ['table des matières', /contents/i]]],
-  ['Office Class', [['faire la somme', /sum/i], ['add a chart', /chart|column|bar|line|pie/i], ['trier du plus petit au plus grand', /sort a to z/i]]],
-  ['Office Stage', [['ajouter une transition', /transition|fade|push|wipe|morph/i], ['new slide', /slide/i]]],
-  ['Office Code+', [['exécuter le code', /run/i]]],
+  ['In 1 Letter', [['mettre en gras', /bold/i], ['je veux un tableau', /insert table/i], ['imprimer', /print/i], ['table des matières', /contents/i]]],
+  ['In 1 Class', [['faire la somme', /sum/i], ['add a chart', /chart|column|bar|line|pie/i], ['trier du plus petit au plus grand', /sort a to z/i]]],
+  ['In 1 Stage', [['ajouter une transition', /transition|fade|push|wipe|morph/i], ['new slide', /slide/i]]],
+  ['In 1 Code+', [['exécuter le code', /run/i]]],
 ];
 const H = '.app-frame:not([hidden])';
 
@@ -81,7 +81,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1280, height: 800 }, fal
       await page.waitForTimeout(150);
     }
 
-    if (app === 'Office Letter') {
+    if (app === 'In 1 Letter') {
       // Two things in one request: two numbered steps, in order.
       await pill.click();
       await page.locator('.want-input').fill('gras et italique');

@@ -44,7 +44,7 @@ export const HELP: Record<string, HelpText> = {
   'letter.redo': ['Puts back what Undo took away (Ctrl+Y).', 'Rétablit ce qu’Annuler a enlevé (Ctrl+Y).'],
   'ui.fitAll': ['Zooms so the whole sheet, page or slide fits on the screen, for a clear overview.', 'Zoome pour voir toute la feuille, la page ou la diapositive à l’écran, pour une vue d’ensemble.'],
 
-  // ---------- Office Class: Home ----------
+  // ---------- In 1 Class: Home ----------
   'class.alignTop': ['Puts the content at the top of tall cells.', 'Place le contenu en haut des cellules hautes.'],
   'class.alignMiddle': ['Puts the content in the vertical middle of the cells.', 'Place le contenu au milieu, verticalement.'],
   'class.alignBottom': ['Puts the content at the bottom of the cells, like Excel does by default.', 'Place le contenu en bas des cellules, comme Excel par défaut.'],
@@ -72,7 +72,7 @@ export const HELP: Record<string, HelpText> = {
   'class.findReplace': ['Finds a word or number in the sheet and can replace it everywhere (Ctrl+F, Ctrl+H).', 'Cherche un mot ou un nombre dans la feuille et peut le remplacer partout (Ctrl+F, Ctrl+H).'],
   'class.filter': ['Adds little arrows on the header row to show only the rows you want (by value, text or colour).', 'Ajoute des flèches sur la ligne de titres pour n’afficher que les lignes voulues (par valeur, texte ou couleur).'],
 
-  // ---------- Office Class: Insert, charts ----------
+  // ---------- In 1 Class: Insert, charts ----------
   'class.chart.*': ['Draws a “{name}” chart from the selected table. Select the numbers with their titles first.', 'Dessine un graphique « {name} » à partir du tableau choisi. Sélectionnez d’abord les nombres avec leurs titres.'],
   'class.chart.more': ['Opens every kind of chart: area, scatter, doughnut, radar, combo and more, with a preview.', 'Ouvre tous les types de graphiques : aires, nuage de points, anneau, radar, combiné…, avec un aperçu.'],
   'class.chart.type': ['Changes the kind of the selected chart without making it again.', 'Change le type du graphique choisi sans le refaire.'],
@@ -81,11 +81,11 @@ export const HELP: Record<string, HelpText> = {
   'class.chart.labels': ['Writes each value on its bar, slice or point.', 'Écrit chaque valeur sur sa barre, sa part ou son point.'],
   'class.chart.colors': ['Gives the chart another set of colours.', 'Donne au graphique un autre jeu de couleurs.'],
   'class.chart.savePng': ['Saves the chart as a picture (PNG) to put in an e-mail or a website.', 'Enregistre le graphique en image (PNG) pour un courriel ou un site.'],
-  'class.chart.toLetter': ['Sends the chart into an Office Letter document.', 'Envoie le graphique dans un document Office Letter.'],
-  'class.chart.toStage': ['Sends the chart onto an Office Stage slide.', 'Envoie le graphique sur une diapositive Office Stage.'],
+  'class.chart.toLetter': ['Sends the chart into an In 1 Letter document.', 'Envoie le graphique dans un document In 1 Letter.'],
+  'class.chart.toStage': ['Sends the chart onto an In 1 Stage slide.', 'Envoie le graphique sur une diapositive In 1 Stage.'],
   'class.chart.delete': ['Removes the selected chart. The table stays.', 'Supprime le graphique choisi. Le tableau reste.'],
 
-  // ---------- Office Class: Formulas ----------
+  // ---------- In 1 Class: Formulas ----------
   'class.fn.insert': ['Finds a function by what you want to do (“average”, “loan payment”…), explains it and helps fill it in.', 'Trouve une fonction selon ce que vous voulez faire (« moyenne », « mensualité »…), l’explique et aide à la remplir.'],
   'class.fn.more': ['Lists all 440+ functions by category, each with an explanation.', 'Liste les 440+ fonctions par catégorie, chacune avec son explication.'],
   'class.fn.cat.*': ['Opens the “{name}” functions. Pick one to insert it in the selected cell.', 'Ouvre les fonctions « {name} ». Choisissez-en une pour l’insérer dans la cellule.'],
@@ -94,19 +94,19 @@ export const HELP: Record<string, HelpText> = {
   'tuto.fn.MAX': ['Writes =MAX(…): the largest of the selected numbers.', 'Écrit =MAX(…) : le plus grand des nombres choisis.'],
   'tuto.fn.COUNT': ['Writes =COUNT(…): how many cells hold a number.', 'Écrit =NB(…) : combien de cellules contiennent un nombre.'],
 
-  // ---------- Office Class: Business ----------
+  // ---------- In 1 Class: Business ----------
   'tuto.proCat.*': ['Shows the ready sheets and tools for {name} in this tab.', 'Affiche dans cet onglet les feuilles prêtes et les outils pour : {name}.'],
   'class.pro.cat.all': ['Shows the most used tools of every category together.', 'Affiche ensemble les outils les plus utilisés de toutes les catégories.'],
   'class.pro.gallery': ['Opens every ready professional sheet (60+), with a search in five languages.', 'Ouvre toutes les feuilles professionnelles prêtes (60+), avec une recherche en cinq langues.'],
   'class.pro.converter': ['Converts between 300+ currencies with the rates of the day, and can write a live =DEVISE() formula.', 'Convertit entre 300+ monnaies au taux du jour, et peut écrire une formule =DEVISE() à jour.'],
   'class.pro.table': ['Adds a sheet of today’s exchange rates for the main currencies.', 'Ajoute une feuille des taux de change du jour pour les principales monnaies.'],
 
-  // ---------- Office Class: Data, View, sheets ----------
+  // ---------- In 1 Class: Data, View, sheets ----------
   'class.removeDuplicates': ['Deletes the rows that repeat another row exactly, keeping the first one.', 'Supprime les lignes identiques à une autre, en gardant la première.'],
   'class.validation': ['Sets what the selected cells accept (whole number, decimal, list with an arrow, date, time, text length or your own formula), the message shown when the cell is picked, and what happens when a wrong value is typed (stop, warning or information).', 'Définit ce que les cellules sélectionnées acceptent (nombre entier, décimal, liste avec une flèche, date, heure, longueur du texte ou votre formule), le message affiché quand la cellule est choisie, et ce qui se passe si une mauvaise valeur est tapée (arrêt, avertissement ou information).'],
   'class.circleInvalid': ['Draws a red circle around every value on the sheet that breaks its validation rule, for example values typed before the rule existed.', 'Entoure en rouge chaque valeur de la feuille qui ne respecte pas sa règle de validation, par exemple des valeurs tapées avant la règle.'],
   'class.clearCircles': ['Removes the red circles drawn by "Circle invalid data".', 'Retire les cercles rouges tracés par « Entourer les données non valides ».'],
-  'class.goalSeek': ['Works backwards: choose a formula cell and the result you want, and Office Class finds the value of one input cell that gives it. Example: the loan amount for a monthly payment of 300.', 'Calcule à l\u2019envers : choisissez une cellule formule et le résultat voulu, Office Class trouve la valeur d\u2019une cellule d\u2019entrée qui le donne. Exemple : le montant d\u2019un prêt pour une mensualité de 300.'],
+  'class.goalSeek': ['Works backwards: choose a formula cell and the result you want, and In 1 Class finds the value of one input cell that gives it. Example: the loan amount for a monthly payment of 300.', 'Calcule à l\u2019envers : choisissez une cellule formule et le résultat voulu, In 1 Class trouve la valeur d\u2019une cellule d\u2019entrée qui le donne. Exemple : le montant d\u2019un prêt pour une mensualité de 300.'],
   'class.scenarios': ['Keeps named sets of values for the same cells (best case, worst case, budget A or B), shows each one in the sheet with one click, and builds a summary sheet that compares their results.', 'Garde des jeux de valeurs nommés pour les mêmes cellules (meilleur cas, pire cas, budget A ou B), affiche chacun dans la feuille d\u2019un clic et crée une feuille de synthèse qui compare leurs résultats.'],
   'class.solver': ['Finds the best values for several cells at once: the largest profit, the smallest cost or an exact target, while keeping your limits (at most, at least, whole numbers, yes/no). Linear models are solved exactly.', 'Trouve les meilleures valeurs de plusieurs cellules à la fois : le plus grand bénéfice, le plus petit coût ou une cible exacte, en respectant vos limites (au plus, au moins, nombres entiers, oui/non). Les modèles linéaires sont résolus exactement.'],
   'class.addSheet': ['Adds a new empty sheet (tab at the bottom).', 'Ajoute une nouvelle feuille vide (onglet en bas).'],
@@ -118,10 +118,10 @@ export const HELP: Record<string, HelpText> = {
   'class.zoom100': ['Goes back to the normal size (100 %).', 'Revient à la taille normale (100 %).'],
   'class.zoomSelection': ['Zooms so the selected cells fill the screen.', 'Zoome pour que les cellules choisies remplissent l’écran.'],
 
-  // ---------- Office Class: Office In 1 ----------
+  // ---------- In 1 Class: Office In 1 ----------
   'class.sendToLetter': ['Puts the selected table into a Letter document, kept in step: change it here and the letter follows.', 'Met le tableau choisi dans une lettre, lié : modifiez-le ici et la lettre suit.'],
   'class.updateLetter': ['Sends the latest numbers to the letter that holds this table.', 'Envoie les derniers chiffres à la lettre qui contient ce tableau.'],
-  'class.sendToStage': ['Makes a slide in Office Stage from the selected table.', 'Crée une diapositive Office Stage à partir du tableau choisi.'],
+  'class.sendToStage': ['Makes a slide in In 1 Stage from the selected table.', 'Crée une diapositive In 1 Stage à partir du tableau choisi.'],
   'class.share': ['Shares the workbook by e-mail, messaging or any app on your device.', 'Partage le classeur par courriel, messagerie ou toute app de l’appareil.'],
   'tuto.app.*': ['Opens {name} in a new tab, next to this one.', 'Ouvre {name} dans un nouvel onglet, à côté de celui-ci.'],
   ...HELP_LETTER,

@@ -1,4 +1,4 @@
-// Office Draw with an AI: a drawing described in words becomes real, editable shapes (not a flat picture), placed
+// In 1 Draw with an AI: a drawing described in words becomes real, editable shapes (not a flat picture), placed
 // on the page. The answer is checked shape by shape (cleanShape) before anything is drawn.
 
 import type { AiApi } from '../../shell/contract';
@@ -26,7 +26,7 @@ const SCHEMA: Record<string, unknown> = {
 const LANG: Record<string, string> = { en: 'English', fr: 'French', es: 'Spanish', pt: 'Portuguese', de: 'German' };
 
 function system(d: Drawing) {
-  return `You draw for Office Draw. The page is ${d.w} wide and ${d.h} high, (0,0) at the top left. Answer with shapes only.
+  return `You draw for In 1 Draw. The page is ${d.w} wide and ${d.h} high, (0,0) at the top left. Answer with shapes only.
 Each shape: "type" (${KINDS.join(', ')}), its box x, y, w, h in page units, "fill" (a #hex colour or "none"), "color" (the outline or line colour, #hex) and "text" (a short label inside it, or "").
 For "line" and "arrow", the line goes from (x, y) to (x + w, y + h); w or h can be negative. For "text", the words go in "text" and h is the letter height.
 Draw what is asked clearly with 3 to 40 shapes, well spaced inside the page, in pleasant colours. Shapes listed later are drawn on top.`;
@@ -34,12 +34,12 @@ Draw what is asked clearly with 3 to 40 shapes, well spaced inside the page, in 
 
 /** The request as one short readable message, for an AI's public chat site. */
 function chat(d: Drawing, what: string, lang: string) {
-  return `Hello! Please draw "${what}" for my drawing app Office Draw, as simple shapes on a page ${d.w} wide and ${d.h} high ((0,0) top left), labels in ${LANG[lang] ?? 'English'}.
+  return `Hello! Please draw "${what}" for my drawing app In 1 Draw, as simple shapes on a page ${d.w} wide and ${d.h} high ((0,0) top left), labels in ${LANG[lang] ?? 'English'}.
 Answer with only one JSON code block like: {"shapes":[{"type":"rect","x":100,"y":100,"w":300,"h":200,"fill":"#BFD7FF","color":"#2B2D42","text":"Label"}]}
 "type" is one of: ${KINDS.join(', ')}. For line and arrow the line goes from (x,y) to (x+w,y+h).`;
 }
 
-/** The AI's shapes made into Office Draw shapes. */
+/** The AI's shapes made into In 1 Draw shapes. */
 export function shapesFromAnswer(answer: string): Shape[] {
   let raw: unknown;
   try { raw = jsonOf(answer); } catch { raw = jsonOf(answer.replace(/[“”]/g, '"').replace(/,\s*([}\]])/g, '$1')); }

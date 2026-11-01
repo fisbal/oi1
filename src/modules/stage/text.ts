@@ -1,4 +1,4 @@
-// The text inside slide boxes: the editor pieces (TipTap, like Office Letter's, without pages and review),
+// The text inside slide boxes: the editor pieces (TipTap, like In 1 Letter's, without pages and review),
 // and formatting applied to whole boxes when they are selected but not being edited, like PowerPoint does
 // when you select a box and press Bold.
 

@@ -1,4 +1,4 @@
-// Ready drawings for Office Draw: diagrams, plans and cards made offline in one click, every part editable.
+// Ready drawings for In 1 Draw: diagrams, plans and cards made offline in one click, every part editable.
 // Words are in English and French; the other languages are translated on the device when the template is placed.
 
 import type { Geom } from '../../formats/slides';

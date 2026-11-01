@@ -81,7 +81,7 @@ async function run(scheme) {
   page.on('pageerror', e => problems.push(`script error: ${e.message}`));
   page.on('dialog', d => d.accept());
   await page.goto(url);
-  await page.locator('.slab:has-text("Office Letter")').first().click();
+  await page.locator('.slab:has-text("In 1 Letter")').first().click();
   await page.waitForTimeout(1200);
   const host = page.locator('.module-host:not([hidden])');
   const tab = name => host.locator('.ribbon-tabs [role=tab]', { hasText: name }).first().click();

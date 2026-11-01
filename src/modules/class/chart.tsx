@@ -1,5 +1,5 @@
 // Charts drawn over the sheet from a range of cells, as plain SVG: column, bar, line, area, pie, doughnut,
-// scatter and stacked columns. The same drawing becomes a PNG for Office Letter or for saving.
+// scatter and stacked columns. The same drawing becomes a PNG for In 1 Letter or for saving.
 
 import type { Scalar } from '../../formats/formula';
 import { chartLayout } from '../../formats/chartdata';

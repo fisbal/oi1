@@ -1,4 +1,4 @@
-// Office Class "Business / Métiers" tab (Martin, 2026-10-31: "un onglet catégories: Finance, économie, comptabilité…
+// In 1 Class "Business / Métiers" tab (Martin, 2026-10-31: "un onglet catégories: Finance, économie, comptabilité…
 // qui offre pour chaque des outils spécifiques" and "conversion de différentes monnaies du monde"). Checks on PC and
 // phone that a category can be picked, a ready sheet is added with working formulas, the gallery offers 40+ tools and
 // finds one by a word, and the converter turns money with the day's rates (played by the test, so it runs offline).
@@ -34,7 +34,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   page.on('pageerror', e => problems.push(`${name}: script error: ${e.message}`));
   page.on('dialog', d => d.dismiss());
   await page.goto(url);
-  await page.locator('.slab:has-text("Office Class")').first().click();
+  await page.locator('.slab:has-text("In 1 Class")').first().click();
   await page.waitForTimeout(1200);
 
   // 1. The tab and its categories.

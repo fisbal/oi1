@@ -1,4 +1,4 @@
-// Office Class's copilot: Claude sees the selected cells (or the table around the active cell) with their
+// In 1 Class's copilot: Claude sees the selected cells (or the table around the active cell) with their
 // formulas, and its answers go back as a formula in the active cell or as a whole block of cells.
 
 import { FUNCTION_NAMES } from '../../formats/formula';
@@ -48,9 +48,9 @@ export function classCopilot(b: ClassBridge, decimalComma: boolean): CopilotHost
   };
   const table = 'Reply with only the table, as a Markdown table with the same columns, the first row being the header row if the context has one, numbers written plainly with a dot as decimal separator and no thousands separator.';
   return {
-    app: 'Office Class',
+    app: 'In 1 Class',
     role: [
-      'Office Class is a spreadsheet like Excel. Its formulas use Excel syntax with English function names, commas between arguments and A1 references (Sheet2!A1 for other sheets).',
+      'In 1 Class is a spreadsheet like Excel. Its formulas use Excel syntax with English function names, commas between arguments and A1 references (Sheet2!A1 for other sheets).',
       `It knows these functions: ${FUNCTION_NAMES.join(', ')}. Use only these.`,
       'When you give a formula, put it alone in a ```excel code block, starting with =, so it can be put into a cell.',
       `The user types numbers with ${decimalComma ? 'a comma' : 'a dot'} as decimal separator, but inside formulas always write a dot.`,

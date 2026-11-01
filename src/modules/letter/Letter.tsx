@@ -621,7 +621,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     } catch { return null; }
   };
 
-  // ---------- links with Office Class and the other apps ----------
+  // ---------- links with In 1 Class and the other apps ----------
   // Linked tables are live parts: they follow every change made in Class (or any app) and send theirs back.
   useLiveTables(body, title);
   const linkFor = (id: string): HandoffLink => ({ tabId: shell.tabId, id, moduleId: 'letter', title });
@@ -678,7 +678,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [body]);
 
-  // The letter as slides in Office Stage: each heading starts a slide, its paragraphs become the points.
+  // The letter as slides in In 1 Stage: each heading starts a slide, its paragraphs become the points.
   const makeSlides = () => {
     if (!body) return;
     shell.openModule('stage', undefined, { kind: 'html', title, html: body.getHTML() });
@@ -981,7 +981,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       shell.notify(t('letter.pasteWorking'));
       try {
         const answer = await shell.ai.ask({
-          system: 'You transform text pasted into Office Letter, a word processor. Reply with only the resulting text, in Markdown when it has lists, headings or a table.',
+          system: 'You transform text pasted into In 1 Letter, a word processor. Reply with only the resulting text, in Markdown when it has lists, headings or a table.',
           messages: [{ role: 'user', content: `${PASTE_PROMPTS[kind]}\n\n<text>\n${text}\n</text>` }],
         });
         ed.chain().focus().insertContent(markdownToHtml(answer)).run();

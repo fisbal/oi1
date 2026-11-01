@@ -1,6 +1,6 @@
 // Choose your copilot (Martin, 2026-10-31): each person picks the AI behind the copilot (Claude, ChatGPT,
 // Gemini, Microsoft, Mistral, DeepSeek, a local model …), gives their own key, and the copilot answers with it.
-// Used like a person would in Office Letter, on PC and phone. The AI's answer is played back, so the check
+// Used like a person would in In 1 Letter, on PC and phone. The AI's answer is played back, so the check
 // never depends on the network or a real key. Run after `npm run build`:
 //   node scripts/check-copilot.mjs
 import { spawn } from 'node:child_process';
@@ -37,7 +37,7 @@ async function run(name, viewport, mobile) {
   // The public sites are not opened for real: their address is kept to check the request is in it.
   await page.addInitScript(() => { delete window.LanguageModel; window.__opened = []; window.open = u => { window.__opened.push(String(u)); return null; }; });
   await page.goto(url);
-  await page.locator('.slab:has-text("Office Letter")').first().click();
+  await page.locator('.slab:has-text("In 1 Letter")').first().click();
   await page.waitForTimeout(1200);
   await page.locator('.body-text').click();
   await page.keyboard.press('ControlOrMeta+Shift+Space');

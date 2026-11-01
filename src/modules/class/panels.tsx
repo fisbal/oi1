@@ -1,4 +1,4 @@
-// Office Class's floating panels: Find and Replace, the filter menu of a table column, and the
+// In 1 Class's floating panels: Find and Replace, the filter menu of a table column, and the
 // conditional formatting dialog.
 
 import { useEffect, useMemo, useRef, useState } from 'react';

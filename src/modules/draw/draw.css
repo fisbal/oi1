@@ -1,4 +1,4 @@
-/* ---------- Office Draw ---------- */
+/* ---------- In 1 Draw ---------- */
 .draw { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; outline: none; }
 .draw-body { flex: 1; min-height: 0; display: flex; position: relative; }
 .dr-scroll { flex: 1; min-width: 0; overflow: auto; position: relative; background: rgba(var(--fg-rgb), .04); overscroll-behavior: contain; }

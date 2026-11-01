@@ -1,4 +1,4 @@
-// What-if analysis for Office Class, like Excel's Data › What-If Analysis and Solver, and Data Validation:
+// What-if analysis for In 1 Class, like Excel's Data › What-If Analysis and Solver, and Data Validation:
 // - Goal Seek: the value of one cell that makes a formula reach a target.
 // - Scenarios: named sets of values for some cells, shown in turn, compared in a summary sheet.
 // - Solver: the best values of several cells (maximum, minimum or a target) under constraints, with whole-number

@@ -1,4 +1,4 @@
-// Checks Office Assistant like a person would: a task in plain words becomes a plan, then real documents in the
+// Checks In 1 Assistant like a person would: a task in plain words becomes a plan, then real documents in the
 // Offices, linked together (a Class table inside a letter follows a change made in the sheet). Without AI from the
 // built-in recipes; with an AI (Claude's answer played back) from the AI's plan, edited before making it. Also on a
 // phone, upright and sideways, and from the "Je veux…" capsule. Run after `npm run build`:
@@ -36,8 +36,8 @@ const sse = text => ev('message_start', { message: { id: 'msg_1', type: 'message
   + ev('content_block_stop', { index: 0 }) + ev('message_delta', { delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 10 } }) + ev('message_stop', {});
 
 const H = '.module-host:not([hidden])';
-const showTab = (page, app) => page.locator(`nav.tabs .tab[title^="Office ${app}"]`).first().click();
-const tabCount = (page, app) => page.locator(`nav.tabs .tab[title^="Office ${app}"]`).count();
+const showTab = (page, app) => page.locator(`nav.tabs .tab[title^="In 1 ${app}"]`).first().click();
+const tabCount = (page, app) => page.locator(`nav.tabs .tab[title^="In 1 ${app}"]`).count();
 const letterTable = page => page.evaluate(() => [...document.querySelectorAll('.module-host:not([hidden]) table[data-link^="lp_"] td')].map(c => c.textContent.trim()));
 const overflow = page => page.evaluate(() => document.scrollingElement.scrollWidth - window.innerWidth);
 async function clickCell(page, text) {
@@ -47,7 +47,7 @@ async function clickCell(page, text) {
 async function openAssistant(page) {
   await page.goto(url);
   await page.waitForTimeout(400);
-  await page.locator('.slab:has-text("Office Assistant")').first().click();
+  await page.locator('.slab:has-text("In 1 Assistant")').first().click();
   await page.locator('.as').first().waitFor({ timeout: 8000 });
 }
 async function newPage(viewport, locale, mobile, setup) {
@@ -96,7 +96,7 @@ try {
     await page.waitForTimeout(1200);
     cells = await letterTable(page);
     check(cells.some(c => c.replace(/\s/g, '') === '855'), `no AI: a change in the sheet shows in the letter (${cells.slice(-2).join(' | ')})`);
-    await page.locator('nav.tabs .tab[title^="Office Assistant"]').first().click();
+    await page.locator('nav.tabs .tab[title^="In 1 Assistant"]').first().click();
     await page.waitForTimeout(300);
     check(await page.locator('.as-step button:text-is("Ouvrir")').count() === 2, 'no AI: each document has an Open button');
     check(await page.locator('.as-step button:has-text("Enregistrer le PDF")').count() === 1, 'no AI: the PDF can be saved');
@@ -129,7 +129,7 @@ try {
     await page.locator('.as-go').click();
     await page.locator('.as-plan').waitFor({ timeout: 8000 });
     const req = asked[0];
-    check(!!req && req.system.includes('Office Assistant') && !!req.output_config?.format?.schema && req.messages[0].content.includes('garden club'), 'AI: the task goes to the AI with the plan schema');
+    check(!!req && req.system.includes('In 1 Assistant') && !!req.output_config?.format?.schema && req.messages[0].content.includes('garden club'), 'AI: the task goes to the AI with the plan schema');
     check(await page.locator('.as-step').count() === 4, 'AI: the plan has the four documents');
     await page.locator('.as-step').nth(0).locator('.as-name').fill('Garden accounts 2026');
     await page.locator('.as-step').nth(2).locator('.as-check input').uncheck();
@@ -203,7 +203,7 @@ try {
     await page.locator('.web-answer').waitFor({ timeout: 5000 });
     const sent = await page.evaluate(() => window.__opened?.[0] ?? '');
     const q = (() => { try { return new URL(sent).searchParams.get('q') ?? ''; } catch { return ''; } })();
-    check(q.startsWith('Hello! I use Office In 1') && q.includes('poème sur la mer') && !q.includes('You are Office Assistant') && sent.length < 7000,
+    check(q.startsWith('Hello! I use Office In 1') && q.includes('poème sur la mer') && !q.includes('You are In 1 Assistant') && sent.length < 7000,
       `${n}: the site gets one short readable message in the address (${sent.length} characters)`);
     if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/wa-${d.name.replace(/ /g, '-')}.png` });
     const paste = await page.locator('.web-answer button.primary').boundingBox();

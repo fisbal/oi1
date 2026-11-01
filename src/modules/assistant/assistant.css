@@ -1,4 +1,4 @@
-/* Office Assistant in the scene look: dark glass, gold light, the app's violet for its own mark. */
+/* In 1 Assistant in the scene look: dark glass, gold light, the app's violet for its own mark. */
 
 .as { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; color: var(--ink); background: var(--scene-gradient, var(--bg)); }
 .as-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 24px 16px 40px; -webkit-overflow-scrolling: touch; }

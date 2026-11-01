@@ -1,4 +1,4 @@
-// Reads a Word .docx file into Office Letter's document (see ../model.ts).
+// Reads a Word .docx file into In 1 Letter's document (see ../model.ts).
 //
 // A .docx is a zip of XML files (the Office Open XML standard, ECMA-376). We read document.xml for the
 // text, styles.xml for the look, numbering.xml for lists, the theme for fonts and colors, and the

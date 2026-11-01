@@ -26,7 +26,7 @@ for (const [device, viewport, mobile] of [['PC', { width: 1440, height: 900 }, f
     const page = await ctx.newPage();
     page.on('pageerror', e => problems.push(`${device} ${app}: script error: ${e.message}`));
     await page.goto(url);
-    await page.locator(`.slab:has-text("Office ${app}")`).first().click();
+    await page.locator(`.slab:has-text("In 1 ${app}")`).first().click();
     await page.waitForTimeout(1500);
     const name = `${device} ${app}`;
     const area = page.locator(`${H} ${AREA[app]}`).first();

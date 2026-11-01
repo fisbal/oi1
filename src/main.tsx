@@ -13,7 +13,7 @@ watchStaleBuild();
 const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 if (iOS) document.querySelector('meta[name=viewport]')?.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover');
 
-// A "#run=…" link (the QR code in Office Code+) shows only the project it carries.
+// A "#run=…" link (the QR code in In 1 Code+) shows only the project it carries.
 if (location.hash.startsWith('#run=')) void import('./modules/code/runner').then(m => m.startRunner(location.hash.slice(5)));
 else createRoot(document.getElementById('root')!).render(<App />);
 

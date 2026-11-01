@@ -103,7 +103,7 @@ export interface ShellApi {
   ask(tabId: string, want: 'table'): Promise<Handoff | null>;
   /** Answer what other tabs ask for. Returns a function that stops answering. */
   onAsk(fn: (want: 'table', from: string) => Handoff | null | Promise<Handoff | null>): () => void;
-  /** Show a short message at the bottom of the screen, like "Table sent to Office Class". */
+  /** Show a short message at the bottom of the screen, like "Table sent to In 1 Class". */
   notify(message: string): void;
   /**
    * Receive what other apps hand to this tab; `from` is the sending tab. Return true when it was used.
@@ -177,7 +177,7 @@ export interface HandoffLink {
   /** The sender's app and title, to show "Linked to …". */
   moduleId: string;
   title: string;
-  /** Office Class: the sheet that holds the linked table. */
+  /** In 1 Class: the sheet that holds the linked table. */
   sheet?: string;
 }
 

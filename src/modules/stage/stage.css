@@ -1,4 +1,4 @@
-/* Office Stage in the scene look: slide thumbnails on the left, the slide on a soft charcoal stage, notes below. */
+/* In 1 Stage in the scene look: slide thumbnails on the left, the slide on a soft charcoal stage, notes below. */
 .stage { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
 .stage-body { flex: 1; min-height: 0; display: flex; }
 .stage-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }

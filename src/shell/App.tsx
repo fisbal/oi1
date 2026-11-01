@@ -9,7 +9,7 @@ import { CloudPanel, useCloud } from './CloudPanel';
 import { LANGUAGES, getLanguage, setLanguage, t, type LanguageCode } from './i18n';
 import { findUpdate, type AppUpdate } from './update';
 import { isStaleBuild, reloadToNewVersion, takeReopenAfterUpdate } from './staleBuild';
-import { moduleForFile, modules } from './modules';
+import { moduleForFile, modules, shortName } from './modules';
 import { addRecent, listRecent, onRecentChange, openRecent, removeRecent } from './recent';
 import { Backdrop, BrandMark, SceneArt, Wordmark, useTilt } from './Scene';
 import { store } from './storage';
@@ -224,7 +224,7 @@ export default function App() {
   const activeIdRef = useRef(activeId);
   activeIdRef.current = activeId;
 
-  // "Je veux…" hands a task to Office Assistant: its open tab takes it, or a new one opens with it.
+  // "Je veux…" hands a task to In 1 Assistant: its open tab takes it, or a new one opens with it.
   useEffect(() => {
     const on = (e: Event) => {
       const words = String((e as CustomEvent).detail ?? '');
@@ -455,7 +455,7 @@ export default function App() {
               <button key={m.id} className="launcher-app" disabled={!m.load} onClick={() => { setLauncher(false); void openModule(m.id); }}
                 title={m.load ? m.name : `${m.name} (${t('home.soon')})`}>
                 <SceneArt app={m.id} accent={m.color} />
-                <span>{m.name.replace('Office ', '')}</span>
+                <span>{shortName(m.name)}</span>
                 {!m.load && <small>{t('home.soon')}</small>}
               </button>
             ))}
@@ -490,7 +490,7 @@ export default function App() {
                     return (
                       <li key={r.id} style={{ '--accent': entry?.color } as CSSProperties}>
                         <button className="recent-open" onClick={() => void openRecentFile(r)} title={r.name}>
-                          <span className="badge">{entry?.name.split(' ')[1][0]}</span>
+                          <span className="badge">{entry ? shortName(entry.name)[0] : ''}</span>
                           <span className="recent-name">{r.name}</span>
                           <span className="recent-time">{timeAgo(r.time)}</span>
                         </button>
@@ -507,6 +507,13 @@ export default function App() {
               {modules.map((m, i) => <AppTile key={m.id} index={i} name={m.name} kind={t(m.kind)} id={m.id} color={m.color}
                 ready={!!m.load} onOpen={() => void openModule(m.id)} />)}
             </div>
+            <footer className="home-legal">
+              <a href="./terms.html" target="_blank" rel="noopener">{t('home.terms')}</a>
+              <span aria-hidden="true">·</span>
+              <a href="./privacy.html" target="_blank" rel="noopener">{t('home.privacy')}</a>
+              <span aria-hidden="true">·</span>
+              <span>{t('home.notAffiliated')}</span>
+            </footer>
           </div>
         </section>
         {tabs.map(tab => (

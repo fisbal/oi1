@@ -3,7 +3,7 @@ import type { OI1Module } from '../../shell/contract';
 import Class, { EXTENSIONS } from './Class';
 import './class.css';
 
-// Office Class: the spreadsheet, with OI1's own formula engine and .xlsx reader and writer.
+// In 1 Class: the spreadsheet, with OI1's own formula engine and .xlsx reader and writer.
 const sheetApp: OI1Module = {
   id: 'class',
   extensions: EXTENSIONS,

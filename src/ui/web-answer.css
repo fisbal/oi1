@@ -1,5 +1,5 @@
 /* Bringing an answer back from the AI's public site. Loaded with the app shell (not with the copilot panel, which
-   loads later): the card shows before the copilot was ever opened, for example from Office Assistant. */
+   loads later): the card shows before the copilot was ever opened, for example from In 1 Assistant. */
 .web-answer {
   position: fixed; z-index: 60; right: 16px; bottom: 16px; width: min(380px, calc(100vw - 32px)); padding: 12px 14px; border-radius: 14px;
   background: rgba(var(--bg-rgb), .97); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 14px 40px rgba(0, 0, 0, .25);

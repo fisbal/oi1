@@ -7,7 +7,7 @@ const pen = (points: number[]): PathShape => ({ id: 'p', kind: 'path', points, f
 const ring = (cx: number, cy: number, rx: number, ry: number, n = 25, wobble = 0) =>
   Array.from({ length: n }, (_, i) => [cx + rx * Math.cos((i / (n - 1)) * Math.PI * 2) * (1 + (i % 3) * wobble), cy + ry * Math.sin((i / (n - 1)) * Math.PI * 2)]).flat();
 
-describe('Office Draw model', () => {
+describe('In 1 Draw model', () => {
   it('has 20+ choices in every list', () => {
     for (const list of [SIZES, PAPERS, PALETTES, STICKERS, TEMPLATES]) expect(list.length).toBeGreaterThanOrEqual(20);
   });

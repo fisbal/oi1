@@ -1,4 +1,4 @@
-// Ready-to-fill letters for Office Letter's "Doc adm/Mil" tab: administrative, government and military letters
+// Ready-to-fill letters for In 1 Letter's "Doc adm/Mil" tab: administrative, government and military letters
 // (professional) and everyday letters (normal), in French and English. Words in [brackets] are fields to fill;
 // {date} becomes today's date. A small markup keeps them short (see markup.ts):
 //   # title   ## heading   ! bold line   > right-aligned line   - bullet   --- signature line   blank line = space

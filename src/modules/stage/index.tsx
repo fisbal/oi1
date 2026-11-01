@@ -3,7 +3,7 @@ import type { OI1Module } from '../../shell/contract';
 import Stage, { EXTENSIONS } from './Stage';
 import './stage.css';
 
-// Office Stage: presentations, with OI1's own .pptx reader and writer.
+// In 1 Stage: presentations, with OI1's own .pptx reader and writer.
 const stageApp: OI1Module = {
   id: 'stage',
   extensions: EXTENSIONS,

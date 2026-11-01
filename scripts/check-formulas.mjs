@@ -1,4 +1,4 @@
-// Office Class knows Excel's functions (Martin, 2026-10-31: "le nôtre ne rivalise pas Excel en outils"): 440+ of
+// In 1 Class knows Excel's functions (Martin, 2026-10-31: "le nôtre ne rivalise pas Excel en outils"): 440+ of
 // them, by category like Excel's Formulas tab, an "Insert function" window that finds them by name or by what they do,
 // and =DEVISE() for the money of the world (rates played by the test, so it runs offline). On PC and phone.
 // Run after `npm run build`:
@@ -20,7 +20,7 @@ const cellTexts = page => page.evaluate(() => [...document.querySelectorAll('.mo
 
 async function openClass(page) {
   await page.goto(url);
-  await page.locator('.slab:has-text("Office Class")').first().click();
+  await page.locator('.slab:has-text("In 1 Class")').first().click();
   await page.waitForTimeout(1200);
 }
 async function typeAt(page, x, y, text) {

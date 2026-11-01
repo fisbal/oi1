@@ -1,5 +1,5 @@
 // Animations on a slide, like PowerPoint's Animations tab: items come in, get attention or leave, one click after
-// another, by word or by letter for text. Office Stage adds looping effects (a sticker that keeps bouncing) and
+// another, by word or by letter for text. In 1 Stage adds looping effects (a sticker that keeps bouncing) and
 // stickers made of animated emojis and words. The order lives on the slide (slide.anims); the show plays it.
 
 import { newId, type Anim, type AnimEffect, type AnimKind, type Deck, type Item, type ShapeItem, type Slide } from '../../formats/slides';

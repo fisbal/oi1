@@ -1,4 +1,4 @@
-// References in Office Letter (Martin, 2026-10-31: APA rules in French, "si tu connais d'autres modèles alors un onglet
+// References in In 1 Letter (Martin, 2026-10-31: APA rules in French, "si tu connais d'autres modèles alors un onglet
 // modèle"). Checks on PC and phone, in French, like a person: the Models window shows the layout rules and a model per
 // type of document for every style, the French APA uses et / Dans / dir. / p. / s. d., "Use this model" opens the source
 // window for that type, the citation and the bibliography follow APA (alphabetical, 1.27 cm hanging indent, double
@@ -25,7 +25,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   page.on('pageerror', e => problems.push(`${name}: script error: ${e.message}`));
   await page.addInitScript(() => { if (!sessionStorage.getItem('set')) { localStorage.setItem('oi1:language', 'fr'); sessionStorage.setItem('set', '1'); } });
   await page.goto(url);
-  await page.locator('.slab:has-text("Office Letter")').first().click();
+  await page.locator('.slab:has-text("In 1 Letter")').first().click();
   await page.waitForTimeout(1500);
   await page.locator(BODY).first().click();
   await page.keyboard.type('Selon les auteurs ');

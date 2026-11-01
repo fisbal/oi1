@@ -1,4 +1,4 @@
-// Office Assistant without any AI: 24 everyday tasks it knows how to make on its own, as ready plans with real
+// In 1 Assistant without any AI: 24 everyday tasks it knows how to make on its own, as ready plans with real
 // content (English and French; the other languages are translated on the device when the browser can, else English).
 // The same 24 tasks are the idea cards on the Assistant's home screen; with an AI, a card asks the AI instead.
 

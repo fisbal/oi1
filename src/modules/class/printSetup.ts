@@ -1,4 +1,4 @@
-// Printing in Office Class, like Excel and further (Martin, 2026-11-01: "plusieurs types d'impression (cellule, page,
+// Printing in In 1 Class, like Excel and further (Martin, 2026-11-01: "plusieurs types d'impression (cellule, page,
 // sélection, colonne…)"). What to print (the sheet, the selection, the active cell, whole columns or rows, the page of
 // the active cell, the print area, the visible cells or the whole workbook), on which paper, which way, how big, with
 // grid lines, A/1 headings, rows repeated on every page and a header and footer. The pages are cut here, not by the

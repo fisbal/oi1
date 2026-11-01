@@ -1,4 +1,4 @@
-// Office Code+: write websites and apps in the browser, see them run as you type (also at phone size),
+// In 1 Code+: write websites and apps in the browser, see them run as you type (also at phone size),
 // keep them on GitHub and publish them on GitHub Pages, all without installing anything.
 
 import { snippet } from '@codemirror/autocomplete';
@@ -1430,7 +1430,7 @@ function Start({ onPick, onOpen, onFolder, onGitHub }: { onPick: (tpl: Template)
   return (
     <div className="code-start">
       <div className="code-start-inner">
-        <span className="kicker">Office Code+</span>
+        <span className="kicker">In 1 Code+</span>
         <h1>{t('code.startTitle')}</h1>
         <p className="muted">{t('code.startSub')}</p>
         <TemplateGrid onPick={onPick} />

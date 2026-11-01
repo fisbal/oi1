@@ -1,4 +1,4 @@
-// Office Letter's smart tools, the ones Word hides or does not have: linked tables with Office Class,
+// In 1 Letter's smart tools, the ones Word hides or does not have: linked tables with In 1 Class,
 // one-click clean up, sorting, text to table, a table of contents, callouts, letter blocks and QR codes.
 
 import type { Editor, JSONContent } from '@tiptap/core';
@@ -6,7 +6,7 @@ import type { Node as PMNode } from '@tiptap/pm/model';
 import type { TableData } from '../../shell/contract';
 import { t } from '../../shell/i18n';
 
-// ---------- tables shared with Office Class ----------
+// ---------- tables shared with In 1 Class ----------
 
 /** The table around the cursor and where it starts, or null. */
 export function tableAt(editor: Editor): { node: PMNode; pos: number } | null {

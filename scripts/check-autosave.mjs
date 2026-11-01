@@ -47,9 +47,9 @@ for (const { app, ext, type } of APPS) {
   page.on('pageerror', e => problems.push(`${app}: script error: ${e.message}`));
   page.on('dialog', d => d.dismiss());
   await page.goto(url);
-  await page.locator(`.slab:has-text("Office ${app}")`).first().click();
+  await page.locator(`.slab:has-text("In 1 ${app}")`).first().click();
   await page.waitForTimeout(1200);
-  check((await page.locator('.app-frame:not([hidden]) .app-name').innerText()) === `Office ${app}`, `${app}: the app bar names the app`);
+  check((await page.locator('.app-frame:not([hidden]) .app-name').innerText()) === `In 1 ${app}`, `${app}: the app bar names the app`);
 
   // 1. Every change is kept on the device, and the app bar says so.
   await type(page);
@@ -86,7 +86,7 @@ for (const { app, ext, type } of APPS) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-US', isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
   await page.goto(url);
-  await page.locator('.slab:has-text("Office Letter")').first().click();
+  await page.locator('.slab:has-text("In 1 Letter")').first().click();
   await page.waitForTimeout(1200);
   await page.locator('.body-text').click();
   await page.keyboard.type('Kept after reload', { delay: 10 });

@@ -64,7 +64,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   await page.goto(url);
 
   // ---------- Letter ----------
-  await page.locator('.slab:has-text("Office Letter")').first().click();
+  await page.locator('.slab:has-text("In 1 Letter")').first().click();
   await page.waitForTimeout(1500);
   const text = page.locator(`${H} .sheet .ProseMirror:not(.header-text):not(.footer-text)`).first();
   await text.click();
@@ -78,7 +78,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   check(n >= 25, `${name}: Letter: the Convert tab has 20+ choices (${n})`);
   const sw = await page.evaluate(() => document.documentElement.scrollWidth);
   check(sw <= viewport.width, `${name}: Letter: no sideways scroll (${sw}px)`);
-  check(await target(page, 'Office Letter').count() === 0 && await target(page, 'Office Class').count() === 1, `${name}: Letter: the other Offices are offered, not Letter itself`);
+  check(await target(page, 'In 1 Letter').count() === 0 && await target(page, 'In 1 Class').count() === 1, `${name}: Letter: the other Offices are offered, not Letter itself`);
 
   const md = await download(page, 'Markdown (.md)', `${name}: Letter`);
   check(!!md && /roses grew well/.test(md.text) && /Garden report/.test(md.text), `${name}: Letter → Markdown has the text (${md?.text.slice(0, 40).replace(/\n/g, ' ')})`);
@@ -93,11 +93,11 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   const pdf = await download(page, 'PDF (exact look)', `${name}: Letter`);
   check(!!pdf && pdf.text.startsWith('%PDF'), `${name}: Letter → PDF (exact look) is a PDF`);
 
-  // To Office Class: a new Class tab opens.
+  // To In 1 Class: a new Class tab opens.
   const before = (await tabsNow(page)).length;
-  await target(page, 'Office Stage').click();
+  await target(page, 'In 1 Stage').click();
   await page.waitForTimeout(2000);
-  check((await tabsNow(page)).length === before + 1 && await page.locator(`${H} .st-slide`).count() > 0, `${name}: Letter → Office Stage opens a deck`);
+  check((await tabsNow(page)).length === before + 1 && await page.locator(`${H} .st-slide`).count() > 0, `${name}: Letter → In 1 Stage opens a deck`);
   const deckText = await page.locator(`${H} .st-thumbs, ${H} .st-side, ${H}`).first().innerText().catch(() => '');
   check(/Garden report/.test(deckText), `${name}: the deck has the letter's title`);
 
@@ -113,7 +113,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   // ---------- Class ----------
   await page.locator('.tab-new').click().catch(() => {});
   await page.waitForTimeout(200);
-  await page.locator('.slab:has-text("Office Class")').first().click();
+  await page.locator('.slab:has-text("In 1 Class")').first().click();
   await page.waitForTimeout(1200);
   for (const [ref, v] of [['A1', 'Fruit'], ['B1', 'Price'], ['A2', 'Apple'], ['B2', '2'], ['A3', 'Pear'], ['B3', '3'], ['B4', '=SUM(B2:B3)']]) {
     const box = page.locator(`${H} .name-box`);
@@ -129,9 +129,9 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   const xlsx = await download(page, 'Excel (.xlsx)', `${name}: Class`);
   if (xlsx) { const z = await JSZip.loadAsync(xlsx.buf); check(/SUM\(B2:B3\)/.test(await z.file('xl/worksheets/sheet1.xml')?.async('string') ?? ''), `${name}: Class → Excel keeps the formula`); }
   const n2 = (await tabsNow(page)).length;
-  await target(page, 'Office Letter').click();
+  await target(page, 'In 1 Letter').click();
   await page.waitForTimeout(2000);
-  check((await tabsNow(page)).length === n2 + 1 && /Pear/.test(await page.locator(`${H} .sheet`).first().innerText().catch(() => '')), `${name}: Class → Office Letter opens a letter with the table`);
+  check((await tabsNow(page)).length === n2 + 1 && /Pear/.test(await page.locator(`${H} .sheet`).first().innerText().catch(() => '')), `${name}: Class → In 1 Letter opens a letter with the table`);
 
   // ---------- Translation: the result, the document, the original ----------
   await openTab(page);
@@ -183,7 +183,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   // ---------- Code+ ----------
   await page.locator('.tab-new').click().catch(() => {});
   await page.waitForTimeout(200);
-  await page.locator('.slab:has-text("Office Code+")').first().click();
+  await page.locator('.slab:has-text("In 1 Code+")').first().click();
   await page.waitForTimeout(1500);
   await openTab(page);
   const cn = await page.locator(`${H} .ribbon-panel button`).count();

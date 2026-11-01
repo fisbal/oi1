@@ -1,4 +1,4 @@
-// Tuto explanations for Office Stage. [English, French]: what it does, then how to use it.
+// Tuto explanations for In 1 Stage. [English, French]: what it does, then how to use it.
 import type { HelpText } from './help';
 
 export const HELP_STAGE: Record<string, HelpText> = {
@@ -17,7 +17,7 @@ export const HELP_STAGE: Record<string, HelpText> = {
   'stage.outline': ['Sets the colour, thickness and dashes of the selected shape’s outline.', 'Règle la couleur, l’épaisseur et les tirets du contour de la forme choisie.'],
   'stage.arrange': ['Puts the selected shape in front of or behind the others, aligns several shapes or spaces them evenly.', 'Place la forme devant ou derrière les autres, aligne plusieurs formes ou les espace également.'],
   // Insert
-  'stage.fromClass': ['Puts a table from an open Office Class sheet on the slide. Choose the sheet in the list.', 'Met sur la diapositive un tableau d’une feuille Office Class ouverte. Choisissez la feuille dans la liste.'],
+  'stage.fromClass': ['Puts a table from an open In 1 Class sheet on the slide. Choose the sheet in the list.', 'Met sur la diapositive un tableau d’une feuille In 1 Class ouverte. Choisissez la feuille dans la liste.'],
   'stage.textBox': ['Adds a free box of text. Click where it goes, then type.', 'Ajoute une zone de texte libre. Cliquez à l’endroit voulu puis tapez.'],
   'stage.wordart': ['Adds a decorative title (shadow, gradient, outline…). Pick a style, then type your words.', 'Ajoute un titre décoratif (ombre, dégradé, contour…). Choisissez un style puis tapez vos mots.'],
   'stage.diagrams': ['Adds a ready diagram: steps, cycle, pyramid, timeline, comparison… Then change its texts.', 'Ajoute un diagramme prêt : étapes, cycle, pyramide, frise, comparaison… Changez ensuite ses textes.'],
@@ -56,5 +56,5 @@ export const HELP_STAGE: Record<string, HelpText> = {
   'stage.fit': ['Zooms so the whole slide fits the window.', 'Zoome pour que toute la diapositive tienne dans la fenêtre.'],
   // Office In 1
   'stage.toLetter': ['Writes the outline of the presentation (titles, points and notes) into a Letter document.', 'Écrit le plan de la présentation (titres, points et notes) dans un document Letter.'],
-  'stage.tableToClass': ['Opens the selected table in Office Class to work on its numbers, then bring it back.', 'Ouvre le tableau choisi dans Office Class pour travailler ses chiffres, puis le ramener.'],
+  'stage.tableToClass': ['Opens the selected table in In 1 Class to work on its numbers, then bring it back.', 'Ouvre le tableau choisi dans In 1 Class pour travailler ses chiffres, puis le ramener.'],
 };

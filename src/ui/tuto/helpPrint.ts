@@ -1,4 +1,4 @@
-// Tuto explanations for printing in Office Class (Page Layout tab and the Print window). [English, French].
+// Tuto explanations for printing in In 1 Class (Page Layout tab and the Print window). [English, French].
 import type { HelpText } from './help';
 
 export const HELP_PRINT: Record<string, HelpText> = {

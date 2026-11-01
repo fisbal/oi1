@@ -1,4 +1,4 @@
-// Outlines of Office Stage's shapes, as SVG paths in a w x h box. They follow PowerPoint's preset shapes
+// Outlines of In 1 Stage's shapes, as SVG paths in a w x h box. They follow PowerPoint's preset shapes
 // (same names and default proportions), so a shape keeps its look in a .pptx.
 
 import type { Geom } from '../../formats/slides';

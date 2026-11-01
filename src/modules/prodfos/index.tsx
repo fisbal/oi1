@@ -1,7 +1,7 @@
 import type { OI1Module } from '../../shell/contract';
 import { getLanguage, onLanguageChange, t } from '../../shell/i18n';
 
-// Office ProDFos: the PDF module. ProDFos is its own Flutter app (github.com/fisbal/prodfos);
+// In 1 ProDFos: the PDF module. ProDFos is its own Flutter app (github.com/fisbal/prodfos);
 // OI1 shows its published web version inside the tab.
 const PRODFOS_URL = 'https://fisbal.github.io/prodfos/';
 
@@ -15,7 +15,7 @@ const prodfos: OI1Module = {
     const note = document.createElement('span');
     const link = Object.assign(document.createElement('a'), { href: PRODFOS_URL, target: '_blank', rel: 'noopener' });
     bar.append(note, link);
-    const frame = Object.assign(document.createElement('iframe'), { className: 'embed', src: `${PRODFOS_URL}?lang=${getLanguage()}`, title: 'Office ProDFos' });
+    const frame = Object.assign(document.createElement('iframe'), { className: 'embed', src: `${PRODFOS_URL}?lang=${getLanguage()}`, title: 'In 1 ProDFos' });
     frame.allow = 'clipboard-read; clipboard-write; fullscreen';
     el.append(bar, frame);
     // ProDFos speaks the same 5 languages: it opens in OI1's language and switches when OI1's language changes.

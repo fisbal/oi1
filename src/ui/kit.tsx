@@ -120,7 +120,7 @@ const ICONS: Record<string, ReactNode> = {
   texttable: <>{P('M1 3h6M1 6h6M1 9h4M9 3h6v10H9zM9 8h6M12 3v10')}</>,
   signature: <>{P('M1 12c2-4 3-8 4-8s-1 7 1 7 2-5 3-5-0 4 1 4 2-2 3-2M1 14.5h14')}</>,
   envelope: <>{P('M1 3h14v10H1zM1 3l7 6 7-6')}</>,
-  // Office Class
+  // In 1 Class
   sum: <>{P('M12 3H4l4.5 5L4 13h8')}</>,
   currency: <>{P('M11.5 4.5A4 4 0 1 0 11.5 11.5M2.5 7h6M2.5 9h6')}</>,
   percent: <>{P('M13 3 3 13M4.5 6a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM11.5 13a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z')}</>,
@@ -131,7 +131,7 @@ const ICONS: Record<string, ReactNode> = {
   inscol: <>{P('M2 2h4v12H2zM10 2h4v12h-4zM8 6.5v3M6.5 8h3')}</>,
   chart: <>{P('M2 14h12M4 14V8M7 14V4M10 14V9M13 14V6')}</>,
   freeze: <>{P('M2 2h12v12H2zM2 5.5h12M5.5 2v12')}</>,
-  // Office Code+
+  // In 1 Code+
   play: <>{P('M4.5 2.5v11l9-5.5z')}</>,
   folder: <>{P('M1.5 13V3.5h4.5l1.5 2h7V13z')}</>,
   file: <>{P('M3.5 1.5h6l3 3v10h-9zM9.5 1.5v3h3')}</>,

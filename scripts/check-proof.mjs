@@ -1,5 +1,5 @@
 // Spelling, grammar and style (Martin, 2026-10-31): while typing, mistakes get a wavy underline in the language
-// of each paragraph, and a bubble offers the fix. Used like a person would, in Office Letter and Office Stage,
+// of each paragraph, and a bubble offers the fix. Used like a person would, in In 1 Letter and In 1 Stage,
 // on PC and phone. Grammar normally asks LanguageTool online; here its answer is played back, so the check
 // never depends on the network. Run after `npm run build`:
 //   node scripts/check-proof.mjs
@@ -37,7 +37,7 @@ async function open(name, viewport, mobile, app) {
   page.on('dialog', d => d.dismiss());
   await page.route('https://api.languagetool.org/**', fakeGrammar);
   await page.goto(url);
-  await page.locator(`.slab:has-text("Office ${app}")`).first().click();
+  await page.locator(`.slab:has-text("In 1 ${app}")`).first().click();
   await page.waitForTimeout(1200);
   return { ctx, page };
 }

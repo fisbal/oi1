@@ -1,4 +1,4 @@
-// Checks Office Draw like a person would, on every kind of screen (rule 16): a phone upright and sideways, a tablet
+// Checks In 1 Draw like a person would, on every kind of screen (rule 16): a phone upright and sideways, a tablet
 // both ways, a Windows PC and a Mac. Drawing with the pen, a shape, moving and resizing it with the handles, undo,
 // typing a text, a ready drawing, "Tidy" (a sketched circle becomes a clean ellipse), the layers, the page fits the
 // screen with no sideways scrolling, and "Draw with AI": with an AI key (Claude's answer played back) and with the
@@ -62,7 +62,7 @@ async function tab(page, label) { await page.locator(`${D} .ribbon-tabs button:t
 async function openDraw(page) {
   await page.goto(url);
   await page.waitForTimeout(400);
-  await page.locator('.slab:has-text("Office Draw")').first().click();
+  await page.locator('.slab:has-text("In 1 Draw")').first().click();
   await page.locator(`${D} .dr-page`).waitFor({ timeout: 10000 });
   await page.waitForTimeout(300);
 }
@@ -214,7 +214,7 @@ try {
     await page.locator('.dr-ai textarea').press('Enter');
     await page.locator('.web-answer').waitFor({ timeout: 5000 });
     const sent = await page.evaluate(() => window.__opened?.[0] ?? '');
-    check(sent.includes('claude.ai') && sent.length < 7000 && decodeURIComponent(sent).includes('Office Draw'), `${n}: Claude's site gets one short message (${sent.length} characters)`);
+    check(sent.includes('claude.ai') && sent.length < 7000 && decodeURIComponent(sent).includes('In 1 Draw'), `${n}: Claude's site gets one short message (${sent.length} characters)`);
     const card = await page.locator('.web-answer').boundingBox();
     check(!!card && card.x >= 0 && card.x + card.width <= d.viewport.width + 1, `${n}: the Paste card is on screen`);
     await page.locator('.web-answer textarea').fill('Voici :\n```json\n' + JSON.stringify(SHAPES) + '\n```');

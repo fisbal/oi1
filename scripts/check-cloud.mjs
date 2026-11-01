@@ -96,7 +96,7 @@ async function connect(page, where) {
   for (const { app, ext, magic, type } of APPS) {
     await page.locator('.tab-new').first().click().catch(() => {});
     await page.waitForTimeout(300);
-    await page.locator(`.slab:has-text("Office ${app}")`).first().click();
+    await page.locator(`.slab:has-text("In 1 ${app}")`).first().click();
     await page.waitForTimeout(1200);
     const before = gh.puts.length;
     await type(page);
@@ -144,7 +144,7 @@ async function connect(page, where) {
   const page = await ctx.newPage();
   page.on('pageerror', e => problems.push(`Phone: script error: ${e.message}`));
   await page.goto(url);
-  await page.locator('.slab:has-text("Office Letter")').first().click();
+  await page.locator('.slab:has-text("In 1 Letter")').first().click();
   await page.waitForTimeout(1200);
   const bar = await page.locator('.app-frame:not([hidden]) .app-bar').boundingBox();
   check(!!bar && bar.width <= 391, 'Phone: the app bar with the cloud button fits the screen');

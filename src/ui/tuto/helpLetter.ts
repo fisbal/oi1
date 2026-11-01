@@ -1,4 +1,4 @@
-// Tuto explanations for Office Letter (and the proofing tools shared with Stage). [English, French].
+// Tuto explanations for In 1 Letter (and the proofing tools shared with Stage). [English, French].
 import type { HelpText } from './help';
 
 export const HELP_LETTER: Record<string, HelpText> = {
@@ -27,9 +27,9 @@ export const HELP_LETTER: Record<string, HelpText> = {
   // Insert
   'letter.table': ['Inserts a table: choose the number of rows and columns on the grid.', 'Insère un tableau : choisissez le nombre de lignes et de colonnes sur la grille.'],
   'letter.textToTable': ['Turns lines separated by tabs, commas or semicolons into a table.', 'Transforme des lignes séparées par des tabulations, virgules ou points-virgules en tableau.'],
-  'letter.fromClass': ['Brings in a table from Office Class, kept in step with the sheet.', 'Importe un tableau d’Office Class, lié à la feuille.'],
-  'letter.editInClass': ['Opens this table in Office Class to calculate with formulas; the letter follows.', 'Ouvre ce tableau dans Office Class pour calculer avec des formules ; la lettre suit.'],
-  'letter.newSheet': ['Creates a new Office Class sheet from this table.', 'Crée une nouvelle feuille Office Class à partir de ce tableau.'],
+  'letter.fromClass': ['Brings in a table from In 1 Class, kept in step with the sheet.', 'Importe un tableau d’In 1 Class, lié à la feuille.'],
+  'letter.editInClass': ['Opens this table in In 1 Class to calculate with formulas; the letter follows.', 'Ouvre ce tableau dans In 1 Class pour calculer avec des formules ; la lettre suit.'],
+  'letter.newSheet': ['Creates a new In 1 Class sheet from this table.', 'Crée une nouvelle feuille In 1 Class à partir de ce tableau.'],
   'letter.image': ['Adds a picture from your device. Drag its corners to resize it.', 'Ajoute une image de votre appareil. Tirez ses coins pour la redimensionner.'],
   'letter.callout': ['Adds a coloured box to make a note, tip or warning stand out.', 'Ajoute un encadré coloré pour faire ressortir une note, un conseil ou un avertissement.'],
   'letter.horizontalLine': ['Draws a line across the page to separate parts.', 'Trace une ligne sur toute la largeur pour séparer des parties.'],
@@ -113,7 +113,7 @@ export const HELP_LETTER: Record<string, HelpText> = {
   'letter.docs.aiFill': ['Lets the AI fill the [fields] from what you tell it.', 'Laisse l’IA remplir les [champs] à partir de ce que vous lui dites.'],
   'letter.docs.aiWrite': ['Describe any letter and the AI writes it for you.', 'Décrivez n’importe quelle lettre et l’IA l’écrit pour vous.'],
   // Office In 1
-  'letter.makeSlides': ['Turns the headings and paragraphs into an Office Stage presentation.', 'Transforme les titres et paragraphes en présentation Office Stage.'],
+  'letter.makeSlides': ['Turns the headings and paragraphs into an In 1 Stage presentation.', 'Transforme les titres et paragraphes en présentation In 1 Stage.'],
   'letter.savePdf': ['Saves the letter as a PDF file, ready to send.', 'Enregistre la lettre en PDF, prête à envoyer.'],
   'letter.openProdfos': ['Opens the document in ProDFos to sign, annotate or merge PDFs.', 'Ouvre le document dans ProDFos pour signer, annoter ou fusionner des PDF.'],
   'letter.share': ['Shares the document by e-mail, messaging or another app.', 'Partage le document par courriel, messagerie ou une autre app.'],

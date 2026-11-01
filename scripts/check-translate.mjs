@@ -47,7 +47,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   await page.goto(url);
 
   // Letter.
-  await page.locator('.slab:has-text("Office Letter")').first().click();
+  await page.locator('.slab:has-text("In 1 Letter")').first().click();
   await page.waitForTimeout(1500);
   await page.locator(`${H} .sheet .ProseMirror:not(.header-text):not(.footer-text)`).first().click();
   await page.keyboard.type('Bonjour le monde');
@@ -106,7 +106,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
 
   // Class: words change, formulas and numbers do not.
   await page.locator('.tab-new').click();
-  await page.locator('.slab:has-text("Office Class")').first().click();
+  await page.locator('.slab:has-text("In 1 Class")').first().click();
   await page.waitForTimeout(1500);
   const area = await page.locator(`${H} .cells-area`).boundingBox();
   for (const [i, v] of ['Ventes', '=1+1', '12'].entries()) { await page.mouse.click(area.x + 60, area.y + 12 + i * 24); await page.keyboard.type(v); await page.keyboard.press('Enter'); }
@@ -137,7 +137,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   let popups = 0;
   ctx.on('page', () => { popups++; });
   await page.goto(url);
-  await page.locator('.slab:has-text("Office Letter")').first().click();
+  await page.locator('.slab:has-text("In 1 Letter")').first().click();
   await page.waitForTimeout(1500);
   const body = page.locator(`${H} .sheet .ProseMirror:not(.header-text):not(.footer-text)`).first();
   await body.click();

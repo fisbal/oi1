@@ -1,5 +1,5 @@
-// Office Class: the spreadsheet. A grid of cells with formulas, number formats and several sheets,
-// saved as Excel .xlsx or .csv, and linked to the other OI1 apps (tables go to and from Office Letter).
+// In 1 Class: the spreadsheet. A grid of cells with formulas, number formats and several sheets,
+// saved as Excel .xlsx or .csv, and linked to the other OI1 apps (tables go to and from In 1 Letter).
 // Like Excel: fonts, borders, merged cells, wrapped text, frozen panes, the fill handle, filters,
 // conditional formatting, charts, find and replace, zoom and printing.
 
@@ -753,17 +753,17 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const h: Handoff = { kind: 'html', title: name, html: `<p><img src="${png}" alt="${name.replace(/"/g, '&quot;')}" width="${chart.w}" height="${chart.h}"></p>` };
     if (letterTab && await shell.send(letterTab, h)) {
       const target = shell.tabs('letter').find(x => x.tabId === letterTab);
-      shell.notify(t('class.chart.sent', { title: target?.title ?? 'Office Letter' }));
+      shell.notify(t('class.chart.sent', { title: target?.title ?? 'In 1 Letter' }));
       shell.showTab(letterTab);
     } else shell.openModule('letter', undefined, h);
   };
-  // The table (or the selection) on a new slide in Office Stage, linked so changes can be sent there.
+  // The table (or the selection) on a new slide in In 1 Stage, linked so changes can be sent there.
   const sendToStage = () => {
     const { table } = sendRange();
     const id = newLiveId();
     void liveStore().ensure(id, { kind: 'table', title, table }, 'class', 'class');
     const tabId = shell.openModule('stage', undefined, { kind: 'table', title, table, link: { tabId: shell.tabId, id, moduleId: 'class', title } });
-    if (tabId) setLink({ tabId, id, moduleId: 'stage', title: 'Office Stage', sheet: sheet.name });
+    if (tabId) setLink({ tabId, id, moduleId: 'stage', title: 'In 1 Stage', sheet: sheet.name });
   };
   const chartToStage = async () => {
     if (!chart) return;
@@ -793,12 +793,12 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       const ok = await shell.send(letterTab, { kind: 'table', title, table, link: mine });
       if (!ok) { shell.notify(t('class.letterGone')); return; }
       const target = shell.tabs('letter').find(x => x.tabId === letterTab);
-      setLink({ tabId: letterTab, id, moduleId: 'letter', title: target?.title ?? 'Office Letter', sheet: sheet.name });
-      shell.notify(t('class.sentToLetter', { title: target?.title ?? 'Office Letter' }));
+      setLink({ tabId: letterTab, id, moduleId: 'letter', title: target?.title ?? 'In 1 Letter', sheet: sheet.name });
+      shell.notify(t('class.sentToLetter', { title: target?.title ?? 'In 1 Letter' }));
       shell.showTab(letterTab);
     } else {
       const tabId = shell.openModule('letter', undefined, { kind: 'table', title, table, link: mine });
-      if (tabId) setLink({ tabId, id, moduleId: 'letter', title: 'Office Letter', sheet: sheet.name });
+      if (tabId) setLink({ tabId, id, moduleId: 'letter', title: 'In 1 Letter', sheet: sheet.name });
     }
   };
   const updateLetter = async () => {
@@ -989,7 +989,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const id = newLiveId();
     void liveStore().ensure(id, { kind: 'table', title, table }, 'class', 'class');
     const target = shell.tabs().find(x => x.tabId === from);
-    setLink({ tabId: from, id, moduleId: target?.moduleId ?? 'letter', title: target?.title ?? 'Office Letter', sheet: sheet.name });
+    setLink({ tabId: from, id, moduleId: target?.moduleId ?? 'letter', title: target?.title ?? 'In 1 Letter', sheet: sheet.name });
     return { kind: 'table', title, table, link: { tabId: shell.tabId, id, moduleId: 'class', title } };
   }));
   useEffect(() => { if (handoff?.kind === 'file') void loadBook(handoff.file); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);

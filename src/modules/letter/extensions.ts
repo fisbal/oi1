@@ -1,4 +1,4 @@
-// Editor pieces Office Letter adds to TipTap: Word paragraph formatting, letter spacing and capitals,
+// Editor pieces In 1 Letter adds to TipTap: Word paragraph formatting, letter spacing and capitals,
 // cell shading, page breaks and page number fields.
 
 import { Extension, Node, mergeAttributes } from '@tiptap/core';
@@ -162,7 +162,7 @@ export const TextStyleExtras = Extension.create({
 
 /**
  * Background color of table cells, like Word's cell shading, and tables drawn without lines.
- * A table can also be linked to an Office Class sheet (`link` and the sheet's tab `linkTab`), and its cells
+ * A table can also be linked to an In 1 Class sheet (`link` and the sheet's tab `linkTab`), and its cells
  * remember the sheet's formulas, so the sheet can be rebuilt from the letter.
  */
 export const CellBackground = Extension.create({

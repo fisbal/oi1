@@ -61,7 +61,7 @@ export async function ensureRepo(token: string, owner: string, repo: string, isP
   }
   const where = owner.toLowerCase() === login.toLowerCase() ? '/user/repos' : `/orgs/${owner}/repos`;
   const made = await gh<{ default_branch: string }>(token, 'POST', where, {
-    name: repo, private: isPrivate, auto_init: true, description: 'Made with Office Code+ (Office In 1)',
+    name: repo, private: isPrivate, auto_init: true, description: 'Made with In 1 Code+ (Office In 1)',
   });
   return made.default_branch || 'main';
 }

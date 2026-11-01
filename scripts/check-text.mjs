@@ -142,7 +142,7 @@ async function documentText(screen) {
     page.on('dialog', d => d.dismiss());
     await page.goto(url);
     await page.waitForTimeout(400);
-    await page.locator(`.slab:has-text("Office ${app}")`).first().click();
+    await page.locator(`.slab:has-text("In 1 ${app}")`).first().click();
     await page.waitForTimeout(1200);
   };
   const typeLines = async () => { for (let i = 0; i < SAMPLE.length; i++) { if (i) await page.keyboard.press('Enter'); await page.keyboard.type(SAMPLE[i]); } };
@@ -201,7 +201,7 @@ try {
         page.on('dialog', d => d.dismiss());
         await page.goto(url);
         await page.waitForTimeout(400);
-        const slab = page.locator(`.slab:has-text("Office ${app}")`);
+        const slab = page.locator(`.slab:has-text("In 1 ${app}")`);
         if (!(await slab.count())) { await ctx.close(); continue; }
         await slab.first().click();
         await page.waitForTimeout(1200);

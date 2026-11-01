@@ -187,7 +187,7 @@ const blogHead = (title: string) => `<!doctype html>
   <main>
 `;
 const blogFoot = `  </main>
-  <footer>Made with Office Code+</footer>
+  <footer>Made with In 1 Code+</footer>
 </body>
 </html>
 `;

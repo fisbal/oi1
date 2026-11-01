@@ -1,5 +1,5 @@
 // A workbook as OI1 keeps it: sheets of cells holding what the user typed, plus a little formatting.
-// Office Class edits it; formats/xlsx.ts and formats/csv.ts read and write it; Letter reads tables from it.
+// In 1 Class edits it; formats/xlsx.ts and formats/csv.ts read and write it; Letter reads tables from it.
 
 import { cellName, dateSerial, evaluate, isError, serialToDate, type Scalar } from './formula';
 

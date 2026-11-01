@@ -3,7 +3,7 @@ import type { OI1Module } from '../../shell/contract';
 import Letter, { EXTENSIONS } from './Letter';
 import './letter.css';
 
-// Office Letter: the word processor, on TipTap (ProseMirror).
+// In 1 Letter: the word processor, on TipTap (ProseMirror).
 const letter: OI1Module = {
   id: 'letter',
   extensions: EXTENSIONS,

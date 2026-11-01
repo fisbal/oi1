@@ -1,4 +1,4 @@
-// Office Letter's find bar, outline pane, command search and dialogs.
+// In 1 Letter's find bar, outline pane, command search and dialogs.
 
 import { useEditorState, type Editor } from '@tiptap/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
