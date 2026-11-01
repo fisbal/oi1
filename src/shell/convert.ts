@@ -78,7 +78,7 @@ export function langLabel(code: string, ui: string): string {
 export interface Pages { nodes: HTMLElement[]; width: number; height: number; done(): void }
 
 export interface ConvertSource {
-  appId: 'letter' | 'class' | 'stage' | 'code' | 'draw' | 'notes' | 'file';
+  appId: 'letter' | 'class' | 'stage' | 'code' | 'draw' | 'notes' | 'plan' | 'file';
   title(): string;
   /** The document as HTML (body content). */
   html(): string;

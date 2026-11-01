@@ -41,7 +41,8 @@
     "check:assistant": "node scripts/check-assistant.mjs",
     "check:shield": "node scripts/check-shield.mjs",
     "check:draw": "node scripts/check-draw.mjs",
-    "check:notes": "node scripts/check-notes.mjs"
+    "check:notes": "node scripts/check-notes.mjs",
+    "check:plan": "node scripts/check-plan.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
