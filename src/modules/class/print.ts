@@ -6,9 +6,37 @@ import { display, key, naturalAlign, usedRange, type BorderLine, type SheetData 
 import { cssFont } from '../letter/model';
 import type { CondLook } from './cond';
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+export const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 export const borderCss = (b?: BorderLine) =>
   !b ? '' : `${b.style === 'medium' ? 2 : b.style === 'thick' || b.style === 'double' ? 3 : 1}px ${b.style === 'double' ? 'double' : b.style === 'dashed' ? 'dashed' : 'solid'} ${b.color ?? '#000'}`;
+
+/** One cell as a printed <td>, with its formatting, conditional colors and data bar. `span` overrides its merge size. */
+export function tdHtml(sheet: SheetData, values: Map<string, Scalar>, looks: Map<string, CondLook>, lang: string, currency: string,
+  c: number, r: number, span?: { cs: number; rs: number }, formulas = false): string {
+  const k = key(c, r);
+  const cell = sheet.cells[k];
+  const st = cell?.style;
+  const v = values.get(k) ?? '';
+  const look = looks.get(k);
+  const css: string[] = [`text-align:${st?.align ?? naturalAlign(v)}`];
+  if (st?.valign) css.push(`vertical-align:${st.valign === 'middle' ? 'middle' : st.valign}`);
+  if (st?.bold) css.push('font-weight:700');
+  if (st?.italic) css.push('font-style:italic');
+  const deco = [st?.underline && 'underline', st?.strike && 'line-through'].filter(Boolean).join(' ');
+  if (deco) css.push(`text-decoration:${deco}`);
+  if (look?.color ?? st?.color) css.push(`color:${look?.color ?? st?.color}`);
+  if (look?.fill ?? st?.fill) css.push(`background:${look?.fill ?? st?.fill}`);
+  if (st?.font) css.push(`font-family:${cssFont(st.font).replace(/"/g, "'")}`);
+  if (st?.size) css.push(`font-size:${st.size}pt`);
+  if (st?.wrap) css.push('white-space:pre-wrap');
+  if (st?.indent) css.push(`padding-left:${4 + st.indent * 9}px`);
+  for (const side of ['top', 'right', 'bottom', 'left'] as const) { const b = borderCss(st?.borders?.[side]); if (b) css.push(`border-${side}:${b}`); }
+  const attrs = span ? `${span.cs > 1 ? ` colspan="${span.cs}"` : ''}${span.rs > 1 ? ` rowspan="${span.rs}"` : ''}` : '';
+  const text = cell ? display(v, st, lang, currency) : '';
+  const bar = look?.bar ? `<i style="position:absolute;left:1px;top:3px;bottom:3px;width:${Math.round(look.bar.pct * 100)}%;background:${look.bar.color};opacity:.55"></i>` : '';
+  const shown = formulas && cell?.input?.startsWith('=') ? cell.input : text;
+  return `<td${attrs} style="${css.join(';')}">${bar}<span>${esc(shown)}</span></td>`;
+}
 
 export function sheetHtml(sheet: SheetData, values: Map<string, Scalar>, looks: Map<string, CondLook>, lang: string, currency: string,
   charts: string[], hidden: Set<number>): string {
@@ -28,28 +56,7 @@ export function sheetHtml(sheet: SheetData, values: Map<string, Scalar>, looks: 
     for (let c = 0; c <= u.cols; c++) {
       const k = key(c, r);
       if (covered.has(k)) continue;
-      const cell = sheet.cells[k];
-      const st = cell?.style;
-      const v = values.get(k) ?? '';
-      const look = looks.get(k);
-      const css: string[] = [`text-align:${st?.align ?? naturalAlign(v)}`];
-      if (st?.valign) css.push(`vertical-align:${st.valign === 'middle' ? 'middle' : st.valign}`);
-      if (st?.bold) css.push('font-weight:700');
-      if (st?.italic) css.push('font-style:italic');
-      const deco = [st?.underline && 'underline', st?.strike && 'line-through'].filter(Boolean).join(' ');
-      if (deco) css.push(`text-decoration:${deco}`);
-      if (look?.color ?? st?.color) css.push(`color:${look?.color ?? st?.color}`);
-      if (look?.fill ?? st?.fill) css.push(`background:${look?.fill ?? st?.fill}`);
-      if (st?.font) css.push(`font-family:${cssFont(st.font).replace(/"/g, "'")}`);
-      if (st?.size) css.push(`font-size:${st.size}pt`);
-      if (st?.wrap) css.push('white-space:pre-wrap');
-      if (st?.indent) css.push(`padding-left:${4 + st.indent * 9}px`);
-      for (const side of ['top', 'right', 'bottom', 'left'] as const) { const b = borderCss(st?.borders?.[side]); if (b) css.push(`border-${side}:${b}`); }
-      const span = spans.get(k);
-      const attrs = span ? `${span.cs > 1 ? ` colspan="${span.cs}"` : ''}${span.rs > 1 ? ` rowspan="${span.rs}"` : ''}` : '';
-      const text = cell ? display(v, st, lang, currency) : '';
-      const bar = look?.bar ? `<i style="position:absolute;left:1px;top:3px;bottom:3px;width:${Math.round(look.bar.pct * 100)}%;background:${look.bar.color};opacity:.55"></i>` : '';
-      tds += `<td${attrs} style="${css.join(';')}">${bar}<span>${esc(text)}</span></td>`;
+      tds += tdHtml(sheet, values, looks, lang, currency, c, r, spans.get(k));
     }
     const h = sheet.heights?.[r];
     rows += `<tr${h ? ` style="height:${h}px"` : ''}>${tds}</tr>`;
