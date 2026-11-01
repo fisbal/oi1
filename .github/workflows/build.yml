@@ -7,15 +7,17 @@ name: Build and release OI1
 #   mac      the Mac app (.dmg, Apple silicon and Intel), made with Tauri
 #   android  the Android app (.apk), made with Tauri and signed
 #   release  on main, a GitHub Release with all of them plus the source code
-# Cost-aware (the repo is private: Pro includes 3,000 Actions minutes a month, Mac counts x10, Windows x2;
-# Martin's budget for going over is $5/month, so the whole plan is sized to stay under 3,000):
-#   pull request  nothing runs while a PR is being worked on. When it is ready, Claude adds the label
-#                 "verifier": every check of the web job runs on phone, tablet, PC and Mac sizes, both
-#                 orientations (rule 16), and again on each later push while the label is on. Merge only on green.
-#   push to main  build + publish the web app (Pages, MS Store) at once; the checks passed on the PR
-#   every Monday  if main changed since the last release: Windows, Mac, Android + the GitHub Release,
-#                 copied within 30 minutes to the public update channel on the hub (fisbal.github.io/updates/oi1)
-#   by hand       (Run workflow) everything: all checks, all apps, a release
+# Two modes, chosen automatically from the repo's visibility:
+#   PUBLIC (Actions minutes are free; the repo stays public until Martin says all work is finished)
+#     pull request  every check of the web job (phone, tablet, PC, Mac, both orientations) + Windows, Mac, Android
+#     push to main  every check, the web app published (Pages, MS Store), all apps and a GitHub Release
+#   PRIVATE (Pro includes 3,000 minutes a month, Mac counts x10, Windows x2; Martin's overage budget is $5)
+#     pull request  nothing runs while a PR is being worked on. When it is ready, Claude adds the label
+#                   "verifier": every web check runs (rule 16), again on each later push while labelled.
+#     push to main  build + publish the web app at once; the checks passed on the PR
+#     every Monday  if main changed since the last release: Windows, Mac, Android + the GitHub Release
+#   Both: releases are copied within 30 minutes to the public update channel on the hub
+#   (fisbal.github.io/updates/oi1), where installed apps look for updates. "Run workflow" = everything.
 on:
   push:
     branches: [main]
@@ -32,13 +34,17 @@ permissions:
 
 # A PR event that runs nothing (no "verifier" label) gets its own group, so it never cancels a running check.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'verifier') && format('idle-{0}', github.run_id) || format('build-{0}', github.ref) }}
+  group: >-
+    ${{ github.event_name == 'pull_request' && (
+      (github.event.repository.private && !contains(github.event.pull_request.labels.*.name, 'verifier'))
+      || (!github.event.repository.private && github.event.action == 'labeled'))
+      && format('idle-{0}', github.run_id) || format('build-{0}', github.ref) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # Every build gets its own version, so a new APK installs over the old one and Windows sees an update.
   OI1_VERSION: 0.1.${{ github.run_number }}
-  FULL_CHECKS: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+  FULL_CHECKS: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.event.repository.private == false) }}
 
 jobs:
   changed:
@@ -61,8 +67,10 @@ jobs:
     needs: changed
     if: >-
       ${{ !cancelled() && (
-        (github.event_name == 'pull_request' && !github.event.pull_request.draft && contains(github.event.pull_request.labels.*.name, 'verifier')
-          && (github.event.action != 'labeled' || github.event.label.name == 'verifier'))
+        (github.event_name == 'pull_request' && !github.event.pull_request.draft && (
+          (github.event.repository.private == false && github.event.action != 'labeled')
+          || (github.event.repository.private && contains(github.event.pull_request.labels.*.name, 'verifier')
+              && (github.event.action != 'labeled' || github.event.label.name == 'verifier'))))
         || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         || (github.event_name == 'schedule' && needs.changed.outputs.go == 'true')) }}
     runs-on: ubuntu-latest
@@ -204,7 +212,10 @@ jobs:
 
   windows:
     needs: changed
-    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && needs.changed.outputs.go == 'true')) }}
+    if: >-
+      ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && needs.changed.outputs.go == 'true')
+      || (github.event.repository.private == false && (github.event_name == 'push'
+          || (github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.action != 'labeled')))) }}
     runs-on: windows-latest
     env:
       WIN_SIGNING: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_SIGNING_ACCOUNT != '' }}
@@ -274,7 +285,10 @@ jobs:
 
   mac:
     needs: changed
-    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && needs.changed.outputs.go == 'true')) }}
+    if: >-
+      ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && needs.changed.outputs.go == 'true')
+      || (github.event.repository.private == false && (github.event_name == 'push'
+          || (github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.action != 'labeled')))) }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -316,7 +330,10 @@ jobs:
 
   android:
     needs: changed
-    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && needs.changed.outputs.go == 'true')) }}
+    if: >-
+      ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && needs.changed.outputs.go == 'true')
+      || (github.event.repository.private == false && (github.event_name == 'push'
+          || (github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.action != 'labeled')))) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -376,7 +393,8 @@ jobs:
 
   release:
     if: >-
-      ${{ !cancelled() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+      ${{ !cancelled() && github.ref == 'refs/heads/main'
+      && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && github.event.repository.private == false))
       && needs.web.result == 'success' && needs.windows.result == 'success' && needs.mac.result == 'success' && needs.android.result == 'success' }}
     needs: [web, windows, mac, android]
     runs-on: ubuntu-latest
