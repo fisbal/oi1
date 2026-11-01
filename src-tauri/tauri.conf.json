@@ -77,6 +77,7 @@
     "updater": {
       "pubkey": "SET_BY_CI_FROM_THE_TAURI_SIGNING_PUBLIC_KEY_SECRET",
       "endpoints": [
+        "https://fisbal.github.io/updates/oi1/latest.json",
         "https://github.com/fisbal/oi1/releases/latest/download/latest.json"
       ],
       "windows": {
