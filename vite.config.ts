@@ -8,5 +8,7 @@ export default defineConfig({
   plugins: [react()],
   // The editor (TipTap) is one big chunk, loaded only when a letter opens.
   build: { chunkSizeWarningLimit: 700 },
+  // Dictation runs Whisper in a module worker (it code-splits).
+  worker: { format: 'es' },
   test: { environment: 'jsdom' },
 });
