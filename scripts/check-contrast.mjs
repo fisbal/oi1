@@ -123,7 +123,32 @@ async function run(scheme) {
     await themes.nth(i).click();
     await measure(page, `${scheme} app, memo in theme ${name}`);
   }
+  // In 1 Class: the worksheet is white paper with dark ink in both app modes (Martin, 2026-11-02).
   await ctx.close();
+  const ctx2 = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US', colorScheme: scheme });
+  const page2 = await ctx2.newPage();
+  await page2.goto(url);
+  await page2.locator('.slab:has-text("In 1 Class")').first().click();
+  const cellsArea = page2.locator('.module-host:not([hidden]) .cells-area').first();
+  await cellsArea.waitFor({ timeout: 10000 });
+  await cellsArea.click({ position: { x: 40, y: 12 } });
+  await page2.keyboard.type('Ventes 2026');
+  await page2.keyboard.press('Enter');
+  await page2.waitForTimeout(300);
+  const sheet = await page2.evaluate(() => {
+    const host = document.querySelector('.module-host:not([hidden])');
+    const nums = s => s.match(/[\d.]+/g).map(Number);
+    const lum = ([r, g, b]) => { const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+    const back = nums(getComputedStyle(host.querySelector('.cells-area')).backgroundColor);
+    const cell = [...host.querySelectorAll('.cell')].find(c => c.textContent.includes('Ventes 2026'));
+    const ink = cell ? nums(getComputedStyle(cell).color) : [255, 255, 255];
+    const [x, y] = [lum(back), lum(ink)].sort((p, q) => q - p);
+    return { white: back.slice(0, 3).every(v => v >= 250), ratio: (x + 0.05) / (y + 0.05), found: !!cell };
+  });
+  docs++; pieces++;
+  if (!sheet.white) problems.push(`${scheme} app: In 1 Class worksheet is not white paper`);
+  if (!sheet.found || sheet.ratio < 4.5) problems.push(`${scheme} app: In 1 Class text on the worksheet is hard to read (${sheet.ratio.toFixed(1)}:1)`);
+  await ctx2.close();
 }
 
 try {
