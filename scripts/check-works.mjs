@@ -159,11 +159,12 @@ for (const d of DEVICES) {
     check(re.text.includes('Le sujet de ce travail est la photosynthèse.') && re.text.includes('La lumière nourrit la vie.'), `${n}: reorganize: not a word of the text is lost`);
     check(/\[Prénom Nom\]/.test(re.text) && re.heads.includes('Table des matières') && !re.text.includes('⟦TOC⟧'), `${n}: reorganize: title page and table of contents added`);
     check(re.refs.join('|') === 'Alain. (1925). Propos.|Zola, É. (1885). Germinal.' && re.hang < 0, `${n}: reorganize: references sorted A to Z with a hanging indent (${re.refs.join(' / ')}, ${re.hang}px)`);
-    await body.click();
+    await page.locator(`${P} .status`).first().click().catch(() => {});
+    await body.focus();
     await page.keyboard.press('ControlOrMeta+z');
     await page.waitForTimeout(400);
     const back = await body.innerText();
-    check(!back.includes('Prénom Nom') && back.includes('Zola, É. (1885). Germinal.'), `${n}: reorganize: Ctrl+Z gives the text back as it was`);
+    check(!back.includes('Prénom Nom') && back.includes('Zola, É. (1885). Germinal.'), `${n}: reorganize: Ctrl+Z gives the text back as it was (${JSON.stringify(back.replace(/\s+/g, ' ').slice(0, 90))})`);
   } catch (e) {
     problems.push(`${n}: stopped: ${String(e.message ?? e).split('\n')[0]}`);
   } finally { await ctx.close(); }

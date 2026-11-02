@@ -904,7 +904,9 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       if (reorganize) {
         // One step: Ctrl+Z gives the text back as it was. Not a word of the text is changed.
         made = reorganizeDoc(w, lang, longDate(WORK_LOCALE[lang]), (body.getJSON().content ?? []) as JSONContent[]);
-        body.commands.setContent({ type: 'doc', content: made.content }, { emitUpdate: true });
+        // Its own undo group: never merged with the typing just before it, nor with what comes after.
+        body.chain().command(({ tr }) => { closeHistory(tr); return true; }).setContent({ type: 'doc', content: made.content }, { emitUpdate: true }).run();
+        body.view.dispatch(closeHistory(body.state.tr));
       }
       // The page number where the norm puts it (MLA: the name, then the number).
       if (w.num && (replace || reorganize || (header?.isEmpty && footer?.isEmpty))) {
