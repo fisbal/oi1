@@ -148,6 +148,25 @@ async function run(scheme) {
   docs++; pieces++;
   if (!sheet.white) problems.push(`${scheme} app: In 1 Class worksheet is not white paper`);
   if (!sheet.found || sheet.ratio < 4.5) problems.push(`${scheme} app: In 1 Class text on the worksheet is hard to read (${sheet.ratio.toFixed(1)}:1)`);
+  // Page limits (Martin, 2026-11-02): dashed lines show where each printed page ends; the View tab button hides them.
+  const lines = () => page2.evaluate(() => {
+    const host = document.querySelector('.module-host:not([hidden])');
+    const v = host.querySelectorAll('.page-lines .pb-v').length, h = host.querySelectorAll('.page-lines .pb-h').length;
+    const first = host.querySelector('.page-lines .pb-v');
+    return { v, h, dashed: first ? getComputedStyle(first).borderLeftStyle === 'dashed' : false };
+  });
+  // Zoom out so a whole page fits on screen: both a column limit and a row limit are then in view.
+  await page2.locator('.module-host:not([hidden])').getByRole('tab', { name: 'View', exact: true }).first().click();
+  for (let i = 0; i < 3; i++) await page2.locator('.module-host:not([hidden]) button[aria-label="Zoom out"]').first().click();
+  await page2.waitForTimeout(300);
+  const on = await lines();
+  docs++; pieces++;
+  if (!on.v || !on.h || !on.dashed) problems.push(`${scheme} app: In 1 Class page limits missing (${on.v} columns, ${on.h} rows, dashed ${on.dashed})`);
+  await page2.locator('.module-host:not([hidden]) button[aria-label="Page limits"]').first().click();
+  await page2.waitForTimeout(200);
+  const off = await lines();
+  if (off.v || off.h) problems.push(`${scheme} app: In 1 Class page limits still shown after Page limits was turned off`);
+  await page2.locator('.module-host:not([hidden]) button[aria-label="Page limits"]').first().click();
   await ctx2.close();
 }
 

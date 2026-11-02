@@ -120,6 +120,7 @@ export const HELP: Record<string, HelpText> = {
   'class.freeze': ['Keeps the top rows and left columns in view while you scroll, like the header of a long list.', 'Garde les premières lignes et colonnes visibles pendant le défilement, comme l’en-tête d’une longue liste.'],
   'class.gridlines': ['Shows or hides the grey lines between cells on screen. Whether they print is set in Page Layout › Print gridlines.', 'Affiche ou cache les lignes grises entre les cellules à l’écran. Leur impression se règle dans Mise en page › Imprimer le quadrillage.'],
   'class.headings': ['Shows or hides the column letters and row numbers.', 'Affiche ou cache les lettres de colonnes et les numéros de lignes.'],
+  'class.pageLines': ['Shows dashed lines where each printed page ends (paper, orientation, margins and scale from Page Layout).', 'Affiche des pointillés là où chaque page imprimée se termine (papier, orientation, marges et échelle de Mise en page).'],
   'class.zoom100': ['Goes back to the normal size (100 %).', 'Revient à la taille normale (100 %).'],
   'class.zoomSelection': ['Zooms so the selected cells fill the screen.', 'Zoome pour que les cellules choisies remplissent l’écran.'],
 
