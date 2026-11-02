@@ -36,7 +36,7 @@ import { tx, type Lang } from './pro/build';
 import { CondDialog, FilterMenu, FindPanel, HIGHLIGHT_KINDS, TOP_KINDS, type CondKind, type FindOptions } from './panels';
 import { borderCss, printHtml, sheetHtml } from './print';
 import { PrintPanel, fitLabel, hfSample, hfTemplates, marginLabel, paperLabel } from './PrintPanel';
-import { FITS, MARGINS, PAPERS, filteredRows, pagesHtml, planPages, setupOf, type PrintScope, type PrintSetup } from './printSetup';
+import { FITS, MARGINS, PAPERS, cutPages, filteredRows, pagesHtml, planPages, setupOf, type PrintScope, type PrintSetup } from './printSetup';
 import { ConvertPanel } from '../../ui/convert/ConvertPanel';
 import type { ConvertSource } from '../../shell/convert';
 import { GoalSeekDialog, ScenarioDialog, SolverDialog, ValidationAlert, ValidationDialog, setRule } from './whatIfUi';
@@ -149,6 +149,9 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const zoomRef = useRef(1);
   zoomRef.current = zoom;
   const [headings, setHeadings] = useState(true);
+  // Page limits shown on the sheet (Martin, 2026-11-02), on by default, remembered on this device.
+  const [pageLines, setPageLines] = useState(() => { try { return localStorage.getItem('oi1.class.pageLines') !== 'off'; } catch { return true; } });
+  const togglePageLines = () => setPageLines(v => { try { localStorage.setItem('oi1.class.pageLines', v ? 'off' : 'on'); } catch { /* blocked */ } return !v; });
   const [painter, setPainter] = useState<CellStyle | null>(null);
   const [find, setFind] = useState<null | { replace: boolean }>(null);
   const [findStatus, setFindStatus] = useState('');
@@ -1032,6 +1035,23 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   }, [cols, sheet.widths, z]);
   const width = (c: number) => lefts[c + 1] - lefts[c];
   const height = (r: number) => tops[r + 1] - tops[r];
+  // Where each printed page ends, cut like the print itself (paper, orientation, margins, scale, titles, print area):
+  // a dashed line after the last column and the last row of each page. Over the whole grid, so an empty sheet shows
+  // the limits too.
+  const pageBreaks = useMemo(() => {
+    if (!pageLines) return { cols: new Set<number>(), rows: new Set<number>() };
+    const area = ps.area;
+    const span = (a: number, b: number) => Array.from({ length: Math.max(0, b - a + 1) }, (_, i) => a + i);
+    const cs = area ? span(area.c1, area.c2) : span(0, cols - 1);
+    const rs = (area ? span(area.r1, area.r2) : span(0, rows - 1)).filter(r => !hiddenRows.has(r));
+    const pages = cutPages(sheet, 0, cs, rs, ps);
+    const lastCols = [...new Set(pages.map(p => p.cols[p.cols.length - 1]).filter(c => c !== undefined))].sort((a, b) => a - b);
+    const lastRows = [...new Set(pages.map(p => p.rows[p.rows.length - 1]).filter(r => r !== undefined))].sort((a, b) => a - b);
+    // Without a print area the last page simply runs to the end of the grid: no line there.
+    if (!area) { lastCols.pop(); lastRows.pop(); }
+    return { cols: new Set(lastCols), rows: new Set(lastRows) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageLines, sheet.widths, sheet.heights, sheet.print, cols, rows, hiddenRows]);
   const search = (arr: number[], n: number, v: number) => { let lo = 0, hi = n - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (arr[mid] <= v) lo = mid; else hi = mid - 1; } return lo; };
   const colAt = (x: number) => search(lefts, cols, x);
   const rowAt = (y: number) => search(tops, rows, y);
@@ -1630,6 +1650,12 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       for (let r = ra; r <= rb; r++) if (height(r)) lines.push(<i key={`h${r}`} className="gl-h" style={{ top: tops[r + 1] - 1, left: lefts[ca], width: lefts[cb + 1] - lefts[ca] }} />);
       out.push(<div key="grid" className="gridlines">{lines}</div>);
     }
+    if (pageBreaks.cols.size || pageBreaks.rows.size) {
+      const marks: ReactNode[] = [];
+      for (let c = ca; c <= cb; c++) if (pageBreaks.cols.has(c)) marks.push(<i key={`pv${c}`} className="pb-v" style={{ left: lefts[c + 1] - 1, top: tops[ra], height: tops[rb + 1] - tops[ra] }} />);
+      for (let r = ra; r <= rb; r++) if (pageBreaks.rows.has(r)) marks.push(<i key={`ph${r}`} className="pb-h" style={{ top: tops[r + 1] - 1, left: lefts[ca], width: lefts[cb + 1] - lefts[ca] }} />);
+      if (marks.length) out.push(<div key="pages" className="page-lines" aria-hidden="true">{marks}</div>);
+    }
     const drawn = new Set<string>();
     for (let r = ra; r <= rb; r++) {
       if (!height(r)) continue;
@@ -2093,6 +2119,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             <Group label="class.group.show">
               <Btn big icon="gridlines" title="class.gridlines" active={!sheet.noGrid} onClick={() => changeSheet(s => { if (s.noGrid) delete s.noGrid; else s.noGrid = true; })} />
               <Btn big icon="headings" title="class.headings" active={headings} onClick={() => setHeadings(h => !h)} />
+              <Btn big icon="onepage" title="class.pageLines" active={pageLines} onClick={togglePageLines} />
             </Group>
             <Group label="letter.group.zoom">
               <Btn big icon="zoomin" title="letter.zoomIn" onClick={() => stepZoom(1)} disabled={zoom >= ZOOMS[ZOOMS.length - 1]} />
