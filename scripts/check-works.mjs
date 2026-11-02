@@ -76,6 +76,11 @@ for (const d of DEVICES) {
     await page.locator(`${P} .status`).first().click().catch(() => {});
 
     // ---------- work layouts ----------
+    // Martin's phone (2026-11-02): the Doc adm/Mil letters were set to English, and the work came in English
+    // in a French app. The work must follow the app's language whatever that choice is.
+    await page.locator(`${P} .ribbon-tabs button:has-text("Doc adm")`).first().click();
+    await page.locator(`${P} button[title="English"]:visible`).first().click();
+    await page.locator(`${P} .status`).first().click().catch(() => {});
     await openDrop(page, 'letter.works');
     const works = await page.locator('.work-item').count();
     check(works >= 30, `${n}: ${works} work layouts to choose from (30+)`);
@@ -104,6 +109,7 @@ for (const d of DEVICES) {
     const order = ['Table des matières', 'Introduction', 'Conclusion', 'Références', 'Annexes'].map(h => look.heads.findIndex(x => (x || '').includes(h)));
     check(order.every((x, i) => x >= 0 && (i === 0 || x > order[i - 1])), `${n}: APA-Provost: the parts are in order (${order.join(', ')})`);
     check(/\[Prénom Nom\]|\[TITRE DU TRAVAIL\]/.test(look.text), `${n}: APA-Provost: the title page has yellow fields to fill`);
+    check(/Travail présenté à/.test(look.text) && /Table des matières/.test(look.text) && !/Paper presented|Your text|First Last/.test(look.text), `${n}: APA-Provost: the text is in French like the app, even with the letters set to English`);
     check(!look.text.includes('⟦TOC⟧') && (await body.locator('p:has-text("Introduction")').count()) >= 1, `${n}: APA-Provost: the table of contents is filled in`);
     const pages = await page.locator(`${P} .status`).first().innerText();
     check(/sur\s*[3-9]|sur\s*\d\d/.test(pages) || /of\s*[3-9]/.test(pages), `${n}: APA-Provost: each part starts on its own page (${pages.split('\n')[0]})`);
@@ -127,6 +133,32 @@ for (const d of DEVICES) {
     answer = true;
   } catch (e) {
     problems.push(`${n}: stopped: ${String(e.message ?? e).split('\n')[0]}`);
+  } finally { await ctx.close(); }
+}
+
+// German app: the list and the work in German (all 5 languages are filled in; works.test.ts checks every text).
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: 'de-DE' });
+  const page = await ctx.newPage();
+  page.on('pageerror', e => problems.push(`German phone: script error: ${e.message}`));
+  page.on('dialog', x => x.accept());
+  await page.addInitScript(() => { try { if (!sessionStorage.getItem('set')) { localStorage.setItem('oi1:language', 'de'); sessionStorage.setItem('set', '1'); } } catch { /* */ } });
+  try {
+    await page.goto(url);
+    await page.locator('.slab:has-text("In 1 Letter")').first().click();
+    await page.locator(`${P} .body-area .ProseMirror`).first().waitFor({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    await page.locator(`${P} .ribbon-tabs button:text-is("Layout")`).first().click();
+    await page.locator(`${P} [data-help="letter.works"]:visible`).first().click();
+    await page.locator('.drop-panel').first().waitFor({ timeout: 4000 });
+    const names = await page.locator('.work-item b').allInnerTexts();
+    check(names.some(x => x.includes('Schularbeit')) && names.some(x => x.includes('Doktorarbeit')), 'German phone: the list is in German');
+    await page.locator('.work-item[data-work="school"]').click();
+    await page.waitForTimeout(1200);
+    const txt = await page.locator(`${P} .body-area .ProseMirror`).first().innerText();
+    check(/Vorgelegt bei/.test(txt) && /Einleitung/.test(txt) && !/Presented to|Your text/.test(txt), 'German phone: the work is written in German');
+  } catch (e) {
+    problems.push(`German phone: stopped: ${String(e.message ?? e).split('\n')[0]}`);
   } finally { await ctx.close(); }
 }
 

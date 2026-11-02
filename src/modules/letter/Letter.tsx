@@ -45,6 +45,9 @@ import { RefCheckDialog, RefModelsDialog } from './refModels';
 import { LETTERS } from './templates/letters';
 import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, selectNextField } from './templates/markup';
 import { TOC_MARK, WORK_LAYOUTS, workDoc, workMargins, workStyles } from './templates/works';
+import { workText } from './templates/worksI18n';
+
+const WORK_LOCALE = { fr: 'fr-CA', en: 'en-CA', es: 'es-ES', pt: 'pt-BR', de: 'de-DE' } as const;
 import { profileValues } from './templates/profile';
 import { letterPartMarkup, type LetterPart } from './templates/parts';
 import { CommentsPane, showComment } from './comments';
@@ -914,13 +917,15 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       const replace = isEmptyDoc(body) || confirm(t('letter.works.replaceAsk'));
       setPage(p => ({ ...p, size: w.size, orientation: 'portrait', margins: workMargins(w), color: null }));
       setStyles(st => workStyles(st, w));
-      if (replace) body.commands.setContent({ type: 'doc', content: workDoc(w, docLang, longDate(docLang === 'fr' ? 'fr-CA' : 'en-CA')) });
+      // The text comes in the app's language (Martin, 2026-11-02), not in the Doc adm/Mil letters' own FR/EN choice.
+      const lang = getLanguage();
+      if (replace) body.commands.setContent({ type: 'doc', content: workDoc(w, lang, longDate(WORK_LOCALE[lang])) });
       // The page number where the norm puts it (MLA: the name, then the number).
       if (w.num && (replace || (header?.isEmpty && footer?.isEmpty))) {
         const top = w.num === 'tr' || w.num === 'mla';
         const ed = top ? header : footer;
         const other = top ? footer : header;
-        const parts = [...(w.num === 'mla' ? [{ type: 'text', text: docLang === 'fr' ? '[Nom] ' : '[Last name] ' }] : []), { type: 'pageNumber', attrs: { kind: 'page' } }];
+        const parts = [...(w.num === 'mla' ? [{ type: 'text', text: workText('[Nom] ', '[Last name] ', lang) }] : []), { type: 'pageNumber', attrs: { kind: 'page' } }];
         ed?.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: w.num === 'bc' ? 'center' : 'right', indentFirst: 0 }, content: parts }] });
         if (replace) other?.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
         setHfVersion(v => v + 1);
@@ -937,7 +942,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       changed();
       const n = replace ? fillFields(body, profileValues(fieldList(body.state.doc).map(f => f.label))) : 0;
       if (!replace || !selectNextField(body)) body.commands.focus('start');
-      shell.notify(t(replace ? 'letter.works.done' : 'letter.works.formatted', { name: getLanguage() === 'fr' ? w.name.fr : w.name.en, n }));
+      shell.notify(t(replace ? 'letter.works.done' : 'letter.works.formatted', { name: workText(w.name.fr, w.name.en, lang), n }));
     },
     letterPart: (part: LetterPart) => {
       const ed = activeEditor;

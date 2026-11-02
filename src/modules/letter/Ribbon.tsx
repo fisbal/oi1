@@ -8,6 +8,7 @@ import { getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { BULLET_CHARS, BULLET_STYLES, NUMBER_STYLES, numberLabel, type BorderSide, type Borders } from './extensions';
 import { FONT_GROUPS, FONT_SIZES, STYLE_IDS, cssFont, previewStyle, type DocStyles, type StyleId } from './model';
 import { WORK_LAYOUTS } from './templates/works';
+import { workText } from './templates/worksI18n';
 import { LINE_NUMBERS, MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, WATERMARKS, isDark, pageInches, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
 import type { AppInfo, TabInfo } from '../../shell/contract';
 import { PROOF_TAGS } from '../../ui/proof/proof';
@@ -952,14 +953,14 @@ function MarginItem({ m, on, unit, label, onClick }: { m: { top: number; right: 
 
 /** "Mise en page des travaux": pick a norm and the work takes shape. */
 function WorkDrop({ actions }: { actions: RibbonActions }) {
-  const fr = getLanguage() === 'fr';
+  const lang = getLanguage();
   return (
     <Drop big icon="book" title="letter.works">
       {close => <div className="work-gallery" role="menu">
         <p className="work-lead">{t('letter.works.lead')}</p>
         {WORK_LAYOUTS.map(w => (
           <button key={w.id} type="button" role="menuitem" className="work-item" data-work={w.id} onClick={() => { actions.workLayout(w.id); close(); }}>
-            <b>{fr ? w.name.fr : w.name.en}</b><span>{fr ? w.hint.fr : w.hint.en}</span>
+            <b>{workText(w.name.fr, w.name.en, lang)}</b><span>{workText(w.hint.fr, w.hint.en, lang)}</span>
           </button>
         ))}
       </div>}
