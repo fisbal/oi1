@@ -261,11 +261,15 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     return tb.rows.slice(1).map(r => Object.fromEntries(head.map((h, i) => [h || `C${i + 1}`, r[i]?.text ?? '']))).filter(r => Object.values(r).some(v => validAddress(v)));
   };
   const runMerge = (rows: Record<string, string>[]) => {
-    if (!current || !rows.length) return;
-    const html = edRef.current?.getHTML() ?? current.html;
+    // The newest mailbox, not the last drawn one: on a slow device the subject just typed may not be drawn yet,
+    // and every merged mail came out without a subject (seen in CI on a sideways tablet).
+    const draft = current && boxRef.current.mails.find(m => m.id === current.id);
+    if (!draft || !rows.length) return;
+    const subject = draft.subject;
+    const html = edRef.current?.getHTML() ?? draft.html;
     const list = rows.map(r => {
       const to = Object.values(r).find(v => validAddress(v)) ?? '';
-      return newMail('drafts', { from: from(), to: [to], subject: merge(current.subject, r), html: merge(html, r), attachments: current.attachments });
+      return newMail('drafts', { from: from(), to: [to], subject: merge(subject, r), html: merge(html, r), attachments: draft.attachments });
     });
     change(b => ({ ...b, mails: [...list, ...b.mails] }));
     setDlg(null); setMergeRows(null);
