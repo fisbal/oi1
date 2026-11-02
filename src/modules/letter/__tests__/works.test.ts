@@ -4,6 +4,7 @@ import { readDocx } from '../docx/read';
 import { letterToDocx } from '../docx/write';
 import { defaultStyles, type LetterDoc } from '../model';
 import { TOC_MARK, WORK_LAYOUTS, workDoc, workMargins, workStyles } from '../templates/works';
+import { WORKS_MISSING, workText } from '../templates/worksI18n';
 
 const textOf = (n: JSONContent): string => (n.text ?? '') + (n.content ?? []).map(textOf).join('');
 const byId = (id: string) => WORK_LAYOUTS.find(w => w.id === id)!;
@@ -46,8 +47,29 @@ describe('work layouts (mises en page des travaux)', () => {
     }
   });
 
-  it('every norm builds a document in both languages', () => {
-    for (const w of WORK_LAYOUTS) for (const lang of ['fr', 'en'] as const) expect(workDoc(w, lang, '2026-11-02').length).toBeGreaterThan(2);
+  it('every norm builds a document in all 5 languages, with every text translated', () => {
+    WORKS_MISSING.clear();
+    for (const w of WORK_LAYOUTS) {
+      for (const lang of ['fr', 'en', 'es', 'pt', 'de'] as const) {
+        expect(workDoc(w, lang, '2026-11-02').length).toBeGreaterThan(2);
+        workText(w.name.fr, w.name.en, lang);
+        workText(w.hint.fr, w.hint.en, lang);
+      }
+    }
+    workText('[Nom] ', '[Last name] ', 'de');
+    expect([...WORKS_MISSING]).toEqual([]);
+  });
+
+  it('a French app gets French text, a German app German text (Martin, 2026-11-02)', () => {
+    const fr = JSON.stringify(workDoc(byId('school'), 'fr', 'x'));
+    expect(fr).toContain('Travail présenté à');
+    expect(fr).not.toContain('Presented to');
+    const de = JSON.stringify(workDoc(byId('school'), 'de', 'x'));
+    expect(de).toContain('Vorgelegt bei');
+    expect(de).toContain('Einleitung');
+    expect(de).not.toContain('Introduction');
+    expect(JSON.stringify(workDoc(byId('apaProvost'), 'es', 'x'))).toContain('Índice');
+    expect(JSON.stringify(workDoc(byId('apaProvost'), 'pt', 'x'))).toContain('Referências');
   });
 
   it('keeps the first-line indent through Word (.docx)', async () => {

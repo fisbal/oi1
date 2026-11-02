@@ -9,6 +9,7 @@
 import type { JSONContent } from '@tiptap/core';
 import type { DocStyles, StyleDef } from '../model';
 import { FIELD_COLOR } from './markup';
+import { workText, type WorkLang } from './worksI18n';
 
 type L = { fr: string; en: string };
 /** Headings: Provost (centered, left, indented), APA 7, MLA, plain bold, numbered caps (IEEE). */
@@ -225,8 +226,8 @@ const gap = (n: number) => Array.from({ length: n }, () => line(''));
 /** The text that marks where the table of contents goes, until Letter fills it in. */
 export const TOC_MARK = '⟦TOC⟧';
 
-function titlePage(w: WorkLayout, fr: boolean, date: string): JSONContent[] {
-  const T = (a: string, b: string) => (fr ? a : b);
+function titlePage(w: WorkLayout, lang: WorkLang, date: string): JSONContent[] {
+  const T = (a: string, b: string) => workText(a, b, lang);
   const brk: JSONContent = { type: 'pageBreak' };
   switch (w.title) {
     case 'qc': return [
@@ -264,19 +265,19 @@ function titlePage(w: WorkLayout, fr: boolean, date: string): JSONContent[] {
   }
 }
 
-/** The whole document for a norm, in French or English: title page, then the parts in order. */
-export function workDoc(w: WorkLayout, lang: 'fr' | 'en', date: string): JSONContent[] {
-  const fr = lang === 'fr';
-  const out = titlePage(w, fr, date);
-  const say = fr ? '[Votre texte…]' : '[Your text…]';
+/** The whole document for a norm, in the app's language: title page, then the parts in order. */
+export function workDoc(w: WorkLayout, lang: WorkLang, date: string): JSONContent[] {
+  const T = (a: string, b: string) => workText(a, b, lang);
+  const out = titlePage(w, lang, date);
+  const say = T('[Votre texte…]', '[Your text…]');
   for (const [level, a, b] of w.parts) {
     if (level === 0) { if (out.length && out[out.length - 1].type !== 'pageBreak') out.push({ type: 'pageBreak' }); continue; }
     if (level === -1) {
-      out.push({ type: 'heading', attrs: { level: 1, textAlign: 'center' }, content: [{ type: 'text', text: fr ? 'Table des matières' : 'Table of contents' }] });
+      out.push({ type: 'heading', attrs: { level: 1, textAlign: 'center' }, content: [{ type: 'text', text: T('Table des matières', 'Table of contents') }] });
       out.push({ type: 'paragraph', attrs: { indentFirst: 0 }, content: [{ type: 'text', text: TOC_MARK }] });
       continue;
     }
-    out.push({ type: 'heading', attrs: { level }, content: text(fr ? a : b) });
+    out.push({ type: 'heading', attrs: { level }, content: text(T(a, b)) });
     out.push({ type: 'paragraph', content: text(say) });
   }
   return out;
