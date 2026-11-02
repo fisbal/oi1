@@ -21,6 +21,8 @@ export interface StyleDef {
   /** A multiple like 1.15, or exact points like '14pt'. */
   lineHeight?: number | string;
   align?: 'left' | 'center' | 'right' | 'justify';
+  /** First-line indent of each paragraph, in points (academic layouts: 5 spaces, about 36 pt). */
+  indent?: number;
 }
 
 export const STYLE_IDS = ['normal', 'title', 'subtitle', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'quote'] as const;
@@ -153,6 +155,7 @@ function rule(def: StyleDef, inherit: StyleDef | null): string {
   const after = def.after ?? inherit?.after ?? 0;
   parts.push(`margin-top: ${before}pt`, `margin-bottom: ${after}pt`);
   if (def.align) parts.push(`text-align: ${def.align}`);
+  if (def.indent) parts.push(`text-indent: ${def.indent}pt`);
   return parts.join('; ');
 }
 
@@ -168,7 +171,9 @@ export function stylesCss(styles: DocStyles, page: PageSettings, scope: string):
   ].filter(Boolean).join('; ');
   const lines = [
     `${scope} .doc-text { ${base} }`,
-    `${scope} .doc-text p { margin-top: ${n.before ?? 0}pt; margin-bottom: ${n.after ?? 0}pt }`,
+    `${scope} .doc-text p { margin-top: ${n.before ?? 0}pt; margin-bottom: ${n.after ?? 0}pt${n.indent ? `; text-indent: ${n.indent}pt` : ''}${n.align ? `; text-align: ${n.align}` : ''} }`,
+    // The first-line indent is for running text only, not lists or table cells.
+    ...(n.indent ? [`${scope} .doc-text li p, ${scope} .doc-text td p, ${scope} .doc-text th p { text-indent: 0 }`] : []),
   ];
   for (let level = 1; level <= 6; level++) {
     lines.push(`${scope} .doc-text h${level} { ${rule(styles[`h${level}` as StyleId], n)} }`);

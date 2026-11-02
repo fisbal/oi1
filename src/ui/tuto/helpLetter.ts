@@ -49,6 +49,7 @@ export const HELP_LETTER: Record<string, HelpText> = {
   'letter.pageBorder': ['Draws a frame around every page.', 'Trace un cadre autour de chaque page.'],
   'letter.paragraphSpacing': ['Sets the space between paragraphs for the whole document: compact, normal, open, double.', 'Règle l’espace entre paragraphes pour tout le document : serré, normal, aéré, double.'],
   'letter.margins': ['Sets the white space around the text: normal, narrow, wide, or your own.', 'Règle les marges blanches autour du texte : normales, étroites, larges, ou personnalisées.'],
+  'letter.works': ['Shapes your work in one click to a norm (APA-Provost, APA 7, MLA, Chicago, Harvard, IEEE, McGill, thesis…): margins, font, spacing, indent, headings, title page, table of contents and page numbers. Then fill in the yellow fields.', 'Met votre travail en forme d’un clic selon une norme (APA-Provost, APA 7, MLA, Chicago, Harvard, IEEE, McGill, mémoire…) : marges, police, interligne, alinéa, titres, page de titre, table des matières et numéros de page. Remplissez ensuite les champs jaunes.'],
   'letter.orientation': ['Turns the page: portrait (tall) or landscape (wide).', 'Tourne la page : portrait (haute) ou paysage (large).'],
   'letter.size': ['Chooses the paper size: Letter, A4, Legal, A5…', 'Choisit le format du papier : Lettre, A4, Légal, A5…'],
   'letter.lineNumbers': ['Numbers the lines in the margin, for contracts and proofreading.', 'Numérote les lignes dans la marge, pour les contrats et la relecture.'],

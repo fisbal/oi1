@@ -46,6 +46,7 @@
     "check:plan": "node scripts/check-plan.mjs",
     "check:dictation": "node scripts/check-dictation.mjs",
     "check:form": "node scripts/check-form.mjs",
+    "check:works": "node scripts/check-works.mjs",
     "check:mail": "node scripts/check-mail.mjs",
     "check:image": "node scripts/check-image.mjs"
   },

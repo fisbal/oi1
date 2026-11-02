@@ -44,6 +44,7 @@ import { SourceDialog } from './sourceDialog';
 import { RefCheckDialog, RefModelsDialog } from './refModels';
 import { LETTERS } from './templates/letters';
 import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, selectNextField } from './templates/markup';
+import { TOC_MARK, WORK_LAYOUTS, workDoc, workMargins, workStyles } from './templates/works';
 import { profileValues } from './templates/profile';
 import { letterPartMarkup, type LetterPart } from './templates/parts';
 import { CommentsPane, showComment } from './comments';
@@ -905,6 +906,39 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       shell.notify(n ? t('letter.docs.autoFilled', { n }) : t('letter.docs.inserted'));
     },
     docLang: (l: 'fr' | 'en') => { setDocLang(l); shell.storage.set('docLang', l); },
+    // "Mise en page des travaux": the page, the text and the headings follow the norm; an empty document (or one the
+    // person agrees to replace) also gets the parts in order, with yellow [fields] to fill.
+    workLayout: (id: string) => {
+      const w = WORK_LAYOUTS.find(x => x.id === id);
+      if (!w || !body) return;
+      const replace = isEmptyDoc(body) || confirm(t('letter.works.replaceAsk'));
+      setPage(p => ({ ...p, size: w.size, orientation: 'portrait', margins: workMargins(w), color: null }));
+      setStyles(st => workStyles(st, w));
+      if (replace) body.commands.setContent({ type: 'doc', content: workDoc(w, docLang, longDate(docLang === 'fr' ? 'fr-CA' : 'en-CA')) });
+      // The page number where the norm puts it (MLA: the name, then the number).
+      if (w.num && (replace || (header?.isEmpty && footer?.isEmpty))) {
+        const top = w.num === 'tr' || w.num === 'mla';
+        const ed = top ? header : footer;
+        const other = top ? footer : header;
+        const parts = [...(w.num === 'mla' ? [{ type: 'text', text: docLang === 'fr' ? '[Nom] ' : '[Last name] ' }] : []), { type: 'pageNumber', attrs: { kind: 'page' } }];
+        ed?.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: w.num === 'bc' ? 'center' : 'right', indentFirst: 0 }, content: parts }] });
+        if (replace) other?.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
+        setHfVersion(v => v + 1);
+      }
+      // The table of contents lists the parts once the pages are laid out.
+      if (replace) setTimeout(() => {
+        let at = -1;
+        body.state.doc.descendants((n, pos) => { if (at < 0 && n.isTextblock && n.textContent === TOC_MARK) at = pos; return at < 0; });
+        if (at < 0) return;
+        const node = body.state.doc.nodeAt(at)!;
+        const toc = tocJson(body, pageOf, pw - (workMargins(w).left + workMargins(w).right) * PX_PER_IN);
+        body.chain().insertContentAt({ from: at, to: at + node.nodeSize }, toc ?? [{ type: 'paragraph' }]).run();
+      }, 600);
+      changed();
+      const n = replace ? fillFields(body, profileValues(fieldList(body.state.doc).map(f => f.label))) : 0;
+      if (!replace || !selectNextField(body)) body.commands.focus('start');
+      shell.notify(t(replace ? 'letter.works.done' : 'letter.works.formatted', { name: getLanguage() === 'fr' ? w.name.fr : w.name.en, n }));
+    },
     letterPart: (part: LetterPart) => {
       const ed = activeEditor;
       if (!ed) return;

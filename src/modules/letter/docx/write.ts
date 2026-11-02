@@ -463,6 +463,7 @@ function paragraphStyle(def: StyleDef) {
   return {
     spacing: { before: pt20(def.before ?? 0), after: pt20(def.after ?? 0), ...lineSpacing(def.lineHeight) },
     alignment: def.align ? ALIGN[def.align] : undefined,
+    ...(def.indent ? { indent: { firstLine: pt20(def.indent) } } : {}),
   };
 }
 

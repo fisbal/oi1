@@ -449,3 +449,25 @@
 .refm-miss { color: #d97706; font-weight: 600; }
 .fill-list label.missing input { outline: 2px solid #d97706; }
 @media (max-width: 600px) { .refm-adapt { columns: 1; } .refm-tabs, .refm-body, .refm-check { max-width: calc(100vw - 64px); } }
+
+/* Margins like Word: a small page with its margins drawn, the name and the four sizes (Martin, 2026-11-02). */
+.margin-gallery { display: flex; flex-direction: column; width: min(360px, calc(100vw - 32px)); }
+.margin-item { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 0; border-radius: 10px; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.margin-item:hover { background: rgba(var(--fg-rgb), .06); }
+.margin-item.on { background: rgba(212,168,67,.14); box-shadow: inset 2px 0 0 var(--gold); }
+.margin-item svg { flex: none; }
+.margin-item .mi-page { fill: #fff; stroke: rgba(var(--fg-rgb), .45); stroke-width: 1; }
+.margin-item .mi-text { fill: rgba(70,120,200,.10); }
+.margin-item .mi-lines { stroke: #4a7fd0; stroke-width: .8; fill: none; }
+.mi-words { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mi-words b { font-size: 13.5px; }
+.mi-grid { display: grid; grid-template-columns: auto auto; column-gap: 14px; row-gap: 1px; font-size: 12px; opacity: .85; }
+.mi-grid span { white-space: nowrap; }
+
+/* Work layouts: the norm and its rules in one line. */
+.work-gallery { display: flex; flex-direction: column; width: min(400px, calc(100vw - 32px)); }
+.work-lead { margin: 4px 10px 8px; font-size: 12px; opacity: .8; line-height: 1.35; }
+.work-item { display: flex; flex-direction: column; gap: 2px; padding: 7px 10px; border: 0; border-radius: 10px; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.work-item:hover { background: rgba(var(--fg-rgb), .06); }
+.work-item b { font-size: 13.5px; }
+.work-item span { font-size: 12px; opacity: .8; }
