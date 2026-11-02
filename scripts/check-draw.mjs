@@ -238,7 +238,7 @@ try {
     await page.locator('.dr-ai textarea').press('Enter');
     await page.locator('.web-answer').waitFor({ timeout: 5000 });
     const sent = await page.evaluate(() => window.__opened?.[0] ?? '');
-    check(sent.includes('chatgpt.com') && sent.length < 7000 && decodeURIComponent(sent).includes('In 1 Draw'), `${n}: ChatGPT's site gets one short message (${sent.length} characters)`);
+    check(!!sent && new URL(sent).hostname === 'chatgpt.com' && sent.length < 7000 && decodeURIComponent(sent).includes('In 1 Draw'), `${n}: ChatGPT's site gets one short message (${sent.length} characters)`);
     const card = await page.locator('.web-answer').boundingBox();
     check(!!card && card.x >= 0 && card.x + card.width <= d.viewport.width + 1, `${n}: the Paste card is on screen`);
     await page.locator('.web-answer textarea').fill('Voici :\n```json\n' + JSON.stringify(SHAPES) + '\n```');

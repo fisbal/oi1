@@ -218,7 +218,7 @@ try {
     const cardEl = page.locator('.web-answer');
     check(await cardEl.waitFor({ timeout: 6000 }).then(() => true, () => false), `${n}: a card explains how to bring the AI's answer back`);
     const sent = await page.evaluate(() => window.__opened?.[0] ?? '');
-    check(sent.includes('chatgpt.com') && sent.length < 7000, `${n}: ChatGPT's site gets one short message (${sent.length})`);
+    check(!!sent && new URL(sent).hostname === 'chatgpt.com' && sent.length < 7000, `${n}: ChatGPT's site gets one short message (${sent.length})`);
     const said = (() => { try { return decodeURIComponent(sent); } catch { return sent; } })();
     check(said.includes('Bonjour') && said.includes('plan') && !/JSON|[{}]/.test(said), `${n}: the message to the AI is plain French, with no code`);
     const bx = await cardEl.boundingBox();

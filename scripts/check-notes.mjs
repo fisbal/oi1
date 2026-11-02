@@ -206,7 +206,7 @@ try {
     const cardEl = page.locator('.web-answer');
     check(await cardEl.waitFor({ timeout: 6000 }).then(() => true, () => false), `${n}: a card explains how to bring the AI's answer back`);
     const sent = await page.evaluate(() => window.__opened?.[0] ?? '');
-    check(sent.includes('chatgpt.com') && decodeURIComponent(sent).includes('photosynthèse'), `${n}: ChatGPT's site opens with the notes`);
+    check(!!sent && new URL(sent).hostname === 'chatgpt.com' && decodeURIComponent(sent).includes('photosynthèse'), `${n}: ChatGPT's site opens with the notes`);
     const box = await cardEl.boundingBox();
     check(!!box && box.x >= 0 && box.x + box.width <= d.viewport.width + 1, `${n}: the Paste card is on screen`);
     await cardEl.locator('textarea').fill('- La lumière devient énergie chimique.');
