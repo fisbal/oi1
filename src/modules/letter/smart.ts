@@ -226,10 +226,13 @@ export function tableToText(editor: Editor): boolean {
 // ---------- table of contents ----------
 
 /** A table of contents from the headings, with the page each one is on, as a table without lines. */
-export function tocJson(editor: Editor, pageOf: (pos: number) => number | null, contentWidth: number): JSONContent[] | null {
+/** Titles of a table of contents in the 5 languages: never listed inside the table itself. */
+const TOC_TITLES = /^(table des mati[eè]res|sommaire|table of contents|contents|[ií]ndice|sum[aá]rio|inhaltsverzeichnis|inhalt)$/i;
+
+export function tocJson(editor: Editor, pageOf: (pos: number) => number | null, contentWidth: number, withTitle = true): JSONContent[] | null {
   const rows: { level: number; text: string; page: number | null }[] = [];
   editor.state.doc.descendants((node, pos) => {
-    if (node.type.name === 'heading' && node.attrs.level <= 3 && node.textContent.trim()) {
+    if (node.type.name === 'heading' && node.attrs.level <= 3 && node.textContent.trim() && !TOC_TITLES.test(node.textContent.trim())) {
       rows.push({ level: node.attrs.level as number, text: node.textContent.trim(), page: pageOf(pos + 1) });
     }
     return node.type.name !== 'table';
@@ -237,7 +240,7 @@ export function tocJson(editor: Editor, pageOf: (pos: number) => number | null, 
   if (!rows.length) return null;
   const pageCol = 56;
   return [
-    { type: 'paragraph', attrs: { styleId: 'title' }, content: [{ type: 'text', text: t('letter.toc.title') }] },
+    ...(withTitle ? [{ type: 'paragraph', attrs: { styleId: 'title' }, content: [{ type: 'text', text: t('letter.toc.title') }] }] : []),
     {
       type: 'table',
       attrs: { borders: 'none' },

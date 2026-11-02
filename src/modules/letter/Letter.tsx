@@ -924,7 +924,8 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
         body.state.doc.descendants((n, pos) => { if (at < 0 && n.isTextblock && n.textContent === TOC_MARK) at = pos; return at < 0; });
         if (at < 0) return;
         const node = body.state.doc.nodeAt(at)!;
-        const toc = tocJson(body, pageOf, pw - (workMargins(w).left + workMargins(w).right) * PX_PER_IN);
+        // The norm already wrote the "Table des matières" heading: the table comes without a second title.
+        const toc = tocJson(body, pageOf, pw - (workMargins(w).left + workMargins(w).right) * PX_PER_IN, false);
         // Not a separate undo step: Ctrl+Z undoes the whole work layout at once.
         body.chain().command(({ tr }) => { tr.setMeta('addToHistory', false); return true; }).insertContentAt({ from: at, to: at + node.nodeSize }, toc ?? [{ type: 'paragraph' }]).run();
       }, 600);
