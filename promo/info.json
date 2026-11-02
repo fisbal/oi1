@@ -1,0 +1,222 @@
+{
+  "version": "0.1.234",
+  "built": "2026-11-02T00:34:36.058Z",
+  "commit": "e4fcfcc",
+  "links": {
+    "storeId": "9NW4XQH95MRB",
+    "store": "https://apps.microsoft.com/detail/9NW4XQH95MRB",
+    "storeApp": "ms-windows-store://pdp/?productid=9NW4XQH95MRB",
+    "site": "https://fisbal.github.io/oi1/",
+    "get": "https://fisbal.github.io/oi1/get/",
+    "kit": "https://fisbal.github.io/oi1/promo/",
+    "apk": "https://github.com/fisbal/fisbal.github.io/releases/download/oi1-updates/OfficeIn1.apk",
+    "exe": "https://github.com/fisbal/fisbal.github.io/releases/download/oi1-updates/OfficeIn1-Setup.exe",
+    "dmg": "https://github.com/fisbal/fisbal.github.io/releases/download/oi1-updates/OfficeIn1.dmg",
+    "hub": "https://fisbal.github.io/"
+  },
+  "apps": {
+    "fr": [
+      {
+        "name": "In 1 Letter",
+        "kind": "Documents",
+        "ready": true,
+        "short": "Letter",
+        "color": "#7FA7E8"
+      },
+      {
+        "name": "In 1 Class",
+        "kind": "Tableurs",
+        "ready": true,
+        "short": "Class",
+        "color": "#5FC79A"
+      },
+      {
+        "name": "In 1 Stage",
+        "kind": "Présentations",
+        "ready": true,
+        "short": "Stage",
+        "color": "#E8875F"
+      },
+      {
+        "name": "In 1 Code+",
+        "kind": "Sites web et applis",
+        "ready": true,
+        "short": "Code+",
+        "color": "#B8E05F"
+      },
+      {
+        "name": "In 1 ProDFos",
+        "kind": "Lecteur et outils PDF",
+        "ready": true,
+        "short": "ProDFos",
+        "color": "#E25C5C"
+      },
+      {
+        "name": "In 1 Assistant",
+        "kind": "Fait vos tâches dans tous les Offices",
+        "ready": true,
+        "short": "Assistant",
+        "color": "#B48CF0"
+      },
+      {
+        "name": "In 1 Notes",
+        "kind": "Notes rapides",
+        "ready": true,
+        "short": "Notes",
+        "color": "#E8C35F"
+      },
+      {
+        "name": "In 1 Plan",
+        "kind": "Agenda et tâches",
+        "ready": true,
+        "short": "Plan",
+        "color": "#5FB8E8"
+      },
+      {
+        "name": "In 1 Mail",
+        "kind": "Courriel",
+        "ready": true,
+        "short": "Mail",
+        "color": "#8C9CF0"
+      },
+      {
+        "name": "In 1 Draw",
+        "kind": "Diagrammes et croquis",
+        "ready": true,
+        "short": "Draw",
+        "color": "#E26FC2"
+      },
+      {
+        "name": "In 1 Form",
+        "kind": "Formulaires et sondages",
+        "ready": true,
+        "short": "Form",
+        "color": "#4FC4B5"
+      },
+      {
+        "name": "In 1 Image",
+        "kind": "Photos et images",
+        "ready": true,
+        "short": "Image",
+        "color": "#FF6F91"
+      }
+    ],
+    "en": [
+      {
+        "name": "In 1 Letter",
+        "kind": "Documents",
+        "ready": true,
+        "short": "Letter",
+        "color": "#7FA7E8"
+      },
+      {
+        "name": "In 1 Class",
+        "kind": "Spreadsheets",
+        "ready": true,
+        "short": "Class",
+        "color": "#5FC79A"
+      },
+      {
+        "name": "In 1 Stage",
+        "kind": "Presentations",
+        "ready": true,
+        "short": "Stage",
+        "color": "#E8875F"
+      },
+      {
+        "name": "In 1 Code+",
+        "kind": "Websites and apps",
+        "ready": true,
+        "short": "Code+",
+        "color": "#B8E05F"
+      },
+      {
+        "name": "In 1 ProDFos",
+        "kind": "PDF reader and tools",
+        "ready": true,
+        "short": "ProDFos",
+        "color": "#E25C5C"
+      },
+      {
+        "name": "In 1 Assistant",
+        "kind": "Does your tasks in every Office",
+        "ready": true,
+        "short": "Assistant",
+        "color": "#B48CF0"
+      },
+      {
+        "name": "In 1 Notes",
+        "kind": "Quick notes",
+        "ready": true,
+        "short": "Notes",
+        "color": "#E8C35F"
+      },
+      {
+        "name": "In 1 Plan",
+        "kind": "Calendar and tasks",
+        "ready": true,
+        "short": "Plan",
+        "color": "#5FB8E8"
+      },
+      {
+        "name": "In 1 Mail",
+        "kind": "Email",
+        "ready": true,
+        "short": "Mail",
+        "color": "#8C9CF0"
+      },
+      {
+        "name": "In 1 Draw",
+        "kind": "Diagrams and sketches",
+        "ready": true,
+        "short": "Draw",
+        "color": "#E26FC2"
+      },
+      {
+        "name": "In 1 Form",
+        "kind": "Forms and surveys",
+        "ready": true,
+        "short": "Form",
+        "color": "#4FC4B5"
+      },
+      {
+        "name": "In 1 Image",
+        "kind": "Photos and pictures",
+        "ready": true,
+        "short": "Image",
+        "color": "#FF6F91"
+      }
+    ]
+  },
+  "shots": {
+    "fr": {
+      "home": "shots/fr-home.jpg",
+      "letter": "shots/fr-letter.jpg",
+      "class": "shots/fr-class.jpg",
+      "stage": "shots/fr-stage.jpg",
+      "prodfos": "shots/fr-prodfos.jpg",
+      "assistant": "shots/fr-assistant.jpg",
+      "plan": "shots/fr-plan.jpg",
+      "notes": "shots/fr-notes.jpg",
+      "draw": "shots/fr-draw.jpg",
+      "image": "shots/fr-image.jpg",
+      "form": "shots/fr-form.jpg",
+      "codeplus": "shots/fr-codeplus.jpg"
+    },
+    "en": {
+      "home": "shots/en-home.jpg",
+      "letter": "shots/en-letter.jpg",
+      "class": "shots/en-class.jpg",
+      "stage": "shots/en-stage.jpg",
+      "prodfos": "shots/en-prodfos.jpg",
+      "assistant": "shots/en-assistant.jpg",
+      "plan": "shots/en-plan.jpg",
+      "notes": "shots/en-notes.jpg",
+      "draw": "shots/en-draw.jpg",
+      "image": "shots/en-image.jpg",
+      "form": "shots/en-form.jpg",
+      "codeplus": "shots/en-codeplus.jpg"
+    }
+  },
+  "videoSeconds": 52
+}

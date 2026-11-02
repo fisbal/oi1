@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" translate="no" class="notranslate">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>Office In 1</title>
+  <!-- Office In 1 has its own languages (and translates documents itself, keeping the original: rule 13). The
+       browser's page translator must not run: it turned "Office In 1" into "Bureau en 1" and "Office Letter" into
+       "Lettre de bureau" (Martin, 2026-11-01, Microsoft Store app on Windows in French). Brand names never change. -->
+  <meta name="google" content="notranslate">
+  <!-- Security (OWASP CSP Cheat Sheet): no plug-ins (<object>/<embed>) and no <base> tag can be injected.
+       Scripts stay allowed because Code+ runs the user's own code in sandboxed previews, which inherit this policy;
+       HTML coming from files or AI answers is cleaned by src/shell/safeHtml.ts instead. -->
+  <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="theme-color" content="#2E2E36">
+  <script>
+    try {
+      var m = localStorage.getItem('oi1.theme') || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.dataset.theme = m;
+      if (m === 'light') document.querySelector('meta[name="theme-color"]').content = '#F3EFE6';
+    } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+  </script>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <script type="module" crossorigin src="./assets/index-yM6e3rBQ.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CzEh5b-J.css">
+</head>
+<body>
+  <div id="root"></div>
+</body>
+</html>
