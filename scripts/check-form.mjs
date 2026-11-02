@@ -214,17 +214,17 @@ try {
   // Default AI website, phone and PC
   for (const d of [DEVICES[4], DEVICES[0]]) {
     const n = `${d.name} web AI`;
-    const { ctx, page } = await newPage({ ...d, lang: 'fr' }, `localStorage.setItem('oi1.ai.providers', JSON.stringify({ main: 'web-claude', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' }, v: 2 }))`);
+    const { ctx, page } = await newPage({ ...d, lang: 'fr' }, `localStorage.setItem('oi1.ai.providers', JSON.stringify({ main: 'web-chatgpt', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' }, v: 3 }))`);
     await openForm(page);
     await help(page, 'form.aiCreate', 'IA').click();
     await page.locator('.dr-ai-ideas button').first().click();
     await page.locator('.dr-ai textarea').press('Enter');
     const cardEl = page.locator('.web-answer');
-    check(await cardEl.waitFor({ timeout: 6000 }).then(() => true, () => false), `${n}: a card explains how to bring Claude's answer back`);
+    check(await cardEl.waitFor({ timeout: 6000 }).then(() => true, () => false), `${n}: a card explains how to bring the AI's answer back`);
     const sent = await page.evaluate(() => window.__opened?.[0] ?? '');
-    check(sent.includes('claude.ai') && sent.length < 7000, `${n}: Claude's site gets one short message (${sent.length})`);
+    check(sent.includes('chatgpt.com') && sent.length < 7000, `${n}: ChatGPT's site gets one short message (${sent.length})`);
     const said = (() => { try { return decodeURIComponent(sent); } catch { return sent; } })();
-    check(said.includes('Bonjour') && said.includes('formulaire') && !/JSON|[{}]/.test(said), `${n}: the message to Claude is plain French, with no code`);
+    check(said.includes('Bonjour') && said.includes('formulaire') && !/JSON|[{}]/.test(said), `${n}: the message to the AI is plain French, with no code`);
     const bx = await cardEl.boundingBox();
     check(!!bx && bx.x >= 0 && bx.x + bx.width <= d.viewport.width + 1, `${n}: the Paste card is on screen`);
     await cardEl.locator('textarea').fill(d === DEVICES[4] ? 'Voici votre formulaire :\nTitre : Retour client\n1. Êtes-vous satisfait ? (Oui / Non)\n2. Quelle note donnez-vous ? (1 / 2 / 3 / 4 / 5)\n3. Votre e-mail ?\n4. Un commentaire ?\nMerci !' : 'Voici :\n```json\n' + JSON.stringify(AI_FORM) + '\n```');

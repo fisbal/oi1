@@ -191,12 +191,16 @@ try {
   for (const d of [DEVICES[0], DEVICES[4]]) {
     const { ctx, page } = await newPage(d);
     try {
+      await page.addInitScript(() => { delete window.LanguageModel; });
       await page.goto(url);
       await page.locator('.slab:has-text("In 1 Image")').first().click();
       await page.locator(`${H} .im-sample[data-sample="city"]`).click();
       await page.waitForTimeout(800);
       await page.locator(`${H} .copilot-pill`).first().click().catch(async () => page.keyboard.press('Control+Shift+Space'));
       await page.locator('.copilot').first().waitFor({ timeout: 5000 });
+      // The first time it shows the free choices; "Later" keeps the free site that needs no account.
+      check(await page.locator('.copilot-setup').isVisible().catch(() => false), `${d.name}: the first time, the copilot shows the free choices`);
+      await page.locator('.copilot-setup-buttons button', { hasText: 'Later' }).click();
       await page.locator('.copilot button', { hasText: 'How to improve it' }).first().click();
       await page.waitForTimeout(800);
       const opened = await page.evaluate(() => window.__opened ?? []);

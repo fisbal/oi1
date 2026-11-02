@@ -166,8 +166,10 @@ jobs:
       - name: The Tuto tab explains every button (all of In 1 Class) on PC and phone
         if: env.FULL_CHECKS == 'true'
         run: npm run check:tuto
-      - name: Choosing the copilot (Claude, ChatGPT, Gemini, Microsoft …) works on PC and phone
+      - name: The copilot is free with no account (ChatGPT site, In 1 AI on the device with its real model once), choosing works on PC, Mac, phone both ways and tablet
         if: env.FULL_CHECKS == 'true'
+        env:
+          REAL_LLM: '1'
         run: npm run check:copilot
       - name: In 1 Assistant makes linked documents in the Offices from plain words, with and without AI (PC + phone)
         if: env.FULL_CHECKS == 'true'

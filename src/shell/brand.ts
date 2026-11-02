@@ -4,5 +4,5 @@
 export const SUITE = 'Office In 1';
 export const BRANDS = [
   SUITE, 'OI1', 'In 1 Letter', 'In 1 Class', 'In 1 Stage', 'In 1 Code+', 'In 1 ProDFos', 'In 1 Assistant',
-  'In 1 Notes', 'In 1 Plan', 'In 1 Mail', 'In 1 Draw', 'In 1 Form', 'In 1 Image', 'ProDFos',
+  'In 1 Notes', 'In 1 Plan', 'In 1 Mail', 'In 1 Draw', 'In 1 Form', 'In 1 Image', 'In 1 AI', 'ProDFos',
 ] as const;

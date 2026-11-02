@@ -1,5 +1,6 @@
-// Choose your copilot (Martin, 2026-10-31): each person picks the AI behind the copilot (Claude, ChatGPT,
-// Gemini, Microsoft, Mistral, DeepSeek, a local model …), gives their own key, and the copilot answers with it.
+// Choose your copilot (Martin, 2026-10-31): each person picks the AI behind the copilot (ChatGPT, Microsoft Copilot,
+// Gemini, Claude, Mistral, DeepSeek, a local model …). Free with no account by default (Martin, 2026-11-02: "not
+// everyone uses Claude and Claude is not free"): a site that needs no account, or In 1 AI on the device itself.
 // Used like a person would in In 1 Letter, on PC and phone. The AI's answer is played back, so the check
 // never depends on the network or a real key. Run after `npm run build`:
 //   node scripts/check-copilot.mjs
@@ -17,7 +18,7 @@ const check = (ok, what) => (ok ? passed : problems).push(what);
 
 const sse = events => events.map(e => `data: ${e}\n\n`).join('');
 
-async function run(name, viewport, mobile) {
+async function run(name, viewport, mobile, portrait) {
   const ctx = await browser.newContext({ viewport, locale: 'en-US', isMobile: mobile, hasTouch: mobile });
   const page = await ctx.newPage();
   page.on('pageerror', e => problems.push(`${name}: script error: ${e.message}`));
@@ -35,26 +36,42 @@ async function run(name, viewport, mobile) {
     ai: { chat: async (prompt) => { window.__puterAsked(prompt); return (async function* () { yield { text: 'Bienvenue de ' }; yield { text: 'Claude gratuit' }; })(); } },
   };` }));
   // The public sites are not opened for real: their address is kept to check the request is in it.
-  await page.addInitScript(() => { delete window.LanguageModel; window.__opened = []; window.open = u => { window.__opened.push(String(u)); return null; }; });
+  // In 1 AI's model is played back too (REAL_LLM=1 runs the real one, once, on PC).
+  const real = !!process.env.REAL_LLM && name === 'PC';
+  await page.addInitScript(r => {
+    delete window.LanguageModel; window.__opened = []; window.open = u => { window.__opened.push(String(u)); return null; };
+    if (!r) window.__oi1FakeLlm = m => { (window.__llmAsked ||= []).push(m); return 'Bonjour, je suis In 1 AI.'; };
+  }, real);
   await page.goto(url);
   await page.locator('.slab:has-text("In 1 Letter")').first().click();
   await page.waitForTimeout(1200);
+  if (portrait === false) await page.locator('.status').first().click().catch(() => {});
   await page.locator('.body-text').click();
   await page.keyboard.press('ControlOrMeta+Shift+Space');
   await page.waitForTimeout(600); // the panel slides in
 
-  // No key and no account: the copilot works at once. With no AI built into the browser (as here), Claude.ai opens
-  // with the request written, and the answer is pasted back. (Puter's free account asked for a phone check that
-  // failed, so it is no longer the default.)
-  check(!(await page.locator('.copilot-setup').count()), `${name}: the copilot opens ready, no key and no account asked`);
-  check(await page.locator('.copilot-name:has-text("Claude")').isVisible().catch(() => false), `${name}: it uses Claude (Claude.ai) by default`);
+  // The first time, the copilot shows the free choices before anything else: on this device, a free site, Puter, a key.
+  const setup = page.locator('.copilot-setup');
+  check(await setup.isVisible().catch(() => false), `${name}: the first time, the copilot shows the choices`);
+  check(await page.locator('.copilot-modes button').count() === 4, `${name}: four ways: on this device, free site, Puter account, API key`);
+  const first = await setup.boundingBox();
+  check(!!first && first.x >= 0 && first.x + first.width <= viewport.width + 1, `${name}: the choices fit on the screen`);
+  check(await setup.locator('.copilot-provider option:checked').innerText().then(t => t.startsWith('ChatGPT') && /no account/.test(t)).catch(() => false), `${name}: ChatGPT is picked, marked "no account"`);
+  check(!(await page.locator('.copilot-setup a.copilot-link').count()), `${name}: no sign-in link for a site that needs no account`);
+  const webOptions = await page.locator('.copilot-provider option').allInnerTexts();
+  check(webOptions.length >= 20, `${name}: ${webOptions.length} free AI sites to choose from (20+)`);
+  check(webOptions.filter(o => /no account/.test(o)).length >= 5, `${name}: ${webOptions.filter(o => /no account/.test(o)).length} of them need no account (5+)`);
+  for (const want of ['ChatGPT', 'Microsoft Copilot', 'Duck.ai', 'Gemini', 'Claude.ai', 'Le Chat', 'DeepSeek']) check(webOptions.some(o => o.includes(want)), `${name}: ${want} is in the list`);
+  // "Later" keeps the free default (ChatGPT, no account) and does not ask again.
+  await page.locator('.copilot-setup-buttons button:has-text("Later")').click();
+  check(await page.locator('.copilot-name:has-text("ChatGPT")').isVisible().catch(() => false), `${name}: "Later" uses ChatGPT, which needs no account`);
   const input = page.locator('.copilot textarea').first();
   await input.fill('Écris une phrase de bienvenue');
   await input.press('Enter');
   const card = page.locator('.web-answer');
-  check(await card.waitFor({ timeout: 4000 }).then(() => true, () => false), `${name}: a card says the request is open in Claude.ai and how to bring the answer back`);
+  check(await card.waitFor({ timeout: 4000 }).then(() => true, () => false), `${name}: a card says the request is open in ChatGPT and how to bring the answer back`);
   const opened = await page.evaluate(() => window.__opened);
-  check(opened.length === 1 && opened[0].startsWith('https://claude.ai/new?q=') && decodeURIComponent(opened[0]).includes('Écris une phrase de bienvenue'), `${name}: Claude.ai opens with the request already written`);
+  check(opened.length === 1 && opened[0].startsWith('https://chatgpt.com/?q=') && decodeURIComponent(opened[0]).includes('Écris une phrase de bienvenue'), `${name}: ChatGPT opens with the request already written`);
   check(!puterAsked.length, `${name}: Puter is not asked (no account needed)`);
   const cardBox = await card.boundingBox();
   check(!!cardBox && cardBox.x >= 0 && cardBox.x + cardBox.width <= viewport.width + 1 && cardBox.y + cardBox.height <= viewport.height + 1, `${name}: the card fits on the screen`);
@@ -62,20 +79,35 @@ async function run(name, viewport, mobile) {
   await card.locator('textarea').press('ControlOrMeta+Enter');
   check(await page.locator('.copilot-msg:has-text("Bienvenue à tous !")').first().waitFor({ timeout: 4000 }).then(() => true, () => false), `${name}: the pasted answer shows in the copilot, ready to put in the letter`);
   check(!(await card.count()), `${name}: the card goes away once the answer is back`);
+  await page.reload();
+  await page.locator('.slab:has-text("In 1 Letter")').first().click().catch(() => {});
+  await page.waitForTimeout(1200);
+  if (portrait === false) await page.locator('.status').first().click().catch(() => {});
+  await page.locator('.body-text').first().click();
+  await page.keyboard.press('ControlOrMeta+Shift+Space');
+  await page.waitForTimeout(600);
+  check(!(await setup.count()), `${name}: after the first choice the copilot opens ready (no question again)`);
 
-  // The ways, in order: built into the browser, public site, Puter account, API key.
+  // In 1 AI, on this device: free, no account, answers right in the copilot, no site to open.
   await page.locator('.copilot-head button[aria-label="Settings"]').click();
-  const setup = page.locator('.copilot-setup');
-  check(await setup.isVisible().catch(() => false), `${name}: the settings show how to use the copilot`);
-  check(await page.locator('.copilot-modes button').count() === 4, `${name}: four ways: built into the browser, public site, Puter account, API key`);
   await page.locator('.copilot-modes button').nth(0).click();
-  check(await page.locator('.copilot-setup .copilot-fine').first().isVisible(), `${name}: the built-in browser AI says whether this browser has one`);
-  await page.locator('.copilot-modes button').nth(1).click();
-  const webOptions = await page.locator('.copilot-provider option').allInnerTexts();
-  check(webOptions.length >= 20, `${name}: ${webOptions.length} public AI sites to choose from (20+)`);
-  for (const want of ['Claude.ai', 'ChatGPT', 'Gemini', 'Microsoft Copilot', 'Le Chat', 'DeepSeek']) check(webOptions.some(o => o.includes(want)), `${name}: ${want} is in the list`);
+  check(await page.locator('.copilot-device').innerText().then(t => /In 1 AI/.test(t) && /500 MB/.test(t)).catch(() => false), `${name}: In 1 AI says it is free, private and downloads once (about 500 MB)`);
+  const get = page.locator('.copilot-setup button[type=submit]');
+  check(await get.innerText().then(t => /Download/.test(t)).catch(() => false), `${name}: the button says it downloads first`);
+  await get.click();
+  check(await page.locator('.copilot-name:has-text("In 1 AI")').isVisible().catch(() => false), `${name}: the copilot now uses In 1 AI`);
+  if (real) check(await page.locator('.copilot-device-bar').waitFor({ timeout: 20000 }).then(() => true, () => false), `${name}: the download shows how far it is`);
+  await input.fill('Réponds seulement : bonjour');
+  await input.press('Enter');
+  const reply = real ? page.locator('.copilot-msg.claude:not(.error)').last() : page.locator('.copilot-msg:has-text("Bonjour, je suis In 1 AI.")').first();
+  const got = real ? await page.waitForFunction(() => { const m = [...document.querySelectorAll('.copilot-msg.claude')].pop(); return m && !m.hasAttribute('aria-live') && /\p{L}{2}/u.test(m.textContent || ''); }, null, { timeout: 600000 }).then(() => true, () => false) : await reply.waitFor({ timeout: 6000 }).then(() => true, () => false);
+  check(got, `${name}: In 1 AI answers right in the copilot${real ? ' (real model: ' + JSON.stringify((await reply.innerText().catch(() => '')).slice(0, 60)) + ')' : ''}`);
+  check(!(await page.locator('.copilot-msg.error').count()), `${name}: no error from In 1 AI`);
+  check((await page.evaluate(() => window.__opened.length)) === 0, `${name}: no website opens with In 1 AI`);
+  check(await page.evaluate(() => localStorage.getItem('oi1.ai.device.ready') === '1'), `${name}: In 1 AI is remembered as downloaded`);
 
   // Puter stays for those who have an account: the answer is written right in the copilot.
+  await page.locator('.copilot-head button[aria-label="Settings"]').click();
   await page.locator('.copilot-modes button').nth(2).click();
   const freeOptions = await page.locator('.copilot-provider option').allInnerTexts();
   check(freeOptions.length >= 20, `${name}: ${freeOptions.length} AIs through a Puter account (20+)`);
@@ -122,7 +154,10 @@ async function run(name, viewport, mobile) {
 
 try {
   await run('PC', { width: 1366, height: 800 }, false);
+  await run('Mac', { width: 1440, height: 900 }, false);
   await run('Phone', { width: 390, height: 844 }, true);
+  await run('Phone sideways', { width: 844, height: 390 }, true, false);
+  await run('Tablet', { width: 820, height: 1180 }, true);
 } finally {
   await browser.close();
   try { process.kill(-server.pid); } catch { /* already gone */ }
@@ -130,4 +165,4 @@ try {
 for (const p of passed) console.log(`  ✓ ${p}`);
 for (const p of problems) console.log(`  ✗ ${p}`);
 if (problems.length) { console.log(`\n${problems.length} problem(s) with choosing the copilot.`); process.exit(1); }
-console.log(`\nChoosing the copilot works: ${passed.length} checks passed on PC and phone.`);
+console.log(`\nChoosing the copilot works: ${passed.length} checks passed on PC, Mac, phone (both ways) and tablet.`);

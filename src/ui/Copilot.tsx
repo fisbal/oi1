@@ -9,7 +9,8 @@ import type { AiApi } from '../shell/contract';
 import { AI_MODELS, AiError, aiSettings, type AiModel } from '../shell/ai';
 import { modules } from '../shell/modules';
 import { PROVIDERS, aiChoice, provider, providerKey, setProviderKey, type Provider } from '../shell/providers';
-import { browserAiState, loadPuter, onWebWait, puterSignIn, puterSignOut, puterUser, webWait } from '../shell/webAi';
+import { deviceAi, DEVICE_AI_MB } from '../shell/deviceAi';
+import { browserAiHere, browserAiState, loadPuter, onWebWait, puterSignIn, puterSignOut, puterUser, webWait } from '../shell/webAi';
 import { getLanguage, LANGUAGES, t, type MessageKey } from '../shell/i18n';
 import { useLanguage } from '../shell/useLanguage';
 import { Icon } from './kit';
@@ -67,7 +68,7 @@ const langName = (code: string) => LANGUAGES.find(l => l.code === code)?.name ??
 function systemPrompt(host: CopilotHost) {
   const lang = langName(getLanguage());
   return [
-    `You are Claude, the copilot built into ${host.app}, an app of the Office In 1 suite (Letter for documents, Class for spreadsheets, Stage for presentations, Code+ for code, ProDFos for PDFs).`,
+    `You are the copilot built into ${host.app}, an app of the Office In 1 suite (Letter for documents, Class for spreadsheets, Stage for presentations, Code+ for code, ProDFos for PDFs).`,
     host.role,
     `The user's interface language is ${lang}. Write your explanations in ${lang} unless the user writes to you in another language.`,
     'When you rewrite, correct, shorten or continue content, keep the language the content is written in (unless asked to translate) and reply with only the resulting content: no introduction, no quotes, no comments, so it can be applied as it is.',
@@ -107,14 +108,22 @@ function errorText(err: unknown): string {
 }
 
 type Mode = 'free' | 'web' | 'browser' | 'key';
-const modeOf = (p: Provider): Mode => (p.kind === 'puter' ? 'free' : p.kind === 'web' ? 'web' : p.kind === 'browser' ? 'browser' : 'key');
-const inMode = (m: Mode) => PROVIDERS.filter(x => modeOf(x) === m);
+// "On this device": In 1 AI (downloads once, any device) and the AI built into the browser (Chrome, Edge) when there is one.
+const modeOf = (p: Provider): Mode => (p.kind === 'puter' ? 'free' : p.kind === 'web' ? 'web' : p.kind === 'browser' || p.kind === 'device' ? 'browser' : 'key');
+const inMode = (m: Mode) => PROVIDERS.filter(x => modeOf(x) === m && (x.kind !== 'browser' || browserAiHere()));
+
+/** Follows In 1 AI's download, for the progress line. */
+function useDeviceAi() {
+  const [, setTick] = useState(0);
+  useEffect(() => deviceAi.onProgress(() => setTick(n => n + 1)), []);
+  return { state: deviceAi.state(), pct: deviceAi.progress() };
+}
 
 /**
  * Choosing the copilot's AI. Free first: the AI's public site with the person's own account, or the AI built
  * into the browser. A key (the AI's API) is the advanced way, for answers written straight into the document.
  */
-function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: boolean; appName: string }) {
+function Setup({ onDone, canCancel, appName, first }: { onDone: () => void; canCancel: boolean; appName: string; first?: boolean }) {
   const appId = modules.find(m => m.name === appName)?.id;
   const choice = aiChoice.get();
   const [pid, setPid] = useState(() => aiChoice.forApp(appId).id);
@@ -127,7 +136,8 @@ function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: 
   const [deployment, setDeployment] = useState(choice.azure.deployment);
   const [onlyHere, setOnlyHere] = useState(() => !!(appId && choice.byApp[appId]));
   const [browserState, setBrowserState] = useState<'none' | 'download' | 'ready' | '?'>('?');
-  useEffect(() => { if (mode === 'browser') void browserAiState().then(setBrowserState); }, [mode]);
+  useEffect(() => { if (p.kind === 'browser') void browserAiState().then(setBrowserState); }, [p.kind]);
+  const device = useDeviceAi();
   // Free: who is signed in to Puter (loading its script now also lets the first question open its sign-in at once).
   const [puter, setPuter] = useState<{ state: 'loading' | 'out' | 'in' | 'offline'; user?: string }>({ state: 'loading' });
   useEffect(() => { if (mode === 'free') void puterUser().then(u => setPuter(u ? { state: 'in', user: u } : { state: 'out' }), () => setPuter({ state: 'offline' })); }, [mode]);
@@ -145,7 +155,7 @@ function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: 
     pick((before ?? inMode(m)[0]).id);
   };
   const hint: Record<AiModel, MessageKey> = { 'claude-opus-5-5': 'ai.model.best', 'claude-sonnet-5-5': 'ai.model.fast', 'claude-haiku-5-5': 'ai.model.fastest' };
-  const complete = mode === 'web' || mode === 'free' || (mode === 'browser' ? browserState !== 'none' && browserState !== '?' : p.local || (!!key.trim() && (p.kind !== 'azure' || (!!endpoint.trim() && !!deployment.trim()))));
+  const complete = mode === 'web' || mode === 'free' || p.kind === 'device' || (p.kind === 'browser' ? browserState !== 'none' && browserState !== '?' : p.local || (!!key.trim() && (p.kind !== 'azure' || (!!endpoint.trim() && !!deployment.trim()))));
   const save = () => {
     if (claude) aiSettings.set(key, model as AiModel);
     else if (mode === 'key') {
@@ -158,9 +168,13 @@ function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: 
     if (appId && onlyHere) byApp[appId] = pid;
     else { if (appId) delete byApp[appId]; aiChoice.set({ main: pid }); }
     aiChoice.set({ byApp });
+    // In 1 AI downloads once, right away, so it is ready (or nearly) by the first question.
+    if (p.kind === 'device' && deviceAi.state() === 'download') void deviceAi.prepare().catch(() => {});
     onDone();
   };
-  const groups: { label: MessageKey; list: Provider[] }[] = mode === 'web' || mode === 'free'
+  const groups: { label: MessageKey; list: Provider[] }[] = mode === 'browser'
+    ? [{ label: 'ai.groupTop', list: inMode('browser') }]
+    : mode === 'web' || mode === 'free'
     ? [{ label: 'ai.groupTop', list: inMode(mode).filter(x => x.top) }, { label: 'ai.groupMore', list: inMode(mode).filter(x => !x.top) }]
     : [
       { label: 'ai.groupTop', list: inMode('key').filter(x => x.top) },
@@ -173,6 +187,7 @@ function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: 
     <form className="copilot-setup" onSubmit={e => { e.preventDefault(); if (complete) save(); }}>
       <div className="copilot-orb" aria-hidden="true"><Icon name="sparkle" size={22} /></div>
       <h3>{t('ai.chooseTitle')}</h3>
+      {first && <p className="copilot-fine">{t('ai.firstText')}</p>}
       <div className="copilot-modes" role="tablist" aria-label={t('ai.howTitle')}>
         {(['browser', 'web', 'free', 'key'] as Mode[]).map(m => (
           <button key={m} type="button" role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''} onClick={() => pickMode(m)}>
@@ -180,16 +195,19 @@ function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: 
           </button>
         ))}
       </div>
-      {mode === 'browser' ? (
-        <p className="copilot-fine">{t(browserState === 'ready' ? 'ai.browserReady' : browserState === 'download' ? 'ai.browserDownload' : browserState === 'none' ? 'ai.browserNone' : 'ai.browserCheck')}</p>
-      ) : (
+      {!(mode === 'browser' && groups[0].list.length < 2) && (
         <label className="copilot-field">
           <span>{t('ai.provider')}</span>
           <select value={pid} onChange={e => pick(e.target.value)} className="copilot-provider">
-            {groups.map(g => <optgroup key={g.label} label={t(g.label)}>{g.list.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>)}
+            {groups.map(g => <optgroup key={g.label} label={t(g.label)}>{g.list.map(x => <option key={x.id} value={x.id}>{x.name}{x.noAccount ? ` · ${t('ai.noAccount')}` : ''}</option>)}</optgroup>)}
           </select>
         </label>
       )}
+      {p.kind === 'browser' && <p className="copilot-fine">{t(browserState === 'ready' ? 'ai.browserReady' : browserState === 'download' ? 'ai.browserDownload' : browserState === 'none' ? 'ai.browserNone' : 'ai.browserCheck')}</p>}
+      {p.kind === 'device' && <>
+        <p className="copilot-fine copilot-device">{device.state === 'ready' ? t('ai.deviceReady') : device.state === 'loading' ? t('ai.deviceLoading', { pct: String(device.pct ?? 0) }) : t('ai.deviceDownload', { mb: String(DEVICE_AI_MB) })}</p>
+        {device.state === 'loading' && <progress className="copilot-progress" max={100} value={device.pct ?? 0} />}
+      </>}
       {mode === 'free' && <>
         <p className="copilot-fine">{t('ai.freeHow', { name: short })}</p>
         <div className="copilot-account">
@@ -201,10 +219,10 @@ function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: 
         </div>
       </>}
       {mode === 'web' && <>
-        <p className="copilot-fine">{t('ai.webHow', { name: short })}</p>
-        <a className="copilot-link" href={p.keyUrl} target="_blank" rel="noreferrer">{t('ai.webAccount', { site })} ↗</a>
+        <p className="copilot-fine">{t(p.noAccount ? 'ai.webHowFree' : 'ai.webHow', { name: short })}</p>
+        {!p.noAccount && <a className="copilot-link" href={p.keyUrl} target="_blank" rel="noreferrer">{t('ai.webAccount', { site })} ↗</a>}
       </>}
-      {mode === 'browser' && browserState === 'none' && <a className="copilot-link" href={p.keyUrl} target="_blank" rel="noreferrer">{t('ai.browserHelp')} ↗</a>}
+      {p.kind === 'browser' && browserState === 'none' && <a className="copilot-link" href={p.keyUrl} target="_blank" rel="noreferrer">{t('ai.browserHelp')} ↗</a>}
       {mode === 'key' && <>
         <p className="copilot-fine">{t('ai.chooseText')}</p>
         {p.kind === 'azure' && <>
@@ -248,10 +266,10 @@ function Setup({ onDone, canCancel, appName }: { onDone: () => void; canCancel: 
           <span>{t('ai.onlyApp', { app: appName })}</span>
         </label>
       )}
-      <p className="copilot-fine">{mode === 'browser' || p.local ? t('ai.privacyLocal') : mode === 'free' ? t('ai.privacyFree', { name: short }) : mode === 'web' ? t('ai.privacyWeb', { name: short }) : t('ai.privacyOf', { name: p.name })}</p>
+      <p className="copilot-fine">{mode === 'browser' || p.local ? t('ai.privacyLocal') : mode === 'free' ? t('ai.privacyFree', { name: short }) : mode === 'web' ? t(p.noAccount ? 'ai.privacyWebFree' : 'ai.privacyWeb', { name: short }) : t('ai.privacyOf', { name: p.name })}</p>
       <div className="copilot-setup-buttons">
-        <button type="submit" className="primary" disabled={!complete}>{mode === 'key' ? t('ai.connect') : t('ai.use')}</button>
-        {canCancel && <button type="button" onClick={onDone}>{t('letter.cancel')}</button>}
+        <button type="submit" className="primary" disabled={!complete}>{mode === 'key' ? t('ai.connect') : p.kind === 'device' && device.state === 'download' ? t('ai.deviceGet', { mb: String(DEVICE_AI_MB) }) : t('ai.use')}</button>
+        {canCancel && <button type="button" onClick={onDone}>{first ? t('ai.later') : t('letter.cancel')}</button>}
       </div>
       {canCancel && mode === 'key' && !p.local && key && (
         <button type="button" className="copilot-forget" onClick={() => { if (claude) aiSettings.forget(); else setProviderKey(pid, ''); setKey(''); }}>{t('ai.forget')}</button>
@@ -274,6 +292,10 @@ export function Copilot({ host, ai, onClose, start }: {
   // Free (Puter): load it now, so the first question can open its sign-in window straight from the click.
   useEffect(() => { if (ai.provider?.().id.startsWith('free-')) void loadPuter().catch(() => {}); }, [ai]);
   const [settings, setSettings] = useState(false);
+  // The first time, the copilot shows the free choices (no account needed) before anything else.
+  const first = !aiChoice.chosen();
+  const held = useRef<{ id: string; n: number } | null>(null);
+  const device = useDeviceAi();
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState<AbortController | null>(null);
@@ -338,6 +360,7 @@ export function Copilot({ host, ai, onClose, start }: {
 
   // Each new `start` (a new n) runs its action once.
   useEffect(() => {
+    if (start && !aiChoice.chosen()) { held.current = start; return; }
     const a = start && hostRef.current.actions.find(x => x.id === start.id);
     if (a) runAction(a);
   }, [start?.n]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -368,7 +391,17 @@ export function Copilot({ host, ai, onClose, start }: {
         <button type="button" title={t('letter.close')} aria-label={t('letter.close')} onClick={onClose}><Icon name="close" size={13} /></button>
       </header>
 
-      {!ready || settings ? <Setup canCancel={ready} appName={host.app} onDone={() => setSettings(false)} /> : <>
+      {!ready || settings || first ? <Setup canCancel={ready} first={first && !settings} appName={host.app} onDone={() => {
+        // "Later" the first time keeps the free default (no account) and stops asking.
+        if (!aiChoice.chosen()) aiChoice.set({ main: aiChoice.get().main });
+        setSettings(false);
+        const h = held.current; held.current = null;
+        const a = h && hostRef.current.actions.find(x => x.id === h.id);
+        if (a) setTimeout(() => runAction(a), 0);
+      }} /> : <>
+        {device.state === 'loading' && ai.provider?.().kind === 'device' && (
+          <div className="copilot-device-bar" role="status"><span>{t('ai.deviceLoading', { pct: String(device.pct ?? 0) })}</span><progress max={100} value={device.pct ?? 0} /></div>
+        )}
         <div className="copilot-list" ref={list}>
           {!msgs.length && (
             <div className="copilot-hello">

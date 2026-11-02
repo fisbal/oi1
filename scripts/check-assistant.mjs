@@ -163,7 +163,7 @@ try {
     check(await overflow(page) <= 1, `${name}: the plan fits the width`);
     await ctx.close();
   }
-  // ---------- 4. The default AI (Claude's website) on a phone (both ways), a tablet, a Windows PC, a Mac, a big screen ----------
+  // ---------- 4. The default AI (ChatGPT's website, no account) on a phone (both ways), a tablet, a Windows PC, a Mac, a big screen ----------
   // Martin's phone, 2026-11-01: an idea card is made at once from its template (no trip to the Claude app); a task
   // no template knows goes to the site as one short readable message, and the answer pasted back, even plain text,
   // becomes the documents.
@@ -185,14 +185,14 @@ try {
         window.open = u => { (window.__opened ||= []).push(String(u)); return null; };
         if (!sessionStorage.getItem('set')) {
           localStorage.setItem('oi1:language', 'fr');
-          localStorage.setItem('oi1.ai.providers', JSON.stringify({ main: 'web-claude', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' }, v: 2 }));
+          localStorage.setItem('oi1.ai.providers', JSON.stringify({ main: 'web-chatgpt', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' }, v: 3 }));
           sessionStorage.setItem('set', '1');
         }
       } catch { /* sandboxed preview */ }
     });
     const n = `${d.name} web AI`;
     await openAssistant(page);
-    check((await page.locator('.as-who').textContent()).includes('Claude'), `${n}: the AI is Claude's website`);
+    check((await page.locator('.as-who').textContent()).includes('ChatGPT'), `${n}: the AI is ChatGPT's website (no account)`);
     await page.locator('.as-idea[data-recipe="thanks"]').click();
     await page.locator('.as-plan').waitFor({ timeout: 5000 });
     check(await page.evaluate(() => (window.__opened?.length ?? 0)) === 0 && !(await page.locator('.web-answer').count()), `${n}: the thank-you card idea is made at once, without leaving the app`);

@@ -198,15 +198,15 @@ try {
   // ---------- 3. Default AI website (no key, no built-in AI), on a phone and a PC ----------
   for (const d of [DEVICES[4], DEVICES[0]]) {
     const n = `${d.name} web AI`;
-    const { ctx, page } = await newPage({ ...d, lang: 'fr' }, `localStorage.setItem('oi1.ai.providers', JSON.stringify({ main: 'web-claude', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' }, v: 2 }))`);
+    const { ctx, page } = await newPage({ ...d, lang: 'fr' }, `localStorage.setItem('oi1.ai.providers', JSON.stringify({ main: 'web-chatgpt', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' }, v: 3 }))`);
     await openNotes(page);
     await page.locator(`${N} .nt-text`).click();
     await page.keyboard.type('La photosynthèse transforme la lumière en énergie.');
     await help(page, 'notes.ai.summary', 'IA').click();
     const cardEl = page.locator('.web-answer');
-    check(await cardEl.waitFor({ timeout: 6000 }).then(() => true, () => false), `${n}: a card explains how to bring Claude's answer back`);
+    check(await cardEl.waitFor({ timeout: 6000 }).then(() => true, () => false), `${n}: a card explains how to bring the AI's answer back`);
     const sent = await page.evaluate(() => window.__opened?.[0] ?? '');
-    check(sent.includes('claude.ai') && decodeURIComponent(sent).includes('photosynthèse'), `${n}: Claude's site opens with the notes`);
+    check(sent.includes('chatgpt.com') && decodeURIComponent(sent).includes('photosynthèse'), `${n}: ChatGPT's site opens with the notes`);
     const box = await cardEl.boundingBox();
     check(!!box && box.x >= 0 && box.x + box.width <= d.viewport.width + 1, `${n}: the Paste card is on screen`);
     await cardEl.locator('textarea').fill('- La lumière devient énergie chimique.');
