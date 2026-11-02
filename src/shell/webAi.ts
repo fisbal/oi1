@@ -138,11 +138,14 @@ export async function askBrowser(req: AiRequest): Promise<string> {
   try {
     // Older versions give the whole text so far at each step, newer ones only the new part.
     let text = '';
-    for await (const chunk of session.promptStreaming(req.chatPrompt ?? req.messages[req.messages.length - 1].content, { signal: req.signal, ...(req.schema ? { responseConstraint: req.schema } : {}) })) {
+    // With an app's short plain request the answer is plain lines (the apps read those): a JSON constraint on top made
+    // the input too large for the small model ("The input is too large", seen in In 1 Form, 2026-11-02).
+    const json = !!req.schema && !req.chatPrompt;
+    for await (const chunk of session.promptStreaming(req.chatPrompt ?? req.messages[req.messages.length - 1].content, { signal: req.signal, ...(json ? { responseConstraint: req.schema } : {}) })) {
       text = chunk.startsWith(text) && text ? chunk : text + chunk;
       req.onText?.(text);
     }
-    return req.schema ? cleanAnswer(text, true) : text;
+    return json ? cleanAnswer(text, true) : text;
   } finally {
     session.destroy();
   }

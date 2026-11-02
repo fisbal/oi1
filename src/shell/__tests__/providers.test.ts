@@ -98,25 +98,57 @@ describe('copilot providers', () => {
     expect(webWait()).toBeNull();
   });
 
-  it('starts with no key and no account (Claude.ai), unless a Claude key was given before', async () => {
+  it('starts free with no account (ChatGPT), In 1 AI once downloaded, unless a Claude key was given before', async () => {
     localStorage.clear();
     vi.resetModules();
-    expect((await import('../providers')).aiChoice.get().main).toBe('web-claude');
+    let m = await import('../providers');
+    expect(m.aiChoice.get().main).toBe('web-chatgpt');
+    expect(m.aiChoice.chosen()).toBe(false);
+    expect(m.provider('web-chatgpt')?.noAccount).toBe(true);
+    localStorage.setItem('oi1.ai.device.ready', '1');
+    vi.resetModules();
+    expect((await import('../providers')).aiChoice.get().main).toBe('device');
+    localStorage.clear();
     localStorage.setItem('oi1:ai:key', 'sk-ant-x');
     vi.resetModules();
-    expect((await import('../providers')).aiChoice.get().main).toBe('claude');
+    m = await import('../providers');
+    expect(m.aiChoice.get().main).toBe('claude');
+    expect(m.aiChoice.chosen()).toBe(true);
   });
 
-  it('moves old settings with Puter as the default to the no-account default, once', async () => {
+  it('moves old defaults (Puter, then Claude.ai) to the no-account default, once', async () => {
     localStorage.clear();
     localStorage.setItem('oi1.ai.providers', JSON.stringify({ main: 'free-claude', byApp: { stage: 'free-claude', class: 'gemini' } }));
     vi.resetModules();
-    const { aiChoice } = await import('../providers');
-    expect(aiChoice.get().main).toBe('web-claude');
+    let { aiChoice } = await import('../providers');
+    expect(aiChoice.get().main).toBe('web-chatgpt');
     expect(aiChoice.get().byApp).toEqual({ class: 'gemini' });
-    aiChoice.set({ main: 'free-claude' }); // chosen on purpose afterwards: kept
+    localStorage.setItem('oi1.ai.providers', JSON.stringify({ main: 'web-claude', byApp: {}, v: 2 }));
     vi.resetModules();
-    expect((await import('../providers')).aiChoice.get().main).toBe('free-claude');
+    ({ aiChoice } = await import('../providers'));
+    expect(aiChoice.get().main).toBe('web-chatgpt');
+    expect(aiChoice.chosen()).toBe(false);
+    aiChoice.set({ main: 'web-claude' }); // chosen on purpose afterwards: kept
+    expect(aiChoice.chosen()).toBe(true);
+    vi.resetModules();
+    expect((await import('../providers')).aiChoice.get().main).toBe('web-claude');
+  });
+
+  it('In 1 AI answers right in the app, on the device, with the short plain request', async () => {
+    const { aiChoice: c } = await import('../providers');
+    const { aiFor: f } = await import('../ai');
+    c.set({ main: 'device' });
+    expect(f('form').ready()).toBe(true);
+    expect(f('form').provider?.().kind).toBe('device');
+    const asked: { role: string; content: string }[][] = [];
+    (globalThis as { __oi1FakeLlm?: unknown }).__oi1FakeLlm = (m: { role: string; content: string }[]) => { asked.push(m); return 'Titre : Sondage'; };
+    const seen: string[] = [];
+    expect(await f('form').ask({ system: 'long', messages: [{ role: 'user', content: 'x' }], chatPrompt: 'Fais un sondage', onText: t => seen.push(t) })).toBe('Titre : Sondage');
+    expect(asked[0][1]).toEqual({ role: 'user', content: 'Fais un sondage' });
+    expect(seen).toEqual(['Titre : Sondage']);
+    (globalThis as { __oi1FakeLlm?: unknown }).__oi1FakeLlm = () => 'Sure:\n```json\n{"ok":1}\n```';
+    expect(JSON.parse(await f('form').ask({ system: 's', messages: [{ role: 'user', content: 'x' }], schema: { type: 'object' } }))).toEqual({ ok: 1 });
+    delete (globalThis as { __oi1FakeLlm?: unknown }).__oi1FakeLlm;
   });
 
   it('answers for free through Puter, with no key, streaming into the app', async () => {

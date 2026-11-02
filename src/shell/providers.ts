@@ -1,12 +1,12 @@
-// The copilot's AI, chosen by each person (Martin, 2026-10-31: "que chacun puisse choisir son copilot"): Claude by
-// default, or ChatGPT, Gemini, Microsoft (Azure OpenAI or GitHub Models), Mistral, DeepSeek, a model on this computer
+// The copilot's AI, chosen by each person (Martin, 2026-10-31: "que chacun puisse choisir son copilot"): a free AI
+// that needs no account by default (Martin, 2026-11-02: "not everyone uses Claude and Claude is not free"), or ChatGPT, Gemini, Microsoft (Azure OpenAI or GitHub Models), Mistral, DeepSeek, a model on this computer
 // (Ollama, LM Studio) and more. Each one uses the person's own key, kept on this device only and sent only to that
 // provider. One AI for every app, or a different one for an app. In 1 Code+'s Master corrector uses the same keys.
 
 import type { AiRequest } from './contract';
 import { browserAiHere } from './webAi';
 
-export type ProviderKind = 'anthropic' | 'openai' | 'gemini' | 'azure' | 'web' | 'browser' | 'puter';
+export type ProviderKind = 'anthropic' | 'openai' | 'gemini' | 'azure' | 'web' | 'browser' | 'device' | 'puter';
 export interface Provider {
   id: string;
   name: string;
@@ -25,24 +25,26 @@ export interface Provider {
   keyHint?: string;
   /** web: the public chat's address, with {q} where the request goes when the site takes it. */
   web?: string;
+  /** web: works without signing in (ChatGPT, Microsoft Copilot, Duck.ai…). */
+  noAccount?: boolean;
 }
 
-/** Free, with the person's own account on the AI's public site: no key (see webAi.ts). */
-const WEB: [id: string, name: string, url: string, top?: boolean][] = [
-  ['claude', 'Claude.ai', 'https://claude.ai/new?q={q}', true],
-  ['chatgpt', 'ChatGPT', 'https://chatgpt.com/?q={q}', true],
+/** Free on the AI's public site: no key; the ones marked `noAccount` need no account either (see webAi.ts). */
+const WEB: [id: string, name: string, url: string, top?: boolean, noAccount?: boolean][] = [
+  ['chatgpt', 'ChatGPT', 'https://chatgpt.com/?q={q}', true, true],
+  ['copilot', 'Microsoft Copilot', 'https://copilot.microsoft.com/?q={q}', true, true],
+  ['duck', 'Duck.ai (DuckDuckGo, private)', 'https://duckduckgo.com/?q={q}&ia=chat', true, true],
+  ['perplexity', 'Perplexity', 'https://www.perplexity.ai/search?q={q}', true, true],
   ['gemini', 'Google Gemini', 'https://gemini.google.com/app', true],
-  ['copilot', 'Microsoft Copilot', 'https://copilot.microsoft.com/?q={q}', true],
   ['lechat', 'Le Chat (Mistral)', 'https://chat.mistral.ai/chat?q={q}', true],
+  ['claude', 'Claude.ai', 'https://claude.ai/new?q={q}', true],
   ['deepseek', 'DeepSeek', 'https://chat.deepseek.com/', true],
-  ['perplexity', 'Perplexity', 'https://www.perplexity.ai/search?q={q}', true],
-  ['googleai', 'Google AI Mode', 'https://www.google.com/search?udm=50&q={q}'],
-  ['bing', 'Copilot in Bing', 'https://www.bing.com/search?showconv=1&q={q}'],
+  ['googleai', 'Google AI Mode', 'https://www.google.com/search?udm=50&q={q}', false, true],
+  ['bing', 'Copilot in Bing', 'https://www.bing.com/search?showconv=1&q={q}', false, true],
+  ['brave', 'Brave Leo', 'https://search.brave.com/search?q={q}&summary=1', false, true],
+  ['you', 'You.com', 'https://you.com/search?q={q}&tbm=youchat', false, true],
   ['grok', 'Grok (xAI)', 'https://grok.com/?q={q}'],
   ['meta', 'Meta AI', 'https://www.meta.ai/'],
-  ['duck', 'Duck.ai (DuckDuckGo, private)', 'https://duckduckgo.com/?q={q}&ia=chat'],
-  ['brave', 'Brave Leo', 'https://search.brave.com/search?q={q}&summary=1'],
-  ['you', 'You.com', 'https://you.com/search?q={q}&tbm=youchat'],
   ['huggingchat', 'HuggingChat', 'https://huggingface.co/chat/'],
   ['qwen', 'Qwen Chat', 'https://chat.qwen.ai/'],
   ['kimi', 'Kimi (Moonshot)', 'https://www.kimi.com/'],
@@ -78,7 +80,8 @@ const FREE: [id: string, name: string, model: string][] = [
 
 export const PROVIDERS: Provider[] = [
   ...FREE.map(([id, name, model], i): Provider => ({ id: `free-${id}`, name, kind: 'puter', base: '', model, keyUrl: 'https://puter.com', top: i < 7 })),
-  ...WEB.map(([id, name, url, top]): Provider => ({ id: `web-${id}`, name, kind: 'web', base: '', model: '', keyUrl: url.replace(/[?&][^?&]*\{q\}.*$/, ''), web: url, top })),
+  ...WEB.map(([id, name, url, top, noAccount]): Provider => ({ id: `web-${id}`, name, kind: 'web', base: '', model: '', keyUrl: url.replace(/[?&][^?&]*\{q\}.*$/, ''), web: url, top, noAccount })),
+  { id: 'device', name: 'In 1 AI', kind: 'device', base: '', model: 'Qwen2.5 0.5B', keyUrl: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct', local: true, top: true },
   { id: 'browser', name: 'Browser AI (Chrome, Edge)', kind: 'browser', base: '', model: '', keyUrl: 'https://developer.chrome.com/docs/ai/built-in', local: true },
   { id: 'claude', name: 'Claude (Anthropic)', kind: 'anthropic', base: 'https://api.anthropic.com', model: 'claude-opus-5-5', keyUrl: 'https://console.anthropic.com/settings/keys', top: true, keyHint: 'sk-ant-…' },
   { id: 'openai', name: 'ChatGPT (OpenAI)', kind: 'openai', base: 'https://api.openai.com/v1', model: 'gpt-4o-mini', keyUrl: 'https://platform.openai.com/api-keys', top: true, keyHint: 'sk-…' },
@@ -125,21 +128,28 @@ export interface AiChoice {
   /** Microsoft Azure OpenAI: the resource's address and the deployment's name. */
   azure: { endpoint: string; deployment: string };
 }
-// No key and no account by default (Martin, 2026-10-31: the free Puter account asked for a phone check that failed):
-// the browser's own AI when it has one (Chrome, Edge), otherwise Claude.ai opened with the question ready and the
-// answer pasted back. Puter stays in the list for those who want it. Someone who already gave a Claude key keeps it.
+// No key and no account by default. 2026-10-31 the free Puter account asked for a phone check that failed; 2026-11-02
+// Martin: "not everyone uses Claude and Claude is not free". So: the browser's own AI when it has one (Chrome, Edge),
+// else In 1 AI once it is downloaded on this device, else ChatGPT's site, which needs no account. The first time the
+// copilot opens it shows the choices (see `chosen`). Someone who already gave a Claude key keeps it.
 const hadClaudeKey = () => { try { return !!localStorage.getItem('oi1:ai:key'); } catch { return false; } };
-const EMPTY: AiChoice = { main: 'web-claude', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' } };
-const noAccountDefault = () => (browserAiHere() ? 'browser' : 'web-claude');
-/** Settings saved before 2026-10-31 had Puter as the default: those move to the no-account default once. */
-const VERSION = 2;
+const deviceReady = () => { try { return !!localStorage.getItem('oi1.ai.device.ready'); } catch { return false; } };
+const EMPTY: AiChoice = { main: 'web-chatgpt', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' } };
+const noAccountDefault = () => (browserAiHere() ? 'browser' : deviceReady() ? 'device' : 'web-chatgpt');
+/** v2: Puter was the default before 2026-10-31. v3: Claude.ai was the default before 2026-11-02 (needs an account). */
+const VERSION = 3;
+let picked = false;
 function load(): AiChoice {
   const saved = read<AiChoice & { v?: number }>(SETTINGS, { ...EMPTY, main: '' });
-  if ((saved.v ?? 1) < VERSION) {
-    if (!saved.main || saved.main === 'free-claude') saved.main = '';
+  const v = saved.v ?? 1;
+  if (v < 2) {
+    if (saved.main === 'free-claude') saved.main = '';
     saved.byApp = Object.fromEntries(Object.entries(saved.byApp ?? {}).filter(([, id]) => id !== 'free-claude'));
   }
+  if (v < 3 && saved.main === 'web-claude') saved.main = '';
+  picked = !!saved.main;
   if (!saved.main) saved.main = hadClaudeKey() ? 'claude' : noAccountDefault();
+  if (hadClaudeKey() && saved.main === 'claude') picked = true;
   return saved;
 }
 let cache: AiChoice | null = null;
@@ -147,7 +157,9 @@ const listeners = new Set<() => void>();
 
 export const aiChoice = {
   get: (): AiChoice => (cache ??= load()),
-  set(patch: Partial<AiChoice>) { cache = { ...aiChoice.get(), ...patch }; write(SETTINGS, { ...cache, v: VERSION }); for (const fn of listeners) fn(); },
+  set(patch: Partial<AiChoice>) { cache = { ...aiChoice.get(), ...patch }; if (patch.main) picked = true; write(SETTINGS, { ...cache, v: VERSION }); for (const fn of listeners) fn(); },
+  /** Whether the person has chosen an AI (the copilot shows the choices the first time until they do). */
+  chosen: (): boolean => { aiChoice.get(); return picked; },
   onChange(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
   /** The provider an app uses. */
   forApp(app?: string): Provider {
@@ -245,6 +257,7 @@ export async function askProvider(p: Provider, req: AiRequest): Promise<string> 
 export function providerReady(p: Provider, claudeKey: string): boolean {
   if (p.kind === 'web' || p.kind === 'puter') return true;
   if (p.kind === 'browser') return browserAiHere();
+  if (p.kind === 'device') return true;
   if (p.kind === 'anthropic') return !!claudeKey;
   if (p.local) return true;
   if (p.kind === 'azure') return !!providerKey(p.id) && !!aiChoice.get().azure.endpoint && !!aiChoice.get().azure.deployment;

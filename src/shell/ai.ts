@@ -4,6 +4,7 @@
 // the key later (see docs/copilot.md) without changing any app: they all go through shell.ai.
 
 import { askBrowser, askPuter, askWeb } from './webAi';
+import { askDevice } from './deviceAi';
 import type { AiApi, AiRequest } from './contract';
 import { store } from './storage';
 import { aiChoice, askProvider, ProviderError, providerReady } from './providers';
@@ -91,6 +92,9 @@ export function aiFor(app?: string): AiApi {
           if (req.signal?.aborted || (err as Error)?.name === 'AbortError') throw err;
           throw new AiError('network', `${p.name} (Puter): ${String((err as Error)?.message ?? (err as { error?: { message?: string } })?.error?.message ?? err)}`);
         }
+      }
+      if (p.kind === 'device') {
+        try { return await askDevice(req); } catch (err) { if (req.signal?.aborted) throw err; throw new AiError('other', `${p.name}: ${String((err as Error)?.message ?? err)}`); }
       }
       if (p.kind === 'browser') {
         try { return await askBrowser(req); } catch (err) { if (req.signal?.aborted) throw err; throw new AiError('other', `${p.name}: ${String((err as Error)?.message ?? err)}`); }

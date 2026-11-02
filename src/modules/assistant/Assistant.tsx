@@ -88,7 +88,7 @@ export default function Assistant({ shell, handoff }: { shell: ShellApi; handoff
   // An AI's public chat (claude.ai, ChatGPT…) means leaving the app and pasting back, and the browser's small
   // built-in model writes less well than a template: worth it only when no built-in template does the task.
   const kind = shell.ai.provider?.().kind;
-  const viaWebsite = kind === 'web' || kind === 'browser';
+  const viaWebsite = kind === 'web' || kind === 'browser' || kind === 'device';
   const aiName = shell.ai.provider?.().name ?? 'Claude';
 
   useEffect(() => { shell.setTitle(t('assistant.tabTitle')); }, [shell, lang]);
