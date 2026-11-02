@@ -26,7 +26,7 @@ import { markdownToHtml } from '../../ui/markdown';
 import { blankDoc, defaultStyles, emptyDoc, stylesCss, suggestedName, type DocStyles, type LetterDoc } from './model';
 import { listStylesCss } from './extensions';
 import { PX_PER_IN, defaultPage, isDark, pageInches, type PageSettings } from './page';
-import { CommandPalette, FindBar, MarginsDialog, OutlinePane, WordCountDialog, type Command } from './panels';
+import { CommandPalette, FindBar, MarginsDialog, OutlinePane, WordCountDialog, WorkChoiceDialog, type Command, type WorkMode } from './panels';
 import { Ribbon, type RibbonActions, type ViewState, type Zoom } from './Ribbon';
 import { letterExtensions, migrate, readAsDataUrl } from './setup';
 import {
@@ -44,7 +44,7 @@ import { SourceDialog } from './sourceDialog';
 import { RefCheckDialog, RefModelsDialog } from './refModels';
 import { LETTERS } from './templates/letters';
 import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, selectNextField } from './templates/markup';
-import { TOC_MARK, WORK_LAYOUTS, workDoc, workMargins, workStyles } from './templates/works';
+import { TOC_MARK, WORK_LAYOUTS, reorganizeDoc, workDoc, workMargins, workStyles } from './templates/works';
 import { workText } from './templates/worksI18n';
 
 const WORK_LOCALE = { fr: 'fr-CA', en: 'en-CA', es: 'es-ES', pt: 'pt-BR', de: 'de-DE' } as const;
@@ -121,6 +121,7 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   }));
   const setView = useCallback((v: Partial<ViewState>) => setViewState(cur => ({ ...cur, ...v })), []);
   const [layout, setLayout] = useState<LayoutResult>({ pages: 1, tail: 96, notes: [] });
+  const [workAsk, setWorkAsk] = useState<string | null>(null);
   const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands' | 'fill' | 'profile' | 'source' | 'sourceAi' | 'refModels' | 'refCheck'>(null);
   // What the source dialog starts from: a type of document (Models) or a source to complete (Check sources).
   const [sourceStart, setSourceStart] = useState<{ initial?: Partial<Source>; highlight?: (keyof Source)[]; update?: boolean } | null>(null);
@@ -889,6 +890,50 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
   };
 
   // ---------- Doc adm/Mil: ready-to-fill letters and CVs ----------
+  const applyWork = (id: string, mode: WorkMode) => {
+      const w = WORK_LAYOUTS.find(x => x.id === id);
+      if (!w || !body) return;
+      const replace = mode === 'replace';
+      const reorganize = mode === 'reorganize';
+      let made: ReturnType<typeof reorganizeDoc> | null = null;
+      setPage(p => ({ ...p, size: w.size, orientation: 'portrait', margins: workMargins(w), color: null }));
+      setStyles(st => workStyles(st, w));
+      // The text comes in the app's language (Martin, 2026-11-02), not in the Doc adm/Mil letters' own FR/EN choice.
+      const lang = getLanguage();
+      if (replace) body.commands.setContent({ type: 'doc', content: workDoc(w, lang, longDate(WORK_LOCALE[lang])) });
+      if (reorganize) {
+        // One step: Ctrl+Z gives the text back as it was. Not a word of the text is changed.
+        made = reorganizeDoc(w, lang, longDate(WORK_LOCALE[lang]), (body.getJSON().content ?? []) as JSONContent[]);
+        body.commands.setContent({ type: 'doc', content: made.content }, { emitUpdate: true });
+      }
+      // The page number where the norm puts it (MLA: the name, then the number).
+      if (w.num && (replace || reorganize || (header?.isEmpty && footer?.isEmpty))) {
+        const top = w.num === 'tr' || w.num === 'mla';
+        const ed = top ? header : footer;
+        const other = top ? footer : header;
+        const parts = [...(w.num === 'mla' ? [{ type: 'text', text: workText('[Nom] ', '[Last name] ', lang) }] : []), { type: 'pageNumber', attrs: { kind: 'page' } }];
+        ed?.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: w.num === 'bc' ? 'center' : 'right', indentFirst: 0 }, content: parts }] });
+        if (replace || reorganize) other?.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
+        setHfVersion(v => v + 1);
+      }
+      // The table of contents lists the parts once the pages are laid out.
+      if (replace || reorganize) setTimeout(() => {
+        let at = -1;
+        body.state.doc.descendants((n, pos) => { if (at < 0 && n.isTextblock && n.textContent === TOC_MARK) at = pos; return at < 0; });
+        if (at < 0) return;
+        const node = body.state.doc.nodeAt(at)!;
+        const toc = tocJson(body, pageOf, pw - (workMargins(w).left + workMargins(w).right) * PX_PER_IN);
+        // Not a separate undo step: Ctrl+Z undoes the whole work layout at once.
+        body.chain().command(({ tr }) => { tr.setMeta('addToHistory', false); return true; }).insertContentAt({ from: at, to: at + node.nodeSize }, toc ?? [{ type: 'paragraph' }]).run();
+      }, 600);
+      changed();
+      const n = replace || reorganize ? fillFields(body, profileValues(fieldList(body.state.doc).map(f => f.label)), false) : 0;
+      if (mode === 'look' || !selectNextField(body)) body.commands.focus('start');
+      const name = workText(w.name.fr, w.name.en, lang);
+      shell.notify(made
+        ? t(made.madeTitles ? 'letter.works.reorganizedCheck' : 'letter.works.reorganized', { name, titles: made.titles, refs: made.sortedRefs })
+        : t(replace ? 'letter.works.done' : 'letter.works.formatted', { name, n }));
+  };
   const docs = {
     docTemplate: (id: string) => {
       const tpl = LETTERS.find(l => l.id === id) ?? CV_TEMPLATES.find(c => c.id === id);
@@ -912,37 +957,10 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     // "Mise en page des travaux": the page, the text and the headings follow the norm; an empty document (or one the
     // person agrees to replace) also gets the parts in order, with yellow [fields] to fill.
     workLayout: (id: string) => {
-      const w = WORK_LAYOUTS.find(x => x.id === id);
-      if (!w || !body) return;
-      const replace = isEmptyDoc(body) || confirm(t('letter.works.replaceAsk'));
-      setPage(p => ({ ...p, size: w.size, orientation: 'portrait', margins: workMargins(w), color: null }));
-      setStyles(st => workStyles(st, w));
-      // The text comes in the app's language (Martin, 2026-11-02), not in the Doc adm/Mil letters' own FR/EN choice.
-      const lang = getLanguage();
-      if (replace) body.commands.setContent({ type: 'doc', content: workDoc(w, lang, longDate(WORK_LOCALE[lang])) });
-      // The page number where the norm puts it (MLA: the name, then the number).
-      if (w.num && (replace || (header?.isEmpty && footer?.isEmpty))) {
-        const top = w.num === 'tr' || w.num === 'mla';
-        const ed = top ? header : footer;
-        const other = top ? footer : header;
-        const parts = [...(w.num === 'mla' ? [{ type: 'text', text: workText('[Nom] ', '[Last name] ', lang) }] : []), { type: 'pageNumber', attrs: { kind: 'page' } }];
-        ed?.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: w.num === 'bc' ? 'center' : 'right', indentFirst: 0 }, content: parts }] });
-        if (replace) other?.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
-        setHfVersion(v => v + 1);
-      }
-      // The table of contents lists the parts once the pages are laid out.
-      if (replace) setTimeout(() => {
-        let at = -1;
-        body.state.doc.descendants((n, pos) => { if (at < 0 && n.isTextblock && n.textContent === TOC_MARK) at = pos; return at < 0; });
-        if (at < 0) return;
-        const node = body.state.doc.nodeAt(at)!;
-        const toc = tocJson(body, pageOf, pw - (workMargins(w).left + workMargins(w).right) * PX_PER_IN);
-        body.chain().insertContentAt({ from: at, to: at + node.nodeSize }, toc ?? [{ type: 'paragraph' }]).run();
-      }, 600);
-      changed();
-      const n = replace ? fillFields(body, profileValues(fieldList(body.state.doc).map(f => f.label))) : 0;
-      if (!replace || !selectNextField(body)) body.commands.focus('start');
-      shell.notify(t(replace ? 'letter.works.done' : 'letter.works.formatted', { name: workText(w.name.fr, w.name.en, lang), n }));
+      if (!body || !WORK_LAYOUTS.some(x => x.id === id)) return;
+      // A letter with text: ask first (reorganize it, only change its look, or replace it with the model).
+      if (isEmptyDoc(body)) applyWork(id, 'replace');
+      else setWorkAsk(id);
     },
     letterPart: (part: LetterPart) => {
       const ed = activeEditor;
@@ -1215,6 +1233,9 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
           ] as { id: SaveFormat; icon: string; label: string; hint: string }[]} onSaveAs={saveAs}
           listRecent={shell.recent.list} onOpenRecent={r => void openRecent(r)} />
       )}
+      {workAsk && (() => { const w = WORK_LAYOUTS.find(x => x.id === workAsk)!; return (
+        <WorkChoiceDialog name={workText(w.name.fr, w.name.en, getLanguage())} onClose={() => setWorkAsk(null)}
+          onPick={m => { setWorkAsk(null); applyWork(w.id, m); }} />); })()}
       {panel === 'count' && <WordCountDialog editor={body} pages={layout.pages} onClose={() => setPanel(null)} />}
       {panel === 'margins' && <MarginsDialog page={page} onApply={setPage} onClose={() => setPanel(null)} />}
       {panel === 'fill' && <FillDialog editor={body} onClose={() => { setPanel(null); body.commands.focus(); }}

@@ -118,19 +118,52 @@ for (const d of DEVICES) {
     const sideways = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
     check(!sideways, `${n}: no sideways scrolling`);
 
-    // A letter with text: Cancel keeps the text and only changes the look (MLA: Times 12, double).
+    // A letter with text: three choices. "Only the look" keeps the text as it is (Harvard: Arial 11).
     await page.keyboard.press('ControlOrMeta+a');
     await page.keyboard.type('Mon texte à garder.');
     await page.waitForTimeout(300);
-    answer = false;
     await openDrop(page, 'letter.works');
     await page.locator('.work-item[data-work="harvard"]').click();
+    await page.locator('.work-choice').first().waitFor({ timeout: 4000 });
+    check(await page.locator('.work-choice').count() === 3, `${n}: a letter with text asks what to do (3 choices)`);
+    check(await fits(page, '.work-choices', d.viewport), `${n}: the 3 choices fit on the screen`);
+    const cutChoice = await page.evaluate(() => [...document.querySelectorAll('.work-choice b, .work-choice small')].filter(e => e.scrollWidth > e.clientWidth + 1).length);
+    check(cutChoice === 0, `${n}: no text of the choices is cut (${cutChoice})`);
+    await page.locator('.work-choice[data-mode="look"]').click();
     await page.waitForTimeout(600);
     const kept = await body.innerText();
-    check(kept.includes('Mon texte à garder.') && !kept.includes('Introduction'), `${n}: Harvard on a letter with text: Cancel keeps the text`);
+    check(kept.includes('Mon texte à garder.') && !kept.includes('Introduction'), `${n}: Harvard, "Seulement l'apparence": the text is kept`);
     const hv = await body.locator('p').first().evaluate(p => ({ font: getComputedStyle(p).fontFamily, size: parseFloat(getComputedStyle(p).fontSize) }));
     check(/Arial/i.test(hv.font) && Math.abs(hv.size - 14.67) < 0.6, `${n}: Harvard look applied to the kept text (Arial 11: ${hv.font.split(',')[0]} ${hv.size}px)`);
-    answer = true;
+
+    // "Réorganiser mon texte" (Martin, 2026-11-02): a text typed with plain titles and unsorted references.
+    await body.click();
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.press('Delete');
+    for (const line of ['Introduction', 'Le sujet de ce travail est la photosynthèse.', 'Conclusion', 'La lumière nourrit la vie.', 'Références', 'Zola, É. (1885). Germinal.', 'Alain. (1925). Propos.']) {
+      await page.keyboard.type(line);
+      await page.keyboard.press('Enter');
+    }
+    await page.waitForTimeout(300);
+    await openDrop(page, 'letter.works');
+    await page.locator('.work-item[data-work="apaProvost"]').click();
+    await page.locator('.work-choice[data-mode="reorganize"]').click();
+    await page.waitForTimeout(1200);
+    const re = await body.evaluate(el => ({
+      heads: [...el.querySelectorAll('h1')].map(h => (h.textContent || '').trim()),
+      text: el.textContent || '',
+      refs: [...el.querySelectorAll('p')].map(p => (p.textContent || '').trim()).filter(t => /^(Alain|Zola)/.test(t)),
+      hang: (() => { const p = [...el.querySelectorAll('p')].find(x => /^Alain/.test(x.textContent || '')); return p ? parseFloat(getComputedStyle(p).textIndent) : 0; })(),
+    }));
+    check(['Introduction', 'Conclusion', 'Références'].every(h => re.heads.includes(h)), `${n}: reorganize: the typed titles became headings (${re.heads.join(' | ')})`);
+    check(re.text.includes('Le sujet de ce travail est la photosynthèse.') && re.text.includes('La lumière nourrit la vie.'), `${n}: reorganize: not a word of the text is lost`);
+    check(/\[Prénom Nom\]/.test(re.text) && re.heads.includes('Table des matières') && !re.text.includes('⟦TOC⟧'), `${n}: reorganize: title page and table of contents added`);
+    check(re.refs.join('|') === 'Alain. (1925). Propos.|Zola, É. (1885). Germinal.' && re.hang < 0, `${n}: reorganize: references sorted A to Z with a hanging indent (${re.refs.join(' / ')}, ${re.hang}px)`);
+    await body.click();
+    await page.keyboard.press('ControlOrMeta+z');
+    await page.waitForTimeout(400);
+    const back = await body.innerText();
+    check(!back.includes('Prénom Nom') && back.includes('Zola, É. (1885). Germinal.'), `${n}: reorganize: Ctrl+Z gives the text back as it was`);
   } catch (e) {
     problems.push(`${n}: stopped: ${String(e.message ?? e).split('\n')[0]}`);
   } finally { await ctx.close(); }

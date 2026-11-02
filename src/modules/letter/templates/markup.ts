@@ -86,7 +86,7 @@ export function fieldList(doc: PmNode): { label: string; count: number }[] {
 }
 
 /** Puts each value in place of every [field] with that label, without the yellow. Returns how many were filled. */
-export function fillFields(editor: Editor, values: Record<string, string>): number {
+export function fillFields(editor: Editor, values: Record<string, string>, history = true): number {
   const targets = fieldsIn(editor.state.doc).filter(f => values[f.label]?.trim());
   if (!targets.length) return 0;
   const tr = editor.state.tr;
@@ -97,6 +97,8 @@ export function fillFields(editor: Editor, values: Record<string, string>): numb
     tr.insertText(text, f.from, f.to);
     if (highlight) tr.removeMark(f.from, f.from + text.length, highlight);
   }
+  // history false: part of a bigger change that Ctrl+Z undoes in one go (a work layout).
+  if (!history) tr.setMeta('addToHistory', false);
   editor.view.dispatch(tr);
   return targets.length;
 }

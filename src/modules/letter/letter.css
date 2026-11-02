@@ -471,3 +471,13 @@
 .work-item:hover { background: rgba(var(--fg-rgb), .06); }
 .work-item b { font-size: 13.5px; }
 .work-item span { font-size: 12px; opacity: .8; }
+
+/* "Réorganiser mon texte": three big choices when the letter already has text */
+.work-choice-lead { margin: 0 0 10px; max-width: 460px; }
+.work-choices { display: grid; gap: 8px; max-width: 460px; }
+.work-choice { display: flex; gap: 12px; align-items: flex-start; text-align: start; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(var(--fg-rgb), .14); background: rgba(var(--fg-rgb), .04); color: inherit; font: inherit; cursor: pointer; }
+.work-choice:hover, .work-choice:focus-visible { border-color: var(--accent, #c9a227); background: rgba(var(--fg-rgb), .08); }
+.work-choice.main { border-color: var(--accent, #c9a227); }
+.work-choice svg { flex: none; margin-top: 2px; }
+.work-choice span { display: grid; gap: 3px; min-width: 0; }
+.work-choice small { opacity: .75; line-height: 1.35; overflow-wrap: anywhere; }
