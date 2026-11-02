@@ -282,3 +282,132 @@ export function workDoc(w: WorkLayout, lang: WorkLang, date: string): JSONConten
   }
   return out;
 }
+
+// ---------- "Réorganiser mon texte" (Martin, 2026-11-02: someone who already has their text) ----------
+
+const plain = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .replace(/^\s*(?:[ivx]+\.|\d+(?:\.\d+)*\.?|chapitre \d+|chapter \d+|kapitel \d+|capitulo \d+)\s*[–:-]?\s*/, '').replace(/[[\]]/g, '').trim();
+const REFS = new Set(['references', 'reference bibliographiques', 'references bibliographiques', 'bibliographie', 'bibliography', 'works cited', 'liste de references',
+  'mediagraphie', 'sources', 'obras citadas', 'referencias', 'bibliografia', 'literaturverzeichnis', 'bibliografie', 'quellen', 'quellenverzeichnis']);
+const APPX = new Set(['annexe', 'annexes', 'appendix', 'appendices', 'anexo', 'anexos', 'anhang']);
+const TOCS = new Set(['table des matieres', 'sommaire', 'table of contents', 'contents', 'indice', 'sumario', 'inhaltsverzeichnis', 'inhalt']);
+/** Every part name of every norm, in the 5 languages, so "Introduction", "Méthode", "Einleitung"… are seen as titles. */
+const KNOWN = (() => {
+  const s = new Set<string>([...REFS, ...APPX]);
+  for (const w of WORK_LAYOUTS) for (const [lvl, fr, en] of w.parts) if (lvl > 0) for (const l of ['fr', 'en', 'es', 'pt', 'de'] as const) s.add(plain(workText(fr, en, l)));
+  for (const x of ['introduction', 'conclusion', 'developpement', 'resume', 'abstract', 'remerciements', 'discussion', 'methodologie']) s.add(x);
+  return s;
+})();
+
+const nodeText = (n: JSONContent): string => (n.text ?? '') + (n.content ?? []).map(nodeText).join('');
+const allBold = (n: JSONContent) => !!n.content?.length && n.content.every(c => c.type !== 'text' || !c.text?.trim() || c.marks?.some(m => m.type === 'bold'));
+
+/** Is this paragraph really a title the person typed as normal text? Returns its level, or 0. */
+function titleLevel(n: JSONContent): number {
+  if (n.type !== 'paragraph') return 0;
+  const t = nodeText(n).trim();
+  if (t.length < 2 || t.length > 90 || /[.;,]$/.test(t)) return 0;
+  const num = /^(\d+(?:\.\d+)*)\.?\s+\S/.exec(t);
+  if (KNOWN.has(plain(t)) || TOCS.has(plain(t))) return num ? num[1].split('.').length : 1;
+  if (num && t.length <= 70 && /^\d+(?:\.\d+)*\.?\s+\p{Lu}/u.test(t)) return Math.min(num[1].split('.').length, 3);
+  if (allBold(n) && t.length <= 70) return 1;
+  return 0;
+}
+
+const isBreak = (n: JSONContent) => n.type === 'pageBreak';
+const isEmpty = (n: JSONContent) => n.type === 'paragraph' && !nodeText(n).trim();
+const heading = (level: number, n: JSONContent): JSONContent => ({
+  type: 'heading', attrs: { level },
+  content: (n.content ?? []).map(c => (c.type === 'text' ? { ...c, marks: (c.marks ?? []).filter(m => m.type !== 'bold') } : c)).filter(c => c.type !== 'text' || c.text),
+});
+
+export interface Reorganized { content: JSONContent[]; titles: number; madeTitles: boolean; sortedRefs: number; keptTitlePage: boolean }
+
+/**
+ * Puts text the person already wrote into the norm's shape, without rewriting a word: their titles become the norm's
+ * headings (titles typed as bold or numbered lines too), a title page and a table of contents are added when missing,
+ * big parts (references, appendices, a thesis's chapters) start on a new page, and references are sorted A to Z with
+ * the hanging indent. A text without any title gets "Introduction" before its first paragraph and "Conclusion"
+ * before its last, for the person to check.
+ */
+export function reorganizeDoc(w: WorkLayout, lang: WorkLang, date: string, current: JSONContent[]): Reorganized {
+  const T = (a: string, b: string) => workText(a, b, lang);
+  // 1. Titles: real headings stay, typed titles become headings; an old table of contents goes away (rebuilt below).
+  let nodes: JSONContent[] = [];
+  let skipToc = false;
+  for (const n of current) {
+    const t = plain(nodeText(n));
+    if ((n.type === 'heading' || titleLevel(n)) && TOCS.has(t)) { skipToc = true; continue; }
+    if (skipToc) {
+      if (n.type === 'heading' || titleLevel(n) || isBreak(n)) skipToc = false;
+      else continue;
+    }
+    if (n.type === 'heading') nodes.push(KNOWN.has(t) ? { ...n, attrs: { ...n.attrs, level: 1 } } : n);
+    else { const lvl = titleLevel(n); nodes.push(lvl ? heading(lvl, n) : n); }
+  }
+  while (nodes.length && (isEmpty(nodes[0]) || isBreak(nodes[0]))) nodes.shift();
+  while (nodes.length && (isEmpty(nodes[nodes.length - 1]) || isBreak(nodes[nodes.length - 1]))) nodes.pop();
+
+  // 2. A text without titles: Introduction first, Conclusion last (the person checks where they start).
+  let madeTitles = false;
+  if (!nodes.some(n => n.type === 'heading')) {
+    const paras = nodes.map((n, i) => (n.type === 'paragraph' && nodeText(n).trim() ? i : -1)).filter(i => i >= 0);
+    if (paras.length >= 1) {
+      madeTitles = true;
+      const intro: JSONContent = { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: T('Introduction', 'Introduction') }] };
+      if (paras.length >= 3) {
+        const last = paras[paras.length - 1];
+        const body: JSONContent = { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: T('[Développement]', '[Body]'), marks: [{ type: 'highlight', attrs: { color: FIELD_COLOR } }] }] };
+        const concl: JSONContent = { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: T('Conclusion', 'Conclusion') }] };
+        nodes = [intro, nodes[paras[0]], ...(paras[1] < last ? [body] : []), ...nodes.slice(paras[0] + 1, last), concl, ...nodes.slice(last)];
+      } else nodes = [intro, ...nodes];
+    }
+  }
+
+  // 3. A title page the person already made (short lines before the first title) stays; otherwise the norm's one.
+  const firstHead = nodes.findIndex(n => n.type === 'heading');
+  const before = firstHead > 0 ? nodes.slice(0, firstHead).filter(n => !isEmpty(n) && !isBreak(n)) : [];
+  const keptTitlePage = before.length > 0 && before.length <= 14 && before.every(n => n.type === 'paragraph' && nodeText(n).trim().length <= 120);
+  const head: JSONContent[] = [];
+  if (keptTitlePage) {
+    head.push(...nodes.slice(0, firstHead).filter(n => !isBreak(n)));
+    if (w.title !== 'mla' && w.title !== 'none') head.push({ type: 'pageBreak' });
+    nodes = nodes.slice(firstHead);
+  } else head.push(...titlePage(w, lang, date));
+  if (w.parts.some(p => p[0] === -1)) {
+    head.push({ type: 'heading', attrs: { level: 1, textAlign: 'center' }, content: [{ type: 'text', text: T('Table des matières', 'Table of contents') }] });
+    head.push({ type: 'paragraph', attrs: { indentFirst: 0 }, content: [{ type: 'text', text: TOC_MARK }] });
+    head.push({ type: 'pageBreak' });
+  }
+
+  // 4. Big parts on a new page; references sorted A to Z with the hanging indent.
+  const chapters = w.title === 'thesis';
+  const out: JSONContent[] = [];
+  let inRefs = false, refs: JSONContent[] = [], sortedRefs = 0;
+  const flush = () => {
+    if (!refs.length) return;
+    const items = refs.filter(n => !isEmpty(n));
+    if (items.every(n => n.type === 'paragraph')) {
+      items.sort((a, b) => nodeText(a).trim().localeCompare(nodeText(b).trim(), lang, { sensitivity: 'base' }));
+      sortedRefs = items.length;
+      out.push(...items.map(n => ({ ...n, attrs: { ...n.attrs, indentLeft: 36, indentFirst: -36 } })));
+    } else out.push(...refs);
+    refs = [];
+  };
+  nodes.forEach(n => {
+    if (n.type === 'heading') {
+      const t = plain(nodeText(n));
+      const lvl = Number(n.attrs?.level ?? 1);
+      if (inRefs && lvl <= 1) { flush(); inRefs = false; }
+      const big = REFS.has(t) || APPX.has(t) || (chapters && lvl === 1);
+      if (big && out.length && !isBreak(out[out.length - 1])) out.push({ type: 'pageBreak' });
+      out.push(n);
+      if (REFS.has(t)) inRefs = true;
+      return;
+    }
+    if (inRefs) refs.push(n);
+    else out.push(n);
+  });
+  flush();
+  return { content: [...head, ...out], titles: out.filter(n => n.type === 'heading').length, madeTitles, sortedRefs, keptTitlePage };
+}

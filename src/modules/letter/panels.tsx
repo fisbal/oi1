@@ -196,3 +196,24 @@ export function CommandPalette({ commands, onClose }: { commands: Command[]; onC
     </div>
   );
 }
+
+export type WorkMode = 'reorganize' | 'look' | 'replace';
+
+/** The letter already has text: put it into the norm's shape (default), only change its look, or start from the model. */
+export function WorkChoiceDialog({ name, onPick, onClose }: { name: string; onPick: (m: WorkMode) => void; onClose: () => void }) {
+  const choice = (m: WorkMode, icon: string, main = false) => (
+    <button type="button" className={`work-choice${main ? ' main' : ''}`} data-mode={m} autoFocus={main} onClick={() => onPick(m)}>
+      <Icon name={icon} /><span><b>{t(`letter.works.mode.${m}` as never)}</b><small>{t(`letter.works.mode.${m}.hint` as never)}</small></span>
+    </button>
+  );
+  return (
+    <Dialog title={name} onClose={onClose}>
+      <p className="work-choice-lead">{t('letter.works.hasText')}</p>
+      <div className="work-choices">
+        {choice('reorganize', 'toc', true)}
+        {choice('look', 'magic')}
+        {choice('replace', 'new')}
+      </div>
+    </Dialog>
+  );
+}
