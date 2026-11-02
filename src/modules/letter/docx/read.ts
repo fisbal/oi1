@@ -282,6 +282,7 @@ function styleDef(p: ParaProps, r: RunProps): StyleDef {
   return {
     font: r.font, size: r.size, color: r.color ?? null, bold: r.bold, italic: r.italic, caps: r.caps,
     letterSpacing: r.spacing, before: p.before ?? 0, after: p.after ?? 0, lineHeight: p.line, align: p.align,
+    ...(p.indFirst && p.indFirst > 0 ? { indent: p.indFirst } : {}),
   };
 }
 

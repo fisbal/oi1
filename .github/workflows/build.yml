@@ -204,6 +204,9 @@ jobs:
       - name: In 1 Image works on phone, tablet, PC and Mac, both ways, with and without AI (check:image)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:image
+      - name: In 1 Letter margins with drawings and cm, and 40 work layouts that shape the work at once, on phone, tablet, PC and Mac (check:works)
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:works
       - name: Make the promo kit again from this build (demo video, PDF guides, posters, QR, captures)
         # Martin, 2026-11-01: the Facebook / Instagram / TikTok / WhatsApp kit must follow every update.
         # Runs on PRs too, so a broken kit shows before merging. Never blocks publishing the app: if it fails,

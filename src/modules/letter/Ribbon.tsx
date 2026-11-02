@@ -7,6 +7,7 @@ import { useState, type ReactNode } from 'react';
 import { getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { BULLET_CHARS, BULLET_STYLES, NUMBER_STYLES, numberLabel, type BorderSide, type Borders } from './extensions';
 import { FONT_GROUPS, FONT_SIZES, STYLE_IDS, cssFont, previewStyle, type DocStyles, type StyleId } from './model';
+import { WORK_LAYOUTS } from './templates/works';
 import { LINE_NUMBERS, MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, WATERMARKS, isDark, pageInches, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
 import type { AppInfo, TabInfo } from '../../shell/contract';
 import { PROOF_TAGS } from '../../ui/proof/proof';
@@ -112,6 +113,8 @@ export interface RibbonActions {
   copilot: () => void;
   // Doc adm/Mil
   docTemplate: (id: string) => void;
+  /** A school or university norm: the whole work takes shape (see templates/works.ts). */
+  workLayout: (id: string) => void;
   docLang: (lang: 'fr' | 'en') => void;
   fillFields: () => void;
   nextField: () => void;
@@ -262,6 +265,8 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
   const fontShown = (s.font || def.font || styles.normal.font || 'Calibri').split(',')[0].replace(/"/g, '');
   const sizeShown = s.size ? parseFloat(s.size) : (def.size ?? styles.normal.size ?? 11);
   const unit = unitFor(page);
+  // Margins in cm everywhere but in English (Martin, 2026-11-02: "avec du graphisme et cm"), like Word in French.
+  const marginUnit: 'in' | 'cm' = getLanguage() === 'en' ? unit : 'cm';
   const docFonts = [...new Set([...Object.values(styles).map(d => d.font).filter((f): f is string => !!f), fontShown])].sort((a, b) => a.localeCompare(b));
   const fontGroups: ComboGroup[] = [
     { label: t('letter.fonts.document'), items: docFonts },
@@ -563,18 +568,18 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
         {shownTab === 'layout' && <>
           <Group label="letter.group.pageSetup">
             <Drop big icon="margins" title="letter.margins">
-              {close => <>
+              {close => <div className="margin-gallery" role="menu">
                 {(Object.keys(MARGIN_PRESETS) as MarginPresetId[]).map(id => {
                   const m = MARGIN_PRESETS[id];
                   const on = (['top', 'right', 'bottom', 'left'] as const).every(k => Math.abs(page.margins[k] - m[k]) < 0.01);
-                  return <MenuItem key={id} active={on} label={t(`letter.margins.${id}` as MessageKey)}
-                    hint={`${fromPt(m.top * 72, unit)} / ${fromPt(m.left * 72, unit)} ${unit}`}
+                  return <MarginItem key={id} m={m} on={on} unit={marginUnit} label={t(`letter.margins.${id}` as MessageKey)}
                     onClick={() => { setPage({ ...page, margins: { ...m } }); close(); }} />;
                 })}
                 <hr />
                 <MenuItem label={t('letter.margins.custom')} onClick={() => { actions.customMargins(); close(); }} />
-              </>}
+              </div>}
             </Drop>
+            <WorkDrop actions={actions} />
             <Drop big icon="orientation" title="letter.orientation">
               {close => (['portrait', 'landscape'] as const).map(o => (
                 <MenuItem key={o} active={page.orientation === o} label={t(`letter.orientation.${o}` as MessageKey)}
@@ -866,6 +871,9 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           <Group label="letter.group.normalLetters">
             <TemplateDrop cat="perso" icon="heart" suite={suite} actions={actions} />
           </Group>
+          <Group label="letter.group.works">
+            <WorkDrop actions={actions} />
+          </Group>
           <Group label="letter.group.cv">
             <Drop big icon="cv" title="letter.docs.cv">
               {close => CV_TEMPLATES.map(c => (
@@ -916,6 +924,46 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
         </>}
       </div>
     </div>
+  );
+}
+
+/** A margin choice like Word's: a small page with its margins drawn, the name, and the four sizes. */
+function MarginItem({ m, on, unit, label, onClick }: { m: { top: number; right: number; bottom: number; left: number }; on: boolean; unit: 'in' | 'cm'; label: string; onClick: () => void }) {
+  const W = 34, H = 44, k = W / 8.5;
+  const v = (x: number) => `${(unit === 'cm' ? Math.round(x * 2.54 * 1000) / 1000 : Math.round(x * 100) / 100).toLocaleString(getLanguage())} ${unit}`;
+  const x1 = m.left * k, x2 = W - m.right * k, y1 = m.top * k, y2 = H - m.bottom * k;
+  return (
+    <button type="button" role="menuitemradio" aria-checked={on} className={`margin-item${on ? ' on' : ''}`} onClick={onClick}>
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} aria-hidden="true">
+        <rect x={0.5} y={0.5} width={W - 1} height={H - 1} rx={1.5} className="mi-page" />
+        <rect x={x1} y={y1} width={Math.max(1, x2 - x1)} height={Math.max(1, y2 - y1)} className="mi-text" />
+        <path d={`M${x1} 0V${H}M${x2} 0V${H}M0 ${y1}H${W}M0 ${y2}H${W}`} className="mi-lines" />
+      </svg>
+      <span className="mi-words">
+        <b>{label}</b>
+        <span className="mi-grid">
+          <span>{t('letter.margin.top')} : {v(m.top)}</span><span>{t('letter.margin.bottom')} : {v(m.bottom)}</span>
+          <span>{t('letter.margin.left')} : {v(m.left)}</span><span>{t('letter.margin.right')} : {v(m.right)}</span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/** "Mise en page des travaux": pick a norm and the work takes shape. */
+function WorkDrop({ actions }: { actions: RibbonActions }) {
+  const fr = getLanguage() === 'fr';
+  return (
+    <Drop big icon="book" title="letter.works">
+      {close => <div className="work-gallery" role="menu">
+        <p className="work-lead">{t('letter.works.lead')}</p>
+        {WORK_LAYOUTS.map(w => (
+          <button key={w.id} type="button" role="menuitem" className="work-item" data-work={w.id} onClick={() => { actions.workLayout(w.id); close(); }}>
+            <b>{fr ? w.name.fr : w.name.en}</b><span>{fr ? w.hint.fr : w.hint.en}</span>
+          </button>
+        ))}
+      </div>}
+    </Drop>
   );
 }
 
