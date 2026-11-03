@@ -265,7 +265,11 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     // and every merged mail came out without a subject (seen in CI on a sideways tablet).
     const draft = current && boxRef.current.mails.find(m => m.id === current.id);
     if (!draft || !rows.length) return;
-    const subject = draft.subject;
+    // What the person sees in the Subject box is what is merged: on a slow phone the last keystrokes can still be on
+    // their way to the mailbox when Merge is pressed (CI, phone sideways: every merged mail came out without subject).
+    const shown = rootRef.current?.querySelector<HTMLInputElement>(`.ml-compose .ml-field input[aria-label="${t('mail.subject')}"]`)?.value;
+    const subject = shown ?? draft.subject;
+    if (shown !== undefined && shown !== draft.subject) setMail(draft.id, { subject: shown }, false);
     const html = edRef.current?.getHTML() ?? draft.html;
     const list = rows.map(r => {
       const to = Object.values(r).find(v => validAddress(v)) ?? '';

@@ -191,7 +191,14 @@ try {
       // Mail merge from a pasted list
       await help(page, 'mail.new').click();
       const mc = page.locator(`${P} .ml-compose`);
-      await mc.locator('.ml-field input').last().fill('Invoice for {{Name}}');
+      // Type into the Subject box itself (by its name), once the new empty mail is on screen.
+      const mergeSubj = mc.locator('input[aria-label="Subject"]');
+      await mergeSubj.waitFor();
+      await page.waitForTimeout(300);
+      for (let i = 0; i < 3 && (await mergeSubj.inputValue().catch(() => '')) !== 'Invoice for {{Name}}'; i++) {
+        await mergeSubj.fill('Invoice for {{Name}}');
+        await page.waitForTimeout(200);
+      }
       await mc.locator('.ml-text').click();
       await page.keyboard.type('Hello {{Name}}, you owe {{Amount}}.');
       await page.waitForTimeout(500);
