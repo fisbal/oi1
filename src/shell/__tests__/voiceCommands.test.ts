@@ -15,6 +15,15 @@ describe('In 1 voice commands', () => {
     expect(parseVoice('In 1 öffne Mail', 'de')).toEqual({ kind: 'open', app: 'mail' });
     expect(parseVoice('Class')).toEqual({ kind: 'open', app: 'class' });
   });
+  it('listens and takes notes in In 1 Notes (5 languages), dictation stays dictation', () => {
+    expect(parseVoice('In 1, prends des notes')).toEqual({ kind: 'listen' });
+    expect(parseVoice('in un écoute la réunion')).toEqual({ kind: 'listen' });
+    expect(parseVoice('in one take notes', 'en')).toEqual({ kind: 'listen' });
+    expect(parseVoice('In 1 toma notas', 'es')).toEqual({ kind: 'listen' });
+    expect(parseVoice('In 1 tomar notas', 'pt')).toEqual({ kind: 'listen' });
+    expect(parseVoice('In 1 mitschreiben', 'de')).toEqual({ kind: 'listen' });
+    expect(parseVoice('In 1 prends en note')).toEqual({ kind: 'dictate' });
+  });
   it('dictates, undoes, saves, prints, zooms, stops', () => {
     expect(parseVoice('In 1, dicte')).toEqual({ kind: 'dictate' });
     expect(parseVoice('in one dictate', 'en')).toEqual({ kind: 'dictate' });

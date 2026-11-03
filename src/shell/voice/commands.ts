@@ -7,6 +7,7 @@
 export type VoiceAction =
   | { kind: 'open'; app: string }
   | { kind: 'dictate' }
+  | { kind: 'listen' }
   | { kind: 'key'; key: 'undo' | 'redo' | 'save' | 'print' | 'zoomIn' | 'zoomOut' }
   | { kind: 'stop' }
   | { kind: 'ask'; text: string }
@@ -41,7 +42,9 @@ const APPS: [string, RegExp][] = [
 ];
 
 const OPEN = /^(?:(?:tu peux |peux-tu |pourrais-tu |je veux |je voudrais |can you |could you |please |por favor |bitte )?(?:ouvre|ouvrir|lance|lancer|demarre|demarrer|affiche|va (?:dans|sur|a)|open|launch|start|show|go to|abre|abrir|inicia|abra|iniciar|oeffne|offne|starte|zeige|gehe zu)|(?:nouveau|nouvelle|nouvel|cree|creer|new|create|nuevo|nueva|crea|novo|nova|criar|crie|neue[rs]?|erstelle))\b/;
-const DICTATE = /^(?:dicte|dicter|dictee|je dicte|ecris|ecrire|prends en note|dictate|dictation|type|write|take notes?|dicta|dictar|escribe|escreve|ditar|dita|diktat|diktieren|schreib|schreibe)\b/;
+// In 1 Notes listens to a meeting or a class (it always asks for everyone's consent first).
+const LISTEN = /^(?:ecoute et prends? des notes|ecoute (?:la |le |l )?(?:reunion|cours|appel|conference)|prends des notes|prendre des notes|listen and take notes|listen to (?:the )?(?:meeting|class|call|talk)|take notes|escucha y toma notas|toma notas|tomar notas|escuta e toma notas|ouve e toma notas|zuhoren und mitschreiben|zuhoeren und mitschreiben|hor zu und schreib mit|mitschreiben|schreib mit)\b/;
+const DICTATE = /^(?:dicte|dicter|dictee|je dicte|ecris|ecrire|prends en note|dictate|dictation|type|write|dicta|dictar|escribe|escreve|ditar|dita|diktat|diktieren|schreib|schreibe)\b/;
 const KEYS: [VoiceAction & { kind: 'key' }, RegExp][] = [
   [{ kind: 'key', key: 'undo' }, /^(?:annule|annuler|defais|retour arriere|efface ca|undo|deshaz|deshacer|desfaz|desfazer|ruckgangig|rueckgaengig)\b/],
   [{ kind: 'key', key: 'redo' }, /^(?:retablis|retablir|refais|refaire|redo|rehaz|rehacer|refaz|refazer|wiederholen|wiederherstellen)\b/],
@@ -59,6 +62,7 @@ export function parseVoice(said: string, lang = 'fr'): VoiceAction {
   const s = rest.replace(/^(?:s il te plait |stp |please |por favor |bitte )/, '').trim();
   if (!s) return { kind: 'none' };
   if (STOP.test(s)) return { kind: 'stop' };
+  if (LISTEN.test(s)) return { kind: 'listen' };
   if (DICTATE.test(s)) return { kind: 'dictate' };
   for (const [action, re] of KEYS) if (re.test(s)) return action;
   if (OPEN.test(s)) {
