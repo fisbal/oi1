@@ -1,7 +1,9 @@
-.in1-voice { position: relative; display: flex; align-items: center; }
+/* Never squeezed by a full tab bar (Martin 2026-11-03: "In 1" went on two lines with 5 tabs open). */
+.in1-voice { position: relative; display: flex; align-items: center; flex: none; }
 .in1-voice-btn {
   display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 17px;
   border: 1px solid var(--hair); background: var(--panel, transparent); color: var(--ink); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer;
+  flex: none; white-space: nowrap;
 }
 .in1-voice-btn:hover { border-color: var(--gold); }
 .in1-voice-btn.on { background: #c62828; border-color: #c62828; color: #fff; box-shadow: 0 0 0 4px rgba(198, 40, 40, .2); animation: in1-pulse 1.4s ease-in-out infinite; }
