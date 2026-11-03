@@ -333,3 +333,15 @@ textarea.cell-editor { padding: 4px 6px; resize: none; line-height: 1.3; overflo
 .pb-v { width: 0; border-left: 1.5px dashed rgba(70, 90, 120, .75); }
 .pb-h { height: 0; border-top: 1.5px dashed rgba(70, 90, 120, .75); }
 @media print { .page-lines { display: none; } }
+
+/* Pictures over the grid (signatures, logos): move by dragging, resize by the corner, × deletes. */
+.pic-obj { position: absolute; z-index: 4; cursor: move; touch-action: none; border: 1px solid transparent; }
+.pic-obj img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; user-select: none; }
+.pic-obj:hover { border-color: rgba(var(--fg-rgb), .25); }
+.pic-obj.on { border: 1px dashed var(--gold, #c9a227); }
+.pic-size { position: absolute; right: -7px; bottom: -7px; width: 14px; height: 14px; border-radius: 50%; background: var(--gold, #c9a227); border: 2px solid #fff; cursor: nwse-resize; touch-action: none; }
+.pic-del {
+  position: absolute; top: -12px; right: -12px; width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--panel, #fff); color: var(--ink); font-size: 15px; line-height: 1; cursor: pointer;
+}
+@media (pointer: coarse) { .pic-size { width: 22px; height: 22px; right: -11px; bottom: -11px; } .pic-del { width: 30px; height: 30px; top: -15px; right: -15px; } }

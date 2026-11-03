@@ -8,7 +8,7 @@ import { chartLayout } from './chartdata';
 import { cellName, colName, isError, moveRefs, parseCell, type Scalar } from './formula';
 import {
   computeBook, display, key, literal, unkey,
-  type BorderLine, type Cell, type CellStyle, type Chart, type CondRule, type Merge, type NumberFormat, type SheetData, type Validation, type VKind, type VOp, type WorkbookData,
+  type BorderLine, type Cell, type CellStyle, type Chart, type CondRule, type Merge, type NumberFormat, type SheetData, type SheetPic, type Validation, type VKind, type VOp, type WorkbookData,
 } from './sheet';
 
 const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
@@ -173,7 +173,7 @@ export async function xlsxBytes(book: WorkbookData, lang = 'en'): Promise<ArrayB
   const quoted = (n: string) => (/^[A-Za-z_][A-Za-z0-9_.]*$/.test(n) && !parseCell(n) ? n : `'${n.replace(/'/g, "''")}'`);
   const absRange = (sheet: string, b: Merge) => `${quoted(sheet)}!$${colName(b.c1)}$${b.r1 + 1}:$${colName(b.c2)}$${b.r2 + 1}`;
   const definedNames: string[] = [];
-  let chartCount = 0, drawingCount = 0;
+  let chartCount = 0, drawingCount = 0, mediaCount = 0;
   const contentOverrides: string[] = [];
 
   const sheetXml = (sheet: SheetData, si: number): string => {
@@ -245,17 +245,28 @@ export async function xlsxBytes(book: WorkbookData, lang = 'en'): Promise<ArrayB
       : '';
     const cond = (sheet.rules ?? []).map((rule, i) => condXml(rule, i + 1)).join('');
     let drawing = '';
-    if (sheet.charts?.length) {
+    const pics = (sheet.pics ?? []).filter(p => /^data:image\/(png|jpeg);base64,/.test(p.src));
+    if (sheet.charts?.length || pics.length) {
       const d = ++drawingCount;
       drawing = '<drawing r:id="rId1"/>';
       zip.file(`xl/worksheets/_rels/sheet${si + 1}.xml.rels`, `${XML_HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R_NS}/drawing" Target="../drawings/drawing${d}.xml"/></Relationships>`);
       const anchors: string[] = [], rels: string[] = [];
-      sheet.charts.forEach((ch, i) => {
+      (sheet.charts ?? []).forEach((ch, i) => {
         const n = ++chartCount;
         anchors.push(`<xdr:absoluteAnchor><xdr:pos x="${ch.x * EMU_PER_PX}" y="${ch.y * EMU_PER_PX}"/><xdr:ext cx="${ch.w * EMU_PER_PX}" cy="${ch.h * EMU_PER_PX}"/><xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="${i + 2}" name="Chart ${i + 1}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="${C_NS}"><c:chart xmlns:c="${C_NS}" r:id="rId${i + 1}"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:absoluteAnchor>`);
         rels.push(`<Relationship Id="rId${i + 1}" Type="${R_NS}/chart" Target="../charts/chart${n}.xml"/>`);
         zip.file(`xl/charts/chart${n}.xml`, chartXml(ch, sheet, values, names[si]));
         contentOverrides.push(`<Override PartName="/xl/charts/chart${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`);
+      });
+      // Pictures (signatures, logos): the image file in xl/media, placed where it sits on the sheet.
+      const nCharts = sheet.charts?.length ?? 0;
+      pics.forEach((pic, i) => {
+        const n = ++mediaCount;
+        const ext = pic.src.startsWith('data:image/png') ? 'png' : 'jpeg';
+        const rid = `rId${nCharts + i + 1}`;
+        zip.file(`xl/media/image${n}.${ext}`, pic.src.slice(pic.src.indexOf(',') + 1), { base64: true });
+        anchors.push(`<xdr:absoluteAnchor><xdr:pos x="${Math.round(pic.x * EMU_PER_PX)}" y="${Math.round(pic.y * EMU_PER_PX)}"/><xdr:ext cx="${Math.round(pic.w * EMU_PER_PX)}" cy="${Math.round(pic.h * EMU_PER_PX)}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${nCharts + i + 2}" name="Picture ${i + 1}" descr="${esc(pic.alt ?? '')}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${Math.round(pic.w * EMU_PER_PX)}" cy="${Math.round(pic.h * EMU_PER_PX)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:absoluteAnchor>`);
+        rels.push(`<Relationship Id="${rid}" Type="${R_NS}/image" Target="../media/image${n}.${ext}"/>`);
       });
       zip.file(`xl/drawings/drawing${d}.xml`, `${XML_HEAD}<xdr:wsDr xmlns:xdr="${XDR_NS}" xmlns:a="${A_NS}" xmlns:r="${R_NS}">${anchors.join('')}</xdr:wsDr>`);
       zip.file(`xl/drawings/_rels/drawing${d}.xml.rels`, `${XML_HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join('')}</Relationships>`);
@@ -353,7 +364,7 @@ export async function xlsxBytes(book: WorkbookData, lang = 'en'): Promise<ArrayB
 
   sheets.forEach((s, i) => zip.file(`xl/worksheets/sheet${i + 1}.xml`, sheetXml(s, i)));
 
-  zip.file('[Content_Types].xml', `${XML_HEAD}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}${contentOverrides.join('')}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`);
+  zip.file('[Content_Types].xml', `${XML_HEAD}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpeg" ContentType="image/jpeg"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}${contentOverrides.join('')}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`);
   zip.file('_rels/.rels', `${XML_HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R_NS}/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="${R_NS}/extended-properties" Target="docProps/app.xml"/></Relationships>`);
   zip.file('docProps/app.xml', `${XML_HEAD}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Office In 1 Class</Application></Properties>`);
   zip.file('xl/workbook.xml', `${XML_HEAD}<workbook xmlns="${NS}" xmlns:r="${R_NS}"><bookViews><workbookView/></bookViews><sheets>${names.map((n, i) => `<sheet name="${esc(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets>${definedNames.length ? `<definedNames>${definedNames.join('')}</definedNames>` : ''}<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`);
@@ -673,10 +684,48 @@ export async function readXlsx(data: ArrayBuffer): Promise<WorkbookData> {
 
   // Charts last, so their ranges can point at any sheet and their places can use row and column sizes.
   for (const { sheet, anchor, path } of chartsToRead) {
+    if (deep(anchor, 'pic').length) {
+      const pic = await readPic(anchor, path, sheet, relsOf, zip);
+      if (pic) sheet.pics = [...(sheet.pics ?? []), pic];
+      continue;
+    }
     const ch = await readChart(anchor, path, sheet, relsOf, xml);
     if (ch) sheet.charts = [...(sheet.charts ?? []), ch];
   }
   return book;
+}
+
+/** A picture over the sheet (signature, logo): its image as a data URL, its place and size. */
+async function readPic(anchor: Element, drawingPath: string, sheet: SheetData,
+  relsOf: (p: string) => Promise<Map<string | null, string>>, zip: JSZip): Promise<SheetPic | null> {
+  const blip = deep(anchor, 'blip')[0];
+  const rid = blip?.getAttributeNS(R_NS, 'embed') ?? blip?.getAttribute('r:embed');
+  const path = rid ? (await relsOf(drawingPath)).get(rid) : undefined;
+  const ext = path?.split('.').pop()?.toLowerCase();
+  const f = path ? zip.file(path) : null;
+  if (!f || !ext || !['png', 'jpeg', 'jpg', 'gif'].includes(ext)) return null;
+  const src = `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${await f.async('base64')}`;
+  const colX = (c: number) => { let x = 0; for (let i = 0; i < c; i++) x += sheet.widths[i] ?? 104; return x; };
+  const rowY = (r: number) => { let y = 0; for (let i = 0; i < r; i++) y += sheet.heights?.[i] ?? DEFAULT_ROW_PX; return y; };
+  const point = (el: Element | null) => {
+    if (!el) return null;
+    const n = (name: string) => Number(kid(el, name)?.textContent ?? 0);
+    return { x: colX(n('col')) + n('colOff') / EMU_PER_PX, y: rowY(n('row')) + n('rowOff') / EMU_PER_PX };
+  };
+  const pos = kid(anchor, 'pos'), extEl = kid(anchor, 'ext');
+  let x = 0, y = 0, w = 160, h = 60;
+  if (pos && extEl) {
+    x = Number(pos.getAttribute('x') ?? 0) / EMU_PER_PX; y = Number(pos.getAttribute('y') ?? 0) / EMU_PER_PX;
+    w = Number(extEl.getAttribute('cx') ?? 0) / EMU_PER_PX; h = Number(extEl.getAttribute('cy') ?? 0) / EMU_PER_PX;
+  } else {
+    const a = point(kid(anchor, 'from')), b = point(kid(anchor, 'to'));
+    if (a) { x = a.x; y = a.y; }
+    if (a && b) { w = b.x - a.x; h = b.y - a.y; }
+    else { const e = deep(anchor, 'ext')[0]; if (e) { w = Number(e.getAttribute('cx') ?? 0) / EMU_PER_PX; h = Number(e.getAttribute('cy') ?? 0) / EMU_PER_PX; } }
+  }
+  if (!(w > 0 && h > 0)) return null;
+  const alt = deep(anchor, 'cNvPr')[0]?.getAttribute('descr') ?? '';
+  return { id: `pic-${Math.random().toString(36).slice(2, 9)}`, src, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h), ...(alt ? { alt } : {}) };
 }
 
 async function readChart(anchor: Element, drawingPath: string, sheet: SheetData,

@@ -2,6 +2,8 @@
 // Design themes, a Smart tab with one-click tools, an Office In 1 tab that links Letter to every other app,
 // and a command search that finds any command by name.
 
+import { SignatureMenu, type SignaturePlace } from '../../ui/signature/SignatureMenu';
+import type { Signature } from '../../ui/signature/store';
 import { AutoPunctBtn } from '../../ui/AutoPunctBtn';
 import { useEditorState, type Editor } from '@tiptap/react';
 import { useState, type ReactNode } from 'react';
@@ -73,6 +75,8 @@ export interface RibbonActions {
   letterBlock: (kind: 'full' | 'closing') => void;
   letterPart: (kind: LetterPart) => void;
   qr: () => void;
+  signature: (s: Signature, how: SignaturePlace) => void;
+  newSignature: () => void;
   cleanUp: (what: CleanUp) => void;
   sort: (dir: 1 | -1) => void;
   textToTable: () => void;
@@ -511,6 +515,11 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           <Group label="letter.group.text">
             <Btn big icon="date" title="letter.date" onClick={() => run().insertContent(new Date().toLocaleDateString(lang || undefined, { dateStyle: 'long' })).run()} />
             <Btn big icon="hr" title="letter.horizontalLine" onClick={() => run().setHorizontalRule().run()} />
+          </Group>
+          <Group label="sig.group">
+            <Drop big icon="signature" title="sig.button">
+              {close => <SignatureMenu onPlace={actions.signature} onNew={actions.newSignature} close={close} />}
+            </Drop>
           </Group>
           <Group label="letter.group.symbols">
             <Drop big icon="symbol" title="letter.symbol" wide>

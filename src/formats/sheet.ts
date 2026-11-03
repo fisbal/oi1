@@ -109,6 +109,8 @@ export interface Cell {
   style?: CellStyle;
 }
 
+export interface SheetPic { id: string; src: string; x: number; y: number; w: number; h: number; alt?: string }
+
 export interface SheetData {
   name: string;
   /** Cells by "column,row", both counted from 0. */
@@ -122,6 +124,8 @@ export interface SheetData {
   freeze?: { c: number; r: number };
   rules?: CondRule[];
   charts?: Chart[];
+  /** Pictures over the grid (a signature, a logo…): a PNG or JPEG data URL, place and size in pixels at 100 %. */
+  pics?: SheetPic[];
   filter?: Filter;
   /** Hide the grid lines, like Excel's View › Gridlines. */
   noGrid?: boolean;

@@ -1490,6 +1490,286 @@
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
 
+/* allura-latin-ext-400-normal */
+@font-face {
+  font-family: 'Allura';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/allura/files/allura-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* allura-latin-400-normal */
+@font-face {
+  font-family: 'Allura';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/allura/files/allura-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* alex-brush-latin-ext-400-normal */
+@font-face {
+  font-family: 'Alex Brush';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/alex-brush/files/alex-brush-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* alex-brush-latin-400-normal */
+@font-face {
+  font-family: 'Alex Brush';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/alex-brush/files/alex-brush-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* sacramento-latin-ext-400-normal */
+@font-face {
+  font-family: 'Sacramento';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/sacramento/files/sacramento-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* sacramento-latin-400-normal */
+@font-face {
+  font-family: 'Sacramento';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/sacramento/files/sacramento-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* parisienne-latin-ext-400-normal */
+@font-face {
+  font-family: 'Parisienne';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/parisienne/files/parisienne-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* parisienne-latin-400-normal */
+@font-face {
+  font-family: 'Parisienne';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/parisienne/files/parisienne-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* satisfy-latin-400-normal */
+@font-face {
+  font-family: 'Satisfy';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/satisfy/files/satisfy-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* kaushan-script-latin-ext-400-normal */
+@font-face {
+  font-family: 'Kaushan Script';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/kaushan-script/files/kaushan-script-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* kaushan-script-latin-400-normal */
+@font-face {
+  font-family: 'Kaushan Script';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/kaushan-script/files/kaushan-script-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* homemade-apple-latin-400-normal */
+@font-face {
+  font-family: 'Homemade Apple';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/homemade-apple/files/homemade-apple-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* mr-dafoe-latin-ext-400-normal */
+@font-face {
+  font-family: 'Mr Dafoe';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/mr-dafoe/files/mr-dafoe-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* mr-dafoe-latin-400-normal */
+@font-face {
+  font-family: 'Mr Dafoe';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/mr-dafoe/files/mr-dafoe-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* herr-von-muellerhoff-latin-ext-400-normal */
+@font-face {
+  font-family: 'Herr Von Muellerhoff';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/herr-von-muellerhoff/files/herr-von-muellerhoff-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* herr-von-muellerhoff-latin-400-normal */
+@font-face {
+  font-family: 'Herr Von Muellerhoff';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/herr-von-muellerhoff/files/herr-von-muellerhoff-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* mrs-saint-delafield-latin-ext-400-normal */
+@font-face {
+  font-family: 'Mrs Saint Delafield';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/mrs-saint-delafield/files/mrs-saint-delafield-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* mrs-saint-delafield-latin-400-normal */
+@font-face {
+  font-family: 'Mrs Saint Delafield';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/mrs-saint-delafield/files/mrs-saint-delafield-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* yellowtail-latin-ext-400-normal */
+@font-face {
+  font-family: 'Yellowtail';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/yellowtail/files/yellowtail-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* yellowtail-latin-400-normal */
+@font-face {
+  font-family: 'Yellowtail';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/yellowtail/files/yellowtail-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* cedarville-cursive-latin-400-normal */
+@font-face {
+  font-family: 'Cedarville Cursive';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/cedarville-cursive/files/cedarville-cursive-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* la-belle-aurore-latin-ext-400-normal */
+@font-face {
+  font-family: 'La Belle Aurore';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/la-belle-aurore/files/la-belle-aurore-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* la-belle-aurore-latin-400-normal */
+@font-face {
+  font-family: 'La Belle Aurore';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/la-belle-aurore/files/la-belle-aurore-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* pinyon-script-latin-ext-400-normal */
+@font-face {
+  font-family: 'Pinyon Script';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/pinyon-script/files/pinyon-script-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* pinyon-script-latin-400-normal */
+@font-face {
+  font-family: 'Pinyon Script';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/pinyon-script/files/pinyon-script-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* kristi-latin-400-normal */
+@font-face {
+  font-family: 'Kristi';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/kristi/files/kristi-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* marck-script-latin-ext-400-normal */
+@font-face {
+  font-family: 'Marck Script';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/marck-script/files/marck-script-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* marck-script-latin-400-normal */
+@font-face {
+  font-family: 'Marck Script';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(../../node_modules/@fontsource/marck-script/files/marck-script-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
 /* carlito-latin-ext-400-normal */
 @font-face {
   font-family: 'Carlito';

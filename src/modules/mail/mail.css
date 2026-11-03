@@ -120,3 +120,29 @@
 .ml-move .menu-item.on { font-weight: 700; }
 .ml-move .ml-dot { display: inline-block; vertical-align: middle; }
 .ml-move .menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
+
+/* My e-mail signatures */
+.ml-sig-menu { display: grid; gap: 4px; min-width: 220px; max-width: min(320px, calc(100vw - 32px)); }
+.ml-sig-menu button { text-align: left; min-height: 34px; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; }
+.ml-sig-menu button:hover:not(:disabled) { background: rgba(var(--fg-rgb), .07); }
+.ml-sigs { display: grid; gap: 12px; width: min(640px, calc(100vw - 88px)); }
+.ml-sig-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.ml-sig-tabs button, .ml-sig-hands > button, .ml-sig-file, .ml-sig-del {
+  min-height: 32px; padding: 4px 12px; border: 1px solid var(--line); border-radius: 99px; background: rgba(var(--fg-rgb), .05); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer;
+}
+.ml-sig-tabs button.on, .ml-sig-hands > button.on { background: var(--gold-gradient); color: var(--on-gold); border-color: transparent; }
+.ml-sig-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); min-width: 0; }
+.ml-sig-pics { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.ml-sig-pics b, .ml-sigs > b { font-size: 13px; }
+.ml-sig-hands { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.ml-sig-hands > button img { display: block; max-height: 30px; max-width: 110px; background: #fff; border-radius: 4px; }
+.ml-sig-logo { max-height: 40px; max-width: 120px; border-radius: 4px; background: #fff; }
+.ml-sig-looks { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); grid-auto-rows: max-content; gap: 8px; max-height: min(320px, 40vh); overflow: auto; padding: 2px; }
+.ml-sig-looks > button { min-width: 0; height: auto; min-height: 76px; display: block; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: #222; text-align: left; cursor: pointer; overflow: hidden; }
+.ml-sig-looks > button.on { border-color: var(--gold, #c9a227); box-shadow: 0 0 0 2px rgba(201, 162, 39, .35); }
+.ml-sig-mini { font-size: 10px; line-height: 1.35; pointer-events: none; overflow-wrap: anywhere; }
+.ml-sig-mini p { margin: 0 0 2px; }
+.ml-sig-mini img { max-width: 90px !important; max-height: 30px; height: auto; }
+.ml-sig-mini span { font-size: inherit !important; }
+.ml-sig-use { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); min-width: 0; }
+.ml-sig-del { justify-self: start; color: #c62828; }
