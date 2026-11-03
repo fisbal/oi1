@@ -8,7 +8,7 @@ import { closeHistory } from '@tiptap/pm/history';
 import { EditorContent, useEditor, useEditorState, type Editor, type JSONContent } from '@tiptap/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { FileRef, Handoff, HandoffLink, OpenedFile, RecentFile, ShellApi, TableData } from '../../shell/contract';
-import { getLanguage, t } from '../../shell/i18n';
+import { getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import { isLiveId, liveStore, newLiveId } from '../../shell/live';
 import { relabel } from '../../shell/defaultNames';
@@ -47,7 +47,11 @@ import { SourceDialog } from './sourceDialog';
 import { RefCheckDialog, RefModelsDialog } from './refModels';
 import { LETTERS } from './templates/letters';
 import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, selectNextField } from './templates/markup';
-import { TOC_MARK, WORK_LAYOUTS, lookOnly, reorganizeDoc, workDoc, workMargins, workStyles } from './templates/works';
+import { TOC_MARK, WORK_LAYOUTS, knownTitle, lookOnly, reorganizeDoc, workDoc, workMargins, workStyles, type WorkLayout } from './templates/works';
+import { modelDoc } from './templates/models';
+import { AnalysisPanel, type AnalysisHost } from './AnalysisPanel';
+import { analyze } from './analysis';
+import { applyNormContent, coverEnd, normCheck } from './normCheck';
 import { workText } from './templates/worksI18n';
 
 const WORK_LOCALE = { fr: 'fr-CA', en: 'en-CA', es: 'es-ES', pt: 'pt-BR', de: 'de-DE' } as const;
@@ -142,6 +146,14 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   const [comments, setCommentsState] = useState<LetterComment[]>(initial.comments ?? []);
   const [commentsOpen, setCommentsOpen] = useState(() => (initial.comments ?? []).some(c => !c.resolved) && window.innerWidth >= 900);
   const [editingComment, setEditingComment] = useState<string | null>(null);
+  // Analyse et correction, and the norm this document follows (remembered with the document's tab).
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [workId, setWorkIdState] = useState<string | null>(() => (shell.storage.get('workId') as string | null) || null);
+  const setWorkId = (id: string | null) => { setWorkIdState(id); shell.storage.set('workId', id ?? ''); };
+  const methodTipShown = useRef(false);
+  const workIdRef = useRef(workId); workIdRef.current = workId;
+  const pageRef = useRef(page); pageRef.current = page;
+  const stylesRef = useRef(styles); stylesRef.current = styles;
   const [markup, setMarkup] = useState(true);
   const touched = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -243,6 +255,30 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   // or dictated never rename it by themselves (Martin, 2026-11-01). A first save suggests the first line (baseName).
   const title = fileName ? fileName.replace(/\.(docx|html?|txt)$/i, '') : t('letter.untitled');
   const words = useEditorState({ editor: body, selector: ({ editor }) => editor?.storage.characterCount.words() ?? 0 }) ?? 0;
+  // "In 1 n'hésite pas à faire des suggestions" (Martin, 2026-11-03): once per document, when the writing pauses, one
+  // tip on the method (titles typed as bold text, empty lines to reach a page, the look set by hand…).
+  useEffect(() => {
+    if (!body || methodTipShown.current) return;
+    let timer = 0;
+    const idle = () => {
+      clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (methodTipShown.current || body.isDestroyed || body.storage.characterCount.words() < 250) return;
+        const w = WORK_LAYOUTS.find(x => x.id === workIdRef.current);
+        const tops = (body.getJSON().content ?? []) as JSONContent[];
+        const tips = [
+          ...(w ? normCheck({ w, page: pageRef.current, styles: stylesRef.current, tops }) : []),
+          ...analyze(body.state.doc, { lang: getLanguage(), known: knownTitle, work: !!w }),
+        ].filter(f => f.group === 'method');
+        if (!tips.length) return;
+        methodTipShown.current = true;
+        shell.notify(`${t(tips[0].key as MessageKey, tips[0].vars)} ${t('ana.suggest')}`);
+      }, 5000);
+    };
+    body.on('update', idle);
+    return () => { clearTimeout(timer); body.off('update', idle); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [body]);
   const fields = useEditorState({ editor: body, selector: ({ editor }) => (editor ? fieldsIn(editor.state.doc).length : 0) }) ?? 0;
   const inTable = useEditorState({ editor: body, selector: ({ editor }) => !!editor && editor.isActive('table') }) ?? false;
   const linkedTable = useEditorState({ editor: body, selector: ({ editor }) => (editor ? !!tableAt(editor)?.node.attrs.link : false) }) ?? false;
@@ -398,6 +434,8 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     if (body && isTracking(body) !== !!doc.track) setTracking(body, !!doc.track);
     setHfVersion(v => v + 1);
     body?.commands.focus('start');
+    // A work opened with its "table of contents goes here" mark (the exemplary works): the table fills itself in.
+    setTimeout(() => fillTocMark(doc.page), 600);
   };
 
   async function load(f: OpenedFile) {
@@ -818,6 +856,8 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     },
     comment: goToComment,
     toggleComments: () => setCommentsOpen(o => !o),
+    analysis: () => setAnalysisOpen(o => { if (!o && window.innerWidth < 1200) { setCommentsOpen(false); setCopilot(false); } return !o; }),
+    workModel: (id: string) => void openModel(id),
     track: () => {
       if (!body) return;
       if (!isTracking(body)) userName(true);
@@ -921,12 +961,86 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
   };
 
   // ---------- Doc adm/Mil: ready-to-fill letters and CVs ----------
+  /** The page number where the norm puts it (MLA: the name, then the number); [clear] empties the other band. */
+  const putPageNumber = (w: WorkLayout, clear: boolean) => {
+    if (!w.num) return;
+    const top = w.num === 'tr' || w.num === 'mla';
+    const ed = top ? header : footer;
+    const other = top ? footer : header;
+    const parts = [...(w.num === 'mla' ? [{ type: 'text', text: workText('[Nom] ', '[Last name] ', getLanguage()) }] : []), { type: 'pageNumber', attrs: { kind: 'page' } }];
+    ed?.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: w.num === 'bc' ? 'center' : 'right', indentFirst: 0 }, content: parts }] });
+    if (clear) other?.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
+    setHfVersion(v => v + 1);
+  };
+  /** The "table of contents goes here" mark becomes the table, once the pages are laid out. */
+  const fillTocMark = (pg: Pick<PageSettings, 'margins'> = page) => {
+    if (!body || body.isDestroyed) return;
+    let at = -1;
+    body.state.doc.descendants((n, pos) => { if (at < 0 && n.isTextblock && n.textContent === TOC_MARK) at = pos; return at < 0; });
+    if (at < 0) return;
+    const node = body.state.doc.nodeAt(at)!;
+    // The norm already wrote the "Table des matières" heading: the table comes without a second title.
+    const toc = tocJson(body, pageOf, pw - (pg.margins.left + pg.margins.right) * PX_PER_IN, false);
+    // Not a separate undo step: Ctrl+Z undoes the whole work layout at once.
+    body.chain().command(({ tr }) => { tr.setMeta('addToHistory', false); return true; }).insertContentAt({ from: at, to: at + node.nodeSize }, toc ?? [{ type: 'paragraph' }]).run();
+  };
+  /** "Appliquer la norme": the page, the styles, the look typed by hand, the references' hanging indent, the page number. */
+  const applyNorm = (id: string) => {
+    const w = WORK_LAYOUTS.find(x => x.id === id);
+    if (!w || !body) return;
+    setPage(p => ({ ...p, size: w.size, orientation: 'portrait', margins: workMargins(w), color: null }));
+    setStyles(st => workStyles(st, w));
+    const content = applyNormContent((body.getJSON().content ?? []) as JSONContent[], w);
+    body.chain().command(({ tr }) => { closeHistory(tr); return true; }).setContent({ type: 'doc', content }, { emitUpdate: true }).run();
+    body.view.dispatch(closeHistory(body.state.tr));
+    const has = (ed: Editor | null) => JSON.stringify(ed?.getJSON() ?? {}).includes('"pageNumber"');
+    if (w.num && !has(header) && !has(footer)) putPageNumber(w, false);
+    changed();
+    shell.notify(t('ana.applyNormDone', { norm: workText(w.name.fr, w.name.en, getLanguage()) }));
+  };
+  /** The exemplary work of a norm, in a new letter with the norm's page and styles. */
+  const openModel = async (id: string) => {
+    const w = WORK_LAYOUTS.find(x => x.id === id);
+    if (!w) return;
+    const lang = getLanguage() === 'fr' ? 'fr' : 'en';
+    const content = modelDoc(w, lang, longDate(lang === 'fr' ? 'fr-CA' : 'en-CA'));
+    const top = w.num === 'tr' || w.num === 'mla';
+    const band = w.num ? { type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: w.num === 'bc' ? 'center' : 'right', indentFirst: 0 }, content: [{ type: 'pageNumber', attrs: { kind: 'page' } }] }] } : null;
+    const doc: LetterDoc = {
+      body: { type: 'doc', content }, header: top ? band : null, footer: top ? null : band,
+      page: { ...defaultPage(), size: w.size, margins: workMargins(w) }, styles: workStyles(defaultStyles(), w),
+    };
+    const { letterToDocx } = await import('./docx/write');
+    const data = await letterToDocx(doc, t('ana.model'), 'In 1');
+    const name = `${t('ana.model')} – ${workText(w.name.fr, w.name.en, getLanguage()).replace(/[\\/:*?"<>|]/g, '-')}.docx`;
+    shell.openModule('letter', { name, type: DOCX_TYPE, text: async () => '', arrayBuffer: async () => data });
+  };
+  const analysisHost: AnalysisHost = {
+    applyNorm,
+    pageNumber: id => { const w = WORK_LAYOUTS.find(x => x.id === id); if (w) putPageNumber(w, false); },
+    reorganize: id => applyWork(id, 'reorganize'),
+    toc: () => {
+      if (!body) return;
+      const w = WORK_LAYOUTS.find(x => x.id === workId);
+      const tops = (body.getJSON().content ?? []) as JSONContent[];
+      const after = w ? coverEnd(tops, w) : 0;
+      let at = 0;
+      body.state.doc.forEach((_n, off, i) => { if (i === after) at = off; });
+      if (after >= tops.length) at = body.state.doc.content.size;
+      const toc = tocJson(body, pageOf, pw - (m.left + m.right) * PX_PER_IN);
+      if (!toc) { shell.notify(t('letter.tocEmpty')); return; }
+      body.chain().focus().insertContentAt(at, [...toc, { type: 'pageBreak' }]).run();
+    },
+    fill: () => setPanel('fill'),
+    openModel: id => void openModel(id),
+  };
   const applyWork = (id: string, mode: WorkMode) => {
       const w = WORK_LAYOUTS.find(x => x.id === id);
       if (!w || !body) return;
       const replace = mode === 'replace';
       const reorganize = mode === 'reorganize';
       let made: ReturnType<typeof reorganizeDoc> | null = null;
+      setWorkId(w.id);
       setPage(p => ({ ...p, size: w.size, orientation: 'portrait', margins: workMargins(w), color: null }));
       setStyles(st => workStyles(st, w));
       // The text comes in the app's language (Martin, 2026-11-02), not in the Doc adm/Mil letters' own FR/EN choice.
@@ -947,32 +1061,15 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
         body.view.dispatch(closeHistory(body.state.tr));
       }
       // The page number where the norm puts it (MLA: the name, then the number).
-      if (w.num && (replace || reorganize || (header?.isEmpty && footer?.isEmpty))) {
-        const top = w.num === 'tr' || w.num === 'mla';
-        const ed = top ? header : footer;
-        const other = top ? footer : header;
-        const parts = [...(w.num === 'mla' ? [{ type: 'text', text: workText('[Nom] ', '[Last name] ', lang) }] : []), { type: 'pageNumber', attrs: { kind: 'page' } }];
-        ed?.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: w.num === 'bc' ? 'center' : 'right', indentFirst: 0 }, content: parts }] });
-        if (replace || reorganize) other?.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
-        setHfVersion(v => v + 1);
-      }
+      if (w.num && (replace || reorganize || (header?.isEmpty && footer?.isEmpty))) putPageNumber(w, replace || reorganize);
       // The table of contents lists the parts once the pages are laid out.
-      if (replace || reorganize) setTimeout(() => {
-        let at = -1;
-        body.state.doc.descendants((n, pos) => { if (at < 0 && n.isTextblock && n.textContent === TOC_MARK) at = pos; return at < 0; });
-        if (at < 0) return;
-        const node = body.state.doc.nodeAt(at)!;
-        // The norm already wrote the "Table des matières" heading: the table comes without a second title.
-        const toc = tocJson(body, pageOf, pw - (workMargins(w).left + workMargins(w).right) * PX_PER_IN, false);
-        // Not a separate undo step: Ctrl+Z undoes the whole work layout at once.
-        body.chain().command(({ tr }) => { tr.setMeta('addToHistory', false); return true; }).insertContentAt({ from: at, to: at + node.nodeSize }, toc ?? [{ type: 'paragraph' }]).run();
-      }, 600);
+      if (replace || reorganize) setTimeout(() => fillTocMark({ margins: workMargins(w) }), 600);
       changed();
       const n = replace || reorganize ? fillFields(body, profileValues(fieldList(body.state.doc).map(f => f.label)), false) : 0;
       if (mode === 'look' || !selectNextField(body)) body.commands.focus('start');
       const name = workText(w.name.fr, w.name.en, lang);
       shell.notify(made
-        ? t(made.madeTitles ? 'letter.works.reorganizedCheck' : 'letter.works.reorganized', { name, titles: made.titles, refs: made.sortedRefs })
+        ? `${t(made.madeTitles ? 'letter.works.reorganizedCheck' : 'letter.works.reorganized', { name, titles: made.titles, refs: made.sortedRefs })} ${t('ana.suggest')}`
         : t(replace ? 'letter.works.done' : 'letter.works.formatted', { name, n }));
   };
   const docs = {
@@ -1179,7 +1276,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
   const readMinutes = readingStats(body.getText()).readMinutes;
   const suite = {
     apps: shell.apps(), sheets: shell.tabs('class'), dictating, speaking, outline, linkedTable, themeId,
-    tracking, markup, commentsOpen, commentHere: !!reviewHere?.comments.length, changeHere: !!reviewHere?.change,
+    tracking, markup, commentsOpen, analysisOpen, commentHere: !!reviewHere?.comments.length, changeHere: !!reviewHere?.change,
     changes: reviewHere?.changes ?? 0, footnoteHere: !!reviewHere?.footnote, footnotes: reviewHere?.footnotes.length ?? 0, copilot,
     docLang, fields,
   };
@@ -1238,6 +1335,11 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       {commentsOpen && !focusMode && (
         <CommentsPane editor={body} comments={comments} onChange={setComments} author={() => userName()} editing={editingComment}
           setEditing={setEditingComment} showResolved={false} onClose={() => setCommentsOpen(false)} />
+      )}
+      {analysisOpen && !focusMode && (
+        <AnalysisPanel editor={body} workId={workId} setWorkId={setWorkId} page={page} styles={styles}
+          header={() => (header && !header.isEmpty ? header.getJSON() : null)} footer={() => (footer && !footer.isEmpty ? footer.getJSON() : null)}
+          ai={shell.ai} host={analysisHost} onClose={() => { setAnalysisOpen(false); body.commands.focus(); }} />
       )}
       <ProofBubble editor={activeEditor} />
       {copilot && !focusMode && <Copilot host={letterCopilot(body, title, docLang)} ai={shell.ai} start={copilotStart} onClose={() => { setCopilot(false); body.commands.focus(); }} />}
@@ -1361,6 +1463,7 @@ function buildCommands(a: RibbonActions, body: Editor, ed: Editor, setView: (v: 
     c('count', t('letter.wordCount'), g.review, a.wordCount, 'count'),
     c('newComment', t('letter.commentNew'), g.review, a.newComment, 'commentnew', 'Ctrl+Alt+M'),
     c('comments', t('letter.commentsShow'), g.review, a.toggleComments, 'comment'),
+    c('analysis', t('ana.open'), g.review, a.analysis, 'check'),
     c('track', t('letter.track'), g.review, a.track, 'track', 'Ctrl+Shift+E'),
     c('acceptAll', t('letter.acceptAll'), g.review, () => a.accept(true), 'accept'),
     c('rejectAll', t('letter.rejectAll'), g.review, () => a.reject(true), 'reject'),

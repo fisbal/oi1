@@ -8,6 +8,7 @@
 
 import type { JSONContent } from '@tiptap/core';
 import type { DocStyles, StyleDef } from '../model';
+import { applyTitles, isTitleLine, makeLists } from './structure';
 import { FIELD_COLOR } from './markup';
 import { workText, type WorkLang } from './worksI18n';
 
@@ -326,15 +327,12 @@ const isPartStart = (n: JSONContent) => {
   if (n.type !== 'paragraph' && n.type !== 'heading') return false;
   const raw = nodeText(n).trim(), t = plain(raw);
   if (!raw || tocLeader(raw)) return false;
-  return TOCS.has(t) || KNOWN.has(t) || isAppendix(t) || /^\d+(?:\.\d+)*\.?\s+\p{Lu}/u.test(raw) && raw.length <= 70 && !/[.;,]$/.test(raw);
+  return TOCS.has(t) || KNOWN.has(t) || isAppendix(t) || /^\d+(?:\.\d+)*\.?\s+\p{Lu}/u.test(raw) && raw.length <= 70 && !/[.;,]$/.test(raw)
+    || isTitleLine(n);
 };
 
 const isBreak = (n: JSONContent) => n.type === 'pageBreak';
 const isEmpty = (n: JSONContent) => n.type === 'paragraph' && !nodeText(n).trim() && !(n.content ?? []).some(c => c.type !== 'text');
-const heading = (level: number, n: JSONContent): JSONContent => ({
-  type: 'heading', attrs: { level },
-  content: (n.content ?? []).map(c => (c.type === 'text' ? { ...c, marks: (c.marks ?? []).filter(m => m.type !== 'bold') } : c)).filter(c => c.type !== 'text' || c.text),
-});
 
 /** The look a paragraph got from Word, Google Docs or a website: the norm decides it now. */
 const LOOK_ATTRS = ['textAlign', 'lineHeight', 'spaceBefore', 'spaceAfter', 'indentLeft', 'indentRight', 'indentFirst', 'background', 'borders', 'styleId'] as const;
@@ -403,6 +401,8 @@ function joinBrokenLines(nodes: JSONContent[]): JSONContent[] {
   return out;
 }
 
+const hasTop = (titles: { why: string; level: number }[]) => titles.some(x => (x.why === 'keyword' || x.why === 'number') && x.level === 1);
+
 export interface Reorganized { content: JSONContent[]; titles: number; madeTitles: boolean; sortedRefs: number; keptTitlePage: boolean }
 
 /**
@@ -444,9 +444,13 @@ export function reorganizeDoc(w: WorkLayout, lang: WorkLang, date: string, curre
     }
     // Empty lines used as spacing: the norm's spacing replaces them. Pictures in a paragraph stay.
     if (isEmpty(n)) continue;
-    if (n.type === 'heading') nodes.push(KNOWN.has(t) || isAppendix(t) ? { ...n, attrs: { ...n.attrs, level: 1 } } : n);
-    else { const lvl = titleLevel(n); nodes.push(lvl ? heading(lvl, n) : n); }
+    nodes.push(n);
   }
+  // Enumerations typed line by line become lists; then every title is found and gets its level from its place
+  // ("Étape 3" → 1, "3.3" under it → 2, "Solution 2 :" + its name on the next line → one level-2 title…).
+  nodes = makeLists(nodes);
+  const found = applyTitles(nodes, lang, t => KNOWN.has(plain(t)) || isAppendix(plain(t)) || TOCS.has(plain(t)));
+  nodes = found.nodes.map(n => (n.type === 'heading' && (KNOWN.has(plain(nodeText(n))) || isAppendix(plain(nodeText(n)))) && !found.titles.some(x => x.why === 'keyword' && x.text === nodeText(n)) && !/:$/.test(nodeText(n)) && Number(n.attrs?.level) !== 1 && !hasTop(found.titles) ? { ...n, attrs: { ...n.attrs, level: 1 } } : n));
   nodes = joinBrokenLines(nodes);
   // Page breaks: never two in a row, none at the start or the end (big parts get theirs below).
   nodes = nodes.filter((n, i) => !isBreak(n) || (i > 0 && !isBreak(nodes[i - 1])));
@@ -523,3 +527,4 @@ export function reorganizeDoc(w: WorkLayout, lang: WorkLang, date: string, curre
   flush();
   return { content: [...head, ...out], titles: out.filter(n => n.type === 'heading').length, madeTitles, sortedRefs, keptTitlePage };
 }
+export const knownTitle = (t: string) => KNOWN.has(plain(t)) || isAppendix(plain(t)) || TOCS.has(plain(t));

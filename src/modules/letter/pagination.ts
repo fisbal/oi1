@@ -113,6 +113,8 @@ function noteDom(note: PageNote): HTMLElement {
 /** Works out where the spacers go from the blocks' measured positions. */
 export interface Block {
   pos: number; top: number; height: number; marginTop: number; marginBottom: number; isBreak: boolean;
+  /** A title (or a "Tableau 1" caption) stays on the page of what follows it, like LaTeX and Word's "keep with next". */
+  keepNext?: boolean;
   /** Footnotes referred to in this block, with the height each takes at the page bottom. */
   notes?: (PageNote & { h: number })[];
 }
@@ -129,10 +131,19 @@ export function computeSpacers(blocks: Block[], layout: PageLayout): { spacers: 
   let end = 0;
   let notes: PageNote[] = [];
   let notesHeight = 0;
-  for (const b of blocks) {
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
     const start = b.top - b.marginTop + shift; // where this block's space begins
-    const bottom = b.top + shift + b.height;
+    let bottom = b.top + shift + b.height;
     const firstOnPage = start <= contentTop(page) + 1;
+    // A title alone at the bottom of a page goes to the next page with the paragraph it introduces
+    // (when that paragraph fits on a page; a chain of titles moves together).
+    if (b.keepNext && !firstOnPage && !forced) {
+      let j = i;
+      while (blocks[j]?.keepNext && blocks[j + 1]) j++;
+      const next = blocks[j];
+      if (next && next !== b && !next.isBreak && next.height < contentHeight / 2) bottom = Math.max(bottom, next.top + shift + Math.min(next.height, 3 * 24));
+    }
     const own = (b.notes ?? []).reduce((h, n) => h + n.h, 0);
     // The block's own notes must fit on its page too, with the line above them.
     const reserve = notesHeight + own > 0 ? notesHeight + own + NOTE_RULE : 0;
@@ -207,6 +218,8 @@ function measure(view: EditorView): Block[] {
       marginTop: parseFloat(cs.marginTop) || 0,
       marginBottom: parseFloat(cs.marginBottom) || 0,
       isBreak: node.type.name === 'pageBreak',
+      keepNext: node.type.name === 'heading' && !!node.textContent.trim()
+        || node.type.name === 'paragraph' && /^(?:tableau|table|figure|graphique|fig\.)\s+\d+/i.test(node.textContent.trim()) && node.textContent.length < 200,
     });
   });
   const heights = noteHeights(view, allNotes);
