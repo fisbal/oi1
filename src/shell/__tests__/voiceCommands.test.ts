@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseVoice, stripWake } from '../voice/commands';
+import { heardName, parseVoice, stripWake } from '../voice/commands';
 
 describe('In 1 voice commands', () => {
   it('hears its name the many ways engines write it', () => {
@@ -35,5 +35,26 @@ describe('In 1 voice commands', () => {
   });
   it('sends anything else to In 1 Assistant', () => {
     expect(parseVoice('In 1, fais-moi un budget pour mars')).toEqual({ kind: 'ask', text: 'fais-moi un budget pour mars' });
+  });
+});
+
+describe('the name "In 1" heard while listening for it (part 3)', () => {
+  it('finds the name at the start, as speech engines write it, after a small word', () => {
+    expect(heardName('In 1, ouvre Class.')).toBe('ouvre class');
+    expect(heardName('In one open Letter')).toBe('open letter');
+    expect(heardName('Euh, in un, dicte')).toBe('dicte');
+    expect(heardName('Hey In 1 nouvelle lettre')).toBe('nouvelle lettre');
+    expect(heardName('In eins öffne Class')).toBe('offne class');
+  });
+  it('gives an empty request when the name is said alone', () => {
+    expect(heardName('In 1.')).toBe('');
+    expect(heardName('in one')).toBe('');
+  });
+  it('never wakes on the same words in the middle of talk', () => {
+    expect(heardName('We will finish in one hour')).toBeNull();
+    expect(heardName('En un mot, c’est fini')).toBeNull();
+    expect(heardName('Bonjour à tous')).toBeNull();
+    expect(heardName('Interesting')).toBeNull();
+    expect(heardName('Inside the box')).toBeNull();
   });
 });

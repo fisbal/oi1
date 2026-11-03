@@ -25,6 +25,18 @@ export function stripWake(text: string): { rest: string; called: boolean } {
   return m ? { rest: n.slice(m[0].length).trim(), called: true } : { rest: n, called: false };
 }
 
+/**
+ * The name "In 1" heard while listening for it (after the person turned that on): it must open the phrase, after
+ * at most a small word ("euh", "alors", "ok"…), so "in one hour" or « en un mot » in the middle of talk never calls it.
+ * Gives what follows the name ('' = the name alone: the request comes next), or null when the name was not said.
+ */
+const CALL = /^(?:(?:euh|heu|hum|hmm|um|uh|alors|bon|ok|okay|hey|he|dis|eh|oye|ola|hallo|ja|so|well|bueno|entao)\s)*(?:in ?1|in ?one|in ?un|in ?une|in ?won|in ?wan|inn ?1|in uno|in eins|hein un)\b\s*/;
+export function heardName(text: string): string | null {
+  const n = norm(text);
+  const m = n.match(CALL);
+  return m ? n.slice(m[0].length).trim() : null;
+}
+
 // App names as people say them (normalized, no accents). Brand names stay the same in every language (rule 15).
 const APPS: [string, RegExp][] = [
   ['letter', /\b(letter|lettre|word|texte?|document|carta|brief|documento|traitement de texte)\b/],

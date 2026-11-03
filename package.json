@@ -23,6 +23,7 @@
     "check:undo": "node scripts/check-undo.mjs",
     "check:voice": "node scripts/check-voice.mjs",
     "check:signature": "node scripts/check-signature.mjs",
+    "check:wake": "node scripts/check-wake.mjs",
     "check:listen": "node scripts/check-listen.mjs",
     "check:audience": "node scripts/check-audience.mjs",
     "check:formulas": "node scripts/check-formulas.mjs",

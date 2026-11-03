@@ -43,7 +43,14 @@ export interface DictationOptions {
   onCommand?(command: SmartCommand): void;
   /** Automatic punctuation and line breaks from the pauses (default: the saved choice, on). */
   auto?: boolean;
+  /** Not counted as "dictation running" (the "In 1" voice itself, which pauses while a document dictates). */
+  quiet?: boolean;
 }
+
+// How many dictations run now: the "In 1" name listening pauses while a document dictates (one microphone user).
+let running = 0;
+export const dictationRunning = () => running > 0;
+const tellRunning = () => { try { window.dispatchEvent(new CustomEvent('oi1-dictation', { detail: running > 0 })); } catch { /* no window */ } };
 
 const AUTO_KEY = 'oi1.dictation.auto';
 /** Automatic punctuation and line breaks: on unless the person turned them off. */
@@ -142,8 +149,9 @@ export function startDictation(o: DictationOptions): Dictation {
       else { status({ kind: 'error', code: 'unsupported' }); status({ kind: 'stopped' }); }
     });
   }
+  if (!o.quiet) { running++; tellRunning(); }
   const api = {
-    stop() { if (stopped) return; stopped = true; current?.stop(); },
+    stop() { if (stopped) return; stopped = true; current?.stop(); if (!o.quiet) { running = Math.max(0, running - 1); tellRunning(); } },
     engine: () => engine,
   };
   return api;
