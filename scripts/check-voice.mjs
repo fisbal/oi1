@@ -27,7 +27,7 @@ const QUEUE_WEB = `(() => {
 const H = '.app-frame:not([hidden])';
 const until = async (page, fn, arg, ms = 8000) => { try { await page.waitForFunction(fn, arg, { timeout: ms }); return true; } catch { return false; } };
 
-for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, false], ['Phone', { width: 390, height: 844 }, true], ['Phone sideways', { width: 844, height: 390 }, true]]) {
+for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, false], ['Small PC', { width: 1000, height: 700 }, false], ['Phone', { width: 390, height: 844 }, true], ['Phone sideways', { width: 844, height: 390 }, true]]) {
   const ctx = await browser.newContext({ viewport, locale: 'fr-FR', isMobile: mobile, hasTouch: mobile, permissions: ['microphone'] });
   const page = await ctx.newPage();
   page.on('pageerror', e => problems.push(`${name}: script error: ${e.message}`));
@@ -60,6 +60,17 @@ ${QUEUE_WEB}`);
   await btn.click();
   const asked = await until(page, sel => /budget pour mars/.test(document.querySelector(sel)?.value ?? ''), `${H} .as-input`, 12000);
   check(asked, `${name}: a free request goes to In 1 Assistant`);
+  // With the tab bar full (Martin's screen: 5 tabs), the button keeps its size and "In 1" stays on one line.
+  for (const words of ['In 1 ouvre Notes', 'In 1 ouvre Plan', 'In 1 nouvelle lettre', 'In 1 ouvre Draw', 'In 1 ouvre Class']) {
+    await page.evaluate(w => window.__queue.push(w), words);
+    await page.waitForTimeout(700); await btn.click(); await page.waitForTimeout(1800);
+  }
+  const shape = await page.evaluate(() => {
+    const b = document.querySelector('.in1-voice-btn'), n = document.querySelector('.in1-voice-name');
+    const r = b.getBoundingClientRect();
+    return { h: Math.round(r.height), w: Math.round(r.width), lines: n && n.offsetParent ? n.getClientRects().length : 1, nameH: n && n.offsetParent ? Math.round(n.getBoundingClientRect().height) : 0, tabs: document.querySelectorAll('div.tab[data-app]').length };
+  });
+  check(shape.h <= 36 && shape.lines === 1 && shape.nameH <= 20 && shape.w >= 30, `${name}: with ${shape.tabs} tabs open the 🎙️ In 1 button keeps its shape (${shape.w}x${shape.h}, name ${shape.nameH}px high)`);
   await ctx.close();
 }
 
