@@ -19,19 +19,31 @@ export function dictationText(s: DictationStatus | null): string {
  * Dictation for a component: toggle() starts/stops, onText receives ready text.
  * `message` is the live status (or the last error) to show near the button.
  */
-export function useDictation(lang: string, onText: (text: string) => void) {
+export function useDictation(lang: string, onText: (text: string) => void, more: {
+  /** Text just before the cursor (capital letters only at a sentence start). */
+  before?: () => string;
+  /** Take back one insertion ("efface ça"). */
+  undo?: () => void;
+} = {}) {
   const [status, setStatus] = useState<DictationStatus | null>(null);
   const [active, setActive] = useState(false);
   const run = useRef<Dictation | null>(null);
   const cb = useRef(onText);
   cb.current = onText;
+  const extra = useRef(more);
+  extra.current = more;
+  // Insertions since the last phrase (a phrase, then maybe its full stop written after a silence): "efface ça" takes
+  // back all of them.
+  const since = useRef(0);
   const stop = useCallback(() => { run.current?.stop(); }, []);
   const toggle = useCallback(() => {
     if (run.current) { run.current.stop(); return; }
     setActive(true);
     const d = startDictation({
       lang,
-      onText: text => cb.current(text),
+      onText: text => { since.current = /^\s?[.?!,;:…]$/.test(text) ? since.current + 1 : 1; cb.current(text); },
+      before: () => extra.current.before?.() ?? '',
+      onCommand: c => { if (c === 'undo') { for (let i = 0; i < since.current; i++) extra.current.undo?.(); since.current = 0; } },
       onStatus: s => {
         if (s.kind === 'stopped') {
           if (run.current === d) run.current = null;

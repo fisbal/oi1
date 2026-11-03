@@ -12,8 +12,12 @@
  *      with Whisper (transformers.js in a worker). The model downloads once
  *      (with a % shown), then works offline. Nothing leaves the device.
  * Spoken punctuation ("virgule", "comma", "new line"…) works with both engines
- * in the 5 languages.
+ * in the 5 languages, and the smart writer (smartPunct.ts) punctuates and
+ * breaks lines by itself from the pauses (Martin, 2026-11-03).
  */
+import { closeHistory } from '@tiptap/pm/history';
+import type { Transaction } from '@tiptap/pm/state';
+import { FLUSH_AFTER_MS, SmartWriter, type SmartCommand } from './smartPunct';
 
 export type DictationEngine = 'web' | 'device';
 export type DictationError = 'denied' | 'nomic' | 'unsupported' | 'failed';
@@ -33,6 +37,21 @@ export interface DictationOptions {
   onStatus?(status: DictationStatus): void;
   /** Force an engine (tests, settings). */
   engine?: DictationEngine;
+  /** Text just before the cursor, so the first word gets a capital only at a sentence start. */
+  before?(): string;
+  /** Spoken commands: "efface ça" (take the last phrase back). "Arrête la dictée" stops by itself. */
+  onCommand?(command: SmartCommand): void;
+  /** Automatic punctuation and line breaks from the pauses (default: the saved choice, on). */
+  auto?: boolean;
+}
+
+const AUTO_KEY = 'oi1.dictation.auto';
+/** Automatic punctuation and line breaks: on unless the person turned them off. */
+export function autoPunctuation(): boolean {
+  try { return localStorage.getItem(AUTO_KEY) !== 'off'; } catch { return true; }
+}
+export function setAutoPunctuation(on: boolean) {
+  try { localStorage.setItem(AUTO_KEY, on ? 'on' : 'off'); } catch { /* private mode */ }
 }
 
 export interface Dictation { stop(): void; readonly engine: () => DictationEngine }
@@ -84,38 +103,54 @@ export function pickEngine(forced?: DictationEngine): DictationEngine | null {
 export const dictationAvailable = () => pickEngine() !== null;
 
 export function startDictation(o: DictationOptions): Dictation {
-  const status = (s: DictationStatus) => { try { o.onStatus?.(s); } catch { /* UI gone */ } };
+  const writer = new SmartWriter(o.lang, o.auto ?? autoPunctuation());
+  let flushTimer = 0;
+  const send = (text: string) => { if (text.trim() || text.includes('\n')) { try { o.onText(text); } catch { /* UI gone */ } } };
+  const flush = () => { clearTimeout(flushTimer); flushTimer = 0; send(writer.flush()); };
+  // The speaker starts again: the held-back mark waits for the pause length.
+  const activity = () => { clearTimeout(flushTimer); flushTimer = 0; };
+  const status = (s: DictationStatus) => {
+    if (s.kind === 'stopped') flush(); // the last sentence gets its full stop
+    try { o.onStatus?.(s); } catch { /* UI gone */ }
+  };
   let current: { stop(): void } | null = null;
   let engine: DictationEngine = 'web';
   let stopped = false;
-  const emit = (raw: string) => {
-    const text = applyVoiceCommands(raw, o.lang);
-    if (text.trim() || text.includes('\n')) o.onText(text);
+  const emit = (raw: string, pause = Infinity) => {
+    let before: string | undefined;
+    try { before = o.before?.(); } catch { /* editor gone */ }
+    const out = writer.phrase({ text: raw, pause }, before);
+    if (out.command === 'stop') { api.stop(); return; }
+    if (out.command === 'undo') { writer.forget(); try { o.onCommand?.('undo'); } catch { /* UI gone */ } return; }
+    send(out.text);
+    clearTimeout(flushTimer);
+    flushTimer = window.setTimeout(flush, FLUSH_AFTER_MS);
   };
   const runDevice = () => {
     engine = 'device';
-    current = deviceEngine(o.lang, emit, status, () => stopped);
+    current = deviceEngine(o.lang, emit, status, () => stopped, activity);
   };
   const first = pickEngine(o.engine);
   status({ kind: 'starting' });
   if (!first) { queueMicrotask(() => { status({ kind: 'error', code: 'unsupported' }); status({ kind: 'stopped' }); }); }
   else if (first === 'device') runDevice();
   else {
-    current = webEngine(o.lang, emit, status, () => stopped, () => {
+    current = webEngine(o.lang, emit, status, () => stopped, activity, () => {
       // Web Speech gave nothing: switch for the rest of the session.
       webBroken = true;
       if (!stopped && hasMic()) runDevice();
       else { status({ kind: 'error', code: 'unsupported' }); status({ kind: 'stopped' }); }
     });
   }
-  return {
+  const api = {
     stop() { if (stopped) return; stopped = true; current?.stop(); },
     engine: () => engine,
   };
+  return api;
 }
 
 // ---------------------------------------------------------------- Web Speech
-function webEngine(lang: string, emit: (t: string) => void, status: (s: DictationStatus) => void, isStopped: () => boolean, fallback: () => void) {
+function webEngine(lang: string, emit: (t: string, pause?: number) => void, status: (s: DictationStatus) => void, isStopped: () => boolean, activity: () => void, fallback: () => void) {
   const SR = (w().SpeechRecognition ?? w().webkitSpeechRecognition)!;
   let r: WebRec | null = null;
   let gotWords = false;
@@ -123,6 +158,10 @@ function webEngine(lang: string, emit: (t: string) => void, status: (s: Dictatio
   let audioTimer = 0;
   let wordsTimer = 0;
   let gaveUp = false;
+  // Pause before each phrase: from the last final result to the first words of the next one. Chrome sends a final
+  // about 0.6 s after the voice stops and the first interim about 0.3 s after it starts.
+  let lastFinalAt = 0;
+  let phraseAt = 0;
   const clear = () => { clearTimeout(audioTimer); clearTimeout(wordsTimer); };
   const giveUp = () => {
     if (gaveUp || isStopped()) return;
@@ -152,11 +191,14 @@ function webEngine(lang: string, emit: (t: string) => void, status: (s: Dictatio
     rec.onresult = e => {
       gotWords = true; clearTimeout(wordsTimer);
       let interim = '';
+      if (!phraseAt) { phraseAt = Date.now(); activity(); }
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const res = e.results[i];
         const said = res[0].transcript;
-        if (res.isFinal) { if (said.trim()) emit(said); }
-        else interim += said;
+        if (res.isFinal) {
+          if (said.trim()) emit(said, lastFinalAt ? Math.max(0, (phraseAt - lastFinalAt) / 1000 + 0.3) : Infinity);
+          lastFinalAt = Date.now(); phraseAt = 0;
+        } else interim += said;
       }
       status({ kind: 'listening', engine: 'web', heard: interim.trim() || undefined });
     };
@@ -224,7 +266,7 @@ function transcribe(audio: Float32Array, lang: string): Promise<string> {
 
 const RATE = 16000;
 
-function deviceEngine(lang: string, emit: (t: string) => void, status: (s: DictationStatus) => void, isStopped: () => boolean) {
+function deviceEngine(lang: string, emit: (t: string, pause?: number) => void, status: (s: DictationStatus) => void, isStopped: () => boolean, activity: () => void) {
   let stream: MediaStream | null = null;
   let ctx: AudioContext | null = null;
   let node: ScriptProcessorNode | null = null;
@@ -253,11 +295,17 @@ function deviceEngine(lang: string, emit: (t: string) => void, status: (s: Dicta
   let floor = 0.004;
   const pre: Float32Array[] = [];
   const preMax = Math.round(RATE * 0.3);
+  // Sample clock: the silence before each phrase decides its punctuation (smartPunct).
+  let clock = 0;
+  let voiceEnd = -1;
+  let segPause = Infinity;
   const flushSegment = () => {
     if (!speaking) return;
     speaking = false;
     const total = segLen;
     const parts = seg;
+    const pause = segPause;
+    voiceEnd = clock - silent;
     seg = []; segLen = 0; silent = 0;
     if (loud < RATE * 0.25 || total < RATE * 0.4) { loud = 0; return; } // a click, not words
     loud = 0;
@@ -269,7 +317,7 @@ function deviceEngine(lang: string, emit: (t: string) => void, status: (s: Dicta
     queue = queue.then(async () => {
       try {
         const text = cleanWhisper(await transcribe(audio, lang));
-        if (text) emit(text);
+        if (text) emit(text, pause);
       } catch {
         status({ kind: 'error', code: 'failed' });
       } finally {
@@ -282,18 +330,24 @@ function deviceEngine(lang: string, emit: (t: string) => void, status: (s: Dicta
     let sum = 0;
     for (let i = 0; i < f.length; i++) sum += f[i] * f[i];
     const rms = Math.sqrt(sum / f.length);
+    clock += f.length;
     if (!speaking) floor = floor * 0.95 + Math.min(rms, 0.05) * 0.05;
     const voice = rms > Math.max(0.012, floor * 3);
     if (!speaking) {
       pre.push(f);
       let n = pre.reduce((a, b) => a + b.length, 0);
       while (n > preMax && pre.length > 1) n -= pre.shift()!.length;
-      if (voice) { speaking = true; seg = pre.splice(0); segLen = n; loud = f.length; silent = 0; }
+      if (voice) {
+        speaking = true; seg = pre.splice(0); segLen = n; loud = f.length; silent = 0;
+        segPause = voiceEnd < 0 ? Infinity : (clock - f.length - voiceEnd) / RATE;
+        activity();
+      }
       return;
     }
     seg.push(f); segLen += f.length;
     if (voice) { loud += f.length; silent = 0; } else silent += f.length;
-    if (silent > RATE * 0.7 || segLen > RATE * 12) flushSegment();
+    // Cut on a short silence so text comes quickly; the smart writer joins pieces of one sentence again.
+    if (silent > RATE * 0.6 || segLen > RATE * 12) flushSegment();
   };
 
   (async () => {
@@ -444,7 +498,8 @@ export function insertDictation(ed: { state: { selection: { from: number }; doc:
   const from = ed.state.selection.from;
   const before = ed.state.doc.textBetween(Math.max(0, from - 1), from);
   const lead = before && !/\s$/.test(before) && !/^[\s,.;:!?…)»” ]/.test(text) ? ' ' : '';
-  const chain = ed.chain().focus();
+  // Each dictated piece is its own undo step (so "efface ça" or ↶ takes back exactly one phrase).
+  const chain = ed.chain().focus().command(({ tr }) => { closeHistory(tr); return true; });
   const paras = (lead + text).split('\n\n');
   paras.forEach((p, i) => {
     if (i > 0) chain.splitBlock();
@@ -455,7 +510,7 @@ export function insertDictation(ed: { state: { selection: { from: number }; doc:
   });
   chain.run();
 }
-interface EditorChain { focus(): EditorChain; insertContent(c: string): EditorChain; splitBlock(): EditorChain; setHardBreak(): EditorChain; run(): boolean }
+interface EditorChain { focus(): EditorChain; command(fn: (p: { tr: Transaction }) => boolean): EditorChain; insertContent(c: string): EditorChain; splitBlock(): EditorChain; setHardBreak(): EditorChain; run(): boolean }
 
 /** Plain text fields (Assistant box, Mail body…). */
 export function joinDictation(current: string, text: string): string {

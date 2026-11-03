@@ -23,6 +23,7 @@ export const HELP_LETTER: Record<string, HelpText> = {
   'letter.replace': ['Replaces a word by another, once or everywhere (Ctrl+H).', 'Remplace un mot par un autre, une fois ou partout (Ctrl+H).'],
   'letter.selectAll': ['Selects the whole document (Ctrl+A).', 'Sélectionne tout le document (Ctrl+A).'],
   'letter.commandSearch': ['Type what you want to do (“page number”, “two columns”…) and the right command appears.', 'Tapez ce que vous voulez faire (« numéro de page », « deux colonnes »…) et la bonne commande apparaît.'],
+  'dictation.auto': ['Dictation punctuates by itself from your pauses: a breath keeps the sentence going, a pause ends it (full stop or question mark), a long pause starts a new paragraph; greetings and sign-offs take their place. Turn it off to place every mark yourself by voice.', 'La dictée ponctue toute seule selon vos pauses : une respiration continue la phrase, une pause la termine (point ou point d’interrogation), une longue pause ouvre un nouveau paragraphe ; les salutations et formules de fin se placent seules. Désactivez pour dicter vous-même chaque signe.'],
   'letter.dictate': ['Writes what you say with your voice, at the cursor. Click again to stop.', 'Écrit ce que vous dites à voix haute, au curseur. Cliquez encore pour arrêter.'],
   // Insert
   'letter.table': ['Inserts a table: choose the number of rows and columns on the grid.', 'Insère un tableau : choisissez le nombre de lignes et de colonnes sur la grille.'],

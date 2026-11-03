@@ -2,6 +2,7 @@
 // Design themes, a Smart tab with one-click tools, an Office In 1 tab that links Letter to every other app,
 // and a command search that finds any command by name.
 
+import { AutoPunctBtn } from '../../ui/AutoPunctBtn';
 import { useEditorState, type Editor } from '@tiptap/react';
 import { useState, type ReactNode } from 'react';
 import { getLanguage, t, type MessageKey } from '../../shell/i18n';
@@ -459,6 +460,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           </Group>
           <Group label="letter.group.voice">
             <Btn big icon="mic" title={suite.dictating ? 'letter.dictateStop' : 'letter.dictate'} onClick={actions.dictate} active={suite.dictating} />
+            <AutoPunctBtn />
           </Group>
         </>}
 
@@ -860,6 +862,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           </Group>
           <Group label="letter.group.voice">
             <Btn big icon="mic" title={suite.dictating ? 'letter.dictateStop' : 'letter.dictate'} onClick={actions.dictate} active={suite.dictating} />
+            <AutoPunctBtn />
             <Btn big icon="speak" title={suite.speaking ? 'letter.readAloudStop' : 'letter.readAloud'} onClick={actions.readAloud} active={suite.speaking} />
             <Btn big icon="focus" title="letter.focus" onClick={actions.focus} />
           </Group>

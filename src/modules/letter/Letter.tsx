@@ -544,7 +544,11 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
 
   // ---------- beyond Word: smart tools ----------
   // Dictation: one engine for all In 1 apps (Web Speech when it works, Whisper on the device otherwise).
-  const dict = useDictation(speechLang(lang), text => insertDictation(editors.current[activeRef.current] ?? body, text));
+  const dictEd = () => editors.current[activeRef.current] ?? body;
+  const dict = useDictation(speechLang(lang), text => insertDictation(dictEd(), text), {
+    before: () => { const ed = dictEd(); if (!ed) return ''; const at = ed.state.selection.from; return ed.state.doc.textBetween(Math.max(0, at - 60), at, '\n'); },
+    undo: () => { dictEd()?.commands.undo(); },
+  });
   const dictating = dict.active;
   const dictate = dict.toggle;
   useEffect(() => { if (dict.error) shell.notify(dict.message); }, [dict.error, dict.message, shell]);
