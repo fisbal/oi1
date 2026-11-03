@@ -32,18 +32,15 @@ export function useDictation(lang: string, onText: (text: string) => void, more:
   cb.current = onText;
   const extra = useRef(more);
   extra.current = more;
-  // Insertions since the last phrase (a phrase, then maybe its full stop written after a silence): "efface ça" takes
-  // back all of them.
-  const since = useRef(0);
   const stop = useCallback(() => { run.current?.stop(); }, []);
   const toggle = useCallback(() => {
     if (run.current) { run.current.stop(); return; }
     setActive(true);
     const d = startDictation({
       lang,
-      onText: text => { since.current = /^\s?[.?!,;:…]$/.test(text) ? since.current + 1 : 1; cb.current(text); },
+      onText: text => cb.current(text),
       before: () => extra.current.before?.() ?? '',
-      onCommand: c => { if (c === 'undo') { for (let i = 0; i < since.current; i++) extra.current.undo?.(); since.current = 0; } },
+      onCommand: c => { if (c === 'undo') extra.current.undo?.(); },
       onStatus: s => {
         if (s.kind === 'stopped') {
           if (run.current === d) run.current = null;

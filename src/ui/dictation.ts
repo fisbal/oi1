@@ -499,7 +499,13 @@ export function insertDictation(ed: { state: { selection: { from: number }; doc:
   const before = ed.state.doc.textBetween(Math.max(0, from - 1), from);
   const lead = before && !/\s$/.test(before) && !/^[\s,.;:!?…)»” ]/.test(text) ? ' ' : '';
   // Each dictated piece is its own undo step (so "efface ça" or ↶ takes back exactly one phrase).
-  const chain = ed.chain().focus().command(({ tr }) => { closeHistory(tr); return true; });
+  // A full stop written after a silence belongs to the phrase before it: same undo step.
+  const markOnly = isMarkOnly(text);
+  const chain = ed.chain().focus().command(({ tr }) => {
+    if (markOnly) tr.setMeta('appendedTransaction', { getMeta: () => undefined });
+    else closeHistory(tr);
+    return true;
+  });
   const paras = (lead + text).split('\n\n');
   paras.forEach((p, i) => {
     if (i > 0) chain.splitBlock();
@@ -511,6 +517,9 @@ export function insertDictation(ed: { state: { selection: { from: number }; doc:
   chain.run();
 }
 interface EditorChain { focus(): EditorChain; command(fn: (p: { tr: Transaction }) => boolean): EditorChain; insertContent(c: string): EditorChain; splitBlock(): EditorChain; setHardBreak(): EditorChain; run(): boolean }
+
+/** Only a punctuation mark (the full stop the smart writer adds after a silence). */
+export const isMarkOnly = (text: string) => /^\s?[.?!,;:…]$/.test(text);
 
 /** Plain text fields (Assistant box, Mail body…). */
 export function joinDictation(current: string, text: string): string {

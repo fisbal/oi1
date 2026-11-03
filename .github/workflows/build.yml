@@ -157,6 +157,9 @@ jobs:
       - name: Undo and redo always in view in every app, and they really undo (PC, Mac, tablet, phone, both ways) (check:undo)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:undo
+      - name: The In 1 voice button opens apps, starts dictation, undoes and asks In 1 Assistant (PC, phone, both ways) (check:voice)
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:voice
       - name: Every tab of Office In 1 can be renamed and its document takes the name (PC + phone)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:rename

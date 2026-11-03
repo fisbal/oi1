@@ -367,6 +367,28 @@ export const RECIPES: Recipe[] = [
     ],
   },
   {
+    id: 'annualReport', icon: '📊',
+    words: ['rapport annuel', 'annual report', 'informe anual', 'relatorio anual', 'jahresbericht', 'bilan', 'bilan annuel', 'rapport d activite', 'activity report', 'resultats', 'results', 'annee', 'year'],
+    parts: [
+      { app: 'class', name: T('Key figures of the year', 'Chiffres clés de l’année'), purpose: T('Quarter by quarter, with totals and the change from last year that compute themselves.', 'Trimestre par trimestre, avec les totaux et l’évolution sur un an qui se calculent seuls.'),
+        rows: {
+          en: [['', 'Q1', 'Q2', 'Q3', 'Q4', 'Year', 'Last year', 'Change'], ['Revenue', '120000', '135000', '128000', '160000', '=SUM(B2:E2)', '480000', '=(F2-G2)/G2'], ['Costs', '90000', '96000', '94000', '110000', '=SUM(B3:E3)', '370000', '=(F3-G3)/G3'], ['Result', '=B2-B3', '=C2-C3', '=D2-D3', '=E2-E3', '=SUM(B4:E4)', '=G2-G3', '=(F4-G4)/G4'], ['Customers', '820', '870', '905', '980', '=E5', '760', '=(F5-G5)/G5'], ['Team', '12', '13', '13', '15', '=E6', '11', '=(F6-G6)/G6']],
+          fr: [['', 'T1', 'T2', 'T3', 'T4', 'Année', 'Année précédente', 'Évolution'], ['Chiffre d’affaires', '120000', '135000', '128000', '160000', '=SUM(B2:E2)', '480000', '=(F2-G2)/G2'], ['Charges', '90000', '96000', '94000', '110000', '=SUM(B3:E3)', '370000', '=(F3-G3)/G3'], ['Résultat', '=B2-B3', '=C2-C3', '=D2-D3', '=E2-E3', '=SUM(B4:E4)', '=G2-G3', '=(F4-G4)/G4'], ['Clients', '820', '870', '905', '980', '=E5', '760', '=(F5-G5)/G5'], ['Équipe', '12', '13', '13', '15', '=E6', '11', '=(F6-G6)/G6']],
+        } },
+      { app: 'letter', name: T('Annual report', 'Rapport annuel'), purpose: T('The year in writing: message, highlights, linked key figures, outlook.', 'L’année par écrit : mot de la direction, faits marquants, chiffres clés reliés, perspectives.'), table: 0,
+        lines: {
+          en: ['## Message from the director', '[The year in a few sentences: what went well, what was hard, thanks to the team and partners.]', '## Highlights of the year', '- [Main achievement]', '- [New product, service or partner]', '- [Award, milestone or event]', '## Key figures', TABLE_MARK, '## Activity', '[What the organisation did, department by department or project by project.]', '## People', '[Team, hiring, training, well-being.]', '## Social and environmental impact', '[Actions and results.]', '## Outlook for next year', '- [Goal 1]', '- [Goal 2]', '- [Goal 3]'],
+          fr: ['## Mot de la direction', '[L’année en quelques phrases : ce qui a réussi, ce qui a été difficile, remerciements à l’équipe et aux partenaires.]', '## Faits marquants de l’année', '- [Réalisation principale]', '- [Nouveau produit, service ou partenaire]', '- [Prix, étape ou événement]', '## Chiffres clés', TABLE_MARK, '## Activité', '[Ce que l’organisation a fait, service par service ou projet par projet.]', '## Ressources humaines', '[Équipe, recrutements, formation, bien-être.]', '## Impact social et environnemental', '[Actions et résultats.]', '## Perspectives pour l’année prochaine', '- [Objectif 1]', '- [Objectif 2]', '- [Objectif 3]'],
+        } },
+      { app: 'stage', name: T('Annual report slides', 'Présentation du rapport annuel'), purpose: T('Seven slides for the general meeting, with the key figures.', 'Sept diapositives pour l’assemblée générale, avec les chiffres clés.'), table: 0,
+        lines: {
+          en: ['## The year at a glance', '- [Headline result]', '- [Biggest achievement]', '## Highlights', '- [Highlight 1]', '- [Highlight 2]', '- [Highlight 3]', '## Key figures', '- [Revenue and change]', '- [Result]', '- [Customers]', '## Activity', '- [Department or project]', '- [Department or project]', '## People', '- [Team and hiring]', '## Impact', '- [Social and environmental actions]', '## Next year', '- [Goal 1]', '- [Goal 2]'],
+          fr: ['## L’année en un coup d’œil', '- [Résultat phare]', '- [Plus grande réussite]', '## Faits marquants', '- [Fait marquant 1]', '- [Fait marquant 2]', '- [Fait marquant 3]', '## Chiffres clés', '- [Chiffre d’affaires et évolution]', '- [Résultat]', '- [Clients]', '## Activité', '- [Service ou projet]', '- [Service ou projet]', '## Ressources humaines', '- [Équipe et recrutements]', '## Impact', '- [Actions sociales et environnementales]', '## L’année prochaine', '- [Objectif 1]', '- [Objectif 2]'],
+        } },
+      { app: 'pdf', name: T('Annual report (PDF)', 'Rapport annuel (PDF)'), purpose: T('To send to members, partners or the bank.', 'À envoyer aux membres, partenaires ou à la banque.'), from: 1 },
+    ],
+  },
+  {
     id: 'adminLetter', icon: '🏛️',
     words: ['administration', 'mairie', 'prefecture', 'impots', 'tax', 'caf', 'demande', 'request', 'solicitud', 'requerimento', 'antrag', 'attestation'],
     parts: [
