@@ -1,4 +1,7 @@
 import { isStaleBuild, reloadToNewVersion } from '../../shell/staleBuild';
+import { SignatureDialog } from '../../ui/signature/SignatureDialog';
+import type { SignaturePlace } from '../../ui/signature/SignatureMenu';
+import { todayText, type Signature } from '../../ui/signature/store';
 import { useDictation } from '../../ui/useDictation';
 import { insertDictation } from '../../ui/dictation';
 import { closeHistory } from '@tiptap/pm/history';
@@ -122,7 +125,7 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   const setView = useCallback((v: Partial<ViewState>) => setViewState(cur => ({ ...cur, ...v })), []);
   const [layout, setLayout] = useState<LayoutResult>({ pages: 1, tail: 96, notes: [] });
   const [workAsk, setWorkAsk] = useState<string | null>(null);
-  const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands' | 'fill' | 'profile' | 'source' | 'sourceAi' | 'refModels' | 'refCheck'>(null);
+  const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands' | 'fill' | 'profile' | 'source' | 'sourceAi' | 'refModels' | 'refCheck' | 'signature'>(null);
   // What the source dialog starts from: a type of document (Models) or a source to complete (Check sources).
   const [sourceStart, setSourceStart] = useState<{ initial?: Partial<Source>; highlight?: (keyof Source)[]; update?: boolean } | null>(null);
   const [citeStyle, setCiteStyleState] = useState<CitationStyle>(() => {
@@ -518,6 +521,22 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
   // ---------- ribbon actions ----------
   const painter = useRef<{ marks: { type: string; attrs: Record<string, unknown> }[] } | null>(null);
   const [painting, setPainting] = useState(false);
+  // Signatures (kept on this device): the signature, the initials, or a full signature line (name, title, date).
+  const placeSignature = (sg: Signature, how: SignaturePlace) => {
+    const ed = activeEditor;
+    if (!ed) return;
+    const img = (ink: { png: string; w: number; h: number }, width: number) => ({ type: 'image', attrs: { src: ink.png, alt: t('sig.alt', { name: sg.name }), width, height: Math.round(width * ink.h / ink.w) } });
+    if (how === 'initials' && sg.initials) { ed.chain().focus().insertContent(img(sg.initials, 56)).run(); return; }
+    if (how === 'sig') { ed.chain().focus().insertContent(img(sg, 190)).run(); return; }
+    const para = (text: string, bold = false) => ({ type: 'paragraph', content: text ? [{ type: 'text', text, ...(bold ? { marks: [{ type: 'bold' }] } : {}) }] : [] });
+    ed.chain().focus().insertContent([
+      { type: 'paragraph', content: [img(sg, 190)] },
+      para('______________________________'),
+      ...(sg.name ? [para(sg.name, true)] : []),
+      ...(sg.title ? [para(sg.title)] : []),
+      para(todayText(lang || getLanguage())),
+    ]).run();
+  };
   useEffect(() => {
     const up = () => {
       const ed = activeEditor;
@@ -749,6 +768,8 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       const src = await qrDataUrl(text.trim());
       ed.chain().focus().insertContent({ type: 'image', attrs: { src, alt: text.trim(), width: 132 } }).run();
     },
+    signature: (sg: Signature, how: SignaturePlace) => placeSignature(sg, how),
+    newSignature: () => setPanel('signature'),
     cleanUp: (what: Parameters<typeof cleanUp>[1]) => {
       if (!body) return;
       const n = cleanUp(body, what, lang || getLanguage());
@@ -1256,6 +1277,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       {workAsk && (() => { const w = WORK_LAYOUTS.find(x => x.id === workAsk)!; return (
         <WorkChoiceDialog name={workText(w.name.fr, w.name.en, getLanguage())} onClose={() => setWorkAsk(null)}
           onPick={m => { setWorkAsk(null); applyWork(w.id, m); }} />); })()}
+      {panel === 'signature' && <SignatureDialog onClose={() => setPanel(null)} onSaved={sg => placeSignature(sg, 'line')} />}
       {panel === 'count' && <WordCountDialog editor={body} pages={layout.pages} onClose={() => setPanel(null)} />}
       {panel === 'margins' && <MarginsDialog page={page} onApply={setPage} onClose={() => setPanel(null)} />}
       {panel === 'fill' && <FillDialog editor={body} onClose={() => { setPanel(null); body.commands.focus(); }}

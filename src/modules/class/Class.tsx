@@ -17,10 +17,13 @@ import { parseCsv, toCsv } from '../../formats/csv';
 import { cellName, colName, isError, moveRefs, parseCell, type Scalar } from '../../formats/formula';
 import {
   computeBook, currencyFor, defaultDecimals, display, emptySheet, key, naturalAlign, readEntry, unkey, usedRange,
-  type BorderLine, type Cell, type CellStyle, type Chart, type CondRule, type Merge, type NumberFormat, type SheetData, type WorkbookData,
+  type BorderLine, type Cell, type CellStyle, type Chart, type CondRule, type Merge, type NumberFormat, type SheetData, type SheetPic, type WorkbookData,
 } from '../../formats/sheet';
 import { sheetToTable, tableFromHtml, tableFromText, tableToCells, tableToHtml, tableToText, type Range } from '../../formats/table';
 import { FileMenu } from '../../ui/FileMenu';
+import { SignatureDialog } from '../../ui/signature/SignatureDialog';
+import { SignatureMenu, type SignaturePlace } from '../../ui/signature/SignatureMenu';
+import { todayText, type Signature } from '../../ui/signature/store';
 import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, RibbonToggle, type ComboGroup } from '../../ui/kit';
 import { AppKeys, appColor } from '../../ui/AppKeys';
 import { TutoTab } from '../../ui/tuto/Tuto';
@@ -161,6 +164,8 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const [proCat, setProCat] = useState<ProCat>(() => { try { return (localStorage.getItem('oi1.class.proCat') as ProCat) || 'all'; } catch { return 'all'; } });
   const [proDialog, setProDialog] = useState<null | 'gallery' | 'converter'>(null);
   const [chartSel, setChartSel] = useState<string | null>(null);
+  const [picSel, setPicSel] = useState<string | null>(null);
+  const [sigDialog, setSigDialog] = useState(false);
   const [fillTo, setFillTo] = useState<Box | null>(null);
   const [whatIf, setWhatIf] = useState<null | 'seek' | 'scen' | 'solver' | 'val'>(null);
   const [circles, setCircles] = useState<string[] | null>(null);
@@ -240,12 +245,12 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const old = b.sheets[active];
     const s: SheetData = {
       ...old, cells: { ...old.cells }, widths: { ...old.widths }, heights: { ...old.heights },
-      merges: [...(old.merges ?? [])], rules: [...(old.rules ?? [])], charts: [...(old.charts ?? [])],
+      merges: [...(old.merges ?? [])], rules: [...(old.rules ?? [])], charts: [...(old.charts ?? [])], pics: [...(old.pics ?? [])],
     };
     mutate(s);
     // Leave out empty parts, so saved files stay small.
     if (!Object.keys(s.heights ?? {}).length) delete s.heights;
-    for (const k of ['merges', 'rules', 'charts'] as const) if (!s[k]?.length) delete s[k];
+    for (const k of ['merges', 'rules', 'charts', 'pics'] as const) if (!s[k]?.length) delete s[k];
     commit({ ...b, sheets: b.sheets.map((x, i) => (i === active ? s : x)) });
   };
   const undoOnce = () => { const prev = undo.current.pop(); if (prev) { redo.current.push(bookRef.current); setBook(prev); } };
@@ -286,7 +291,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const startEdit = (text: string | null, mode: 'enter' | 'edit', where: 'cell' | 'bar' = 'cell') => {
     const cell = sheet.cells[key(sel.a.c, sel.a.r)];
     setSel(s => ({ a: s.a, f: s.a }));
-    setChartSel(null);
+    setChartSel(null); setPicSel(null);
     setEdit({ text: text ?? cell?.input ?? '', mode, where });
   };
   // Like Excel: after typing across a row with Tab, Enter goes back to the column the row started in.
@@ -294,7 +299,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const go = (c: number, r: number, extend = false) => {
     tabStart.current = null;
     const p = { c: Math.max(0, c), r: Math.max(0, r) };
-    setChartSel(null);
+    setChartSel(null); setPicSel(null);
     setSel(s => (extend ? { a: s.a, f: p } : { a: p, f: p }));
   };
   const forBox = (b: Range, fn: (c: number, r: number) => void) => {
@@ -640,7 +645,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       setBook(next);
       setActive(0);
       setSel({ a: { c: 0, r: 0 }, f: { c: 0, r: 0 } });
-      setChartSel(null);
+      setChartSel(null); setPicSel(null);
       setFileName(f.name.replace(/\.(csv|tsv)$/i, '.xlsx'));
       setFileRef(lower.endsWith('.xlsx') && f.handle ? { name: f.name, handle: f.handle } : null);
       setLink(null);
@@ -825,6 +830,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     for (let i = 0; i < book.sheets.length; i++) {
       const list: string[] = [];
       for (const ch of book.sheets[i].charts ?? []) list.push(await chartPng(ch, i));
+      for (const pic of book.sheets[i].pics ?? []) list.push(pic.src);
       charts.push(list);
     }
     setPrinting({ scope: scope ?? (sheet.print?.area ? 'area' : single ? 'sheet' : 'selection'), charts });
@@ -834,6 +840,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const charts: string[][] = [];
     const list: string[] = [];
     for (const ch of sheet.charts ?? []) list.push(await chartPng(ch));
+    for (const pic of sheet.pics ?? []) list.push(pic.src);
     charts[active] = list;
     const input = printInput(charts);
     const scope: PrintScope = sheet.print?.area ? 'area' : 'sheet';
@@ -1182,7 +1189,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const end = axis === 'c' ? { c: i, r: Math.max(used.rows, 0) } : { c: Math.max(used.cols, 0), r: i };
     const start = axis === 'c' ? { c: i, r: 0 } : { c: 0, r: i };
     setSel(s => (extend ? { a: s.a, f: end } : { a: start, f: end }));
-    setChartSel(null);
+    setChartSel(null); setPicSel(null);
     gridRef.current?.focus();
   };
   /** Drags a column's right edge or a row's bottom edge; a double click fits the content again. */
@@ -1227,6 +1234,49 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       const b = bookRef.current;
       setBook({ ...b, sheets: b.sheets.map((s, j) => (j === active ? { ...s, charts: (s.charts ?? []).map(c => (c.id === ch.id ? { ...c, ...patch } : c)) } : s)) });
     }, () => { if (moved) { undo.current.push(before); redo.current = []; } });
+  };
+
+  // ---------- pictures (signatures, logos): moved with the finger or mouse, resized by the corner, Delete removes ----------
+  const movePic = (pic: SheetPic, e: React.PointerEvent, mode: 'move' | 'size') => {
+    e.preventDefault(); e.stopPropagation();
+    if (edit) commitEdit();
+    setPicSel(pic.id); setChartSel(null);
+    gridRef.current?.focus();
+    const x0 = e.clientX, y0 = e.clientY;
+    const before = bookRef.current;
+    let moved = false;
+    const ratio = pic.h / pic.w;
+    const onMove = (ev: PointerEvent) => {
+      const dx = (ev.clientX - x0) / z, dy = (ev.clientY - y0) / z;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 3) return;
+      moved = true;
+      const w = Math.max(24, Math.round(pic.w + dx));
+      const patch = mode === 'move' ? { x: Math.max(0, Math.round(pic.x + dx)), y: Math.max(0, Math.round(pic.y + dy)) } : { w, h: Math.round(w * ratio) };
+      const b = bookRef.current;
+      setBook({ ...b, sheets: b.sheets.map((sh, j) => (j === active ? { ...sh, pics: (sh.pics ?? []).map(q => (q.id === pic.id ? { ...q, ...patch } : q)) } : sh)) });
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onUp);
+      if (moved) { undo.current.push(before); redo.current = []; }
+    };
+    window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onUp);
+  };
+  const deletePic = () => { if (!picSel) return; changeSheet(sh => { sh.pics = (sh.pics ?? []).filter(q => q.id !== picSel); }); setPicSel(null); };
+  /** A signature (or the initials) placed at the active cell, as a picture that can be moved and resized. */
+  const placeSignature = (sg: Signature, how: SignaturePlace) => {
+    const ink = how === 'initials' && sg.initials ? sg.initials : sg;
+    const w = how === 'initials' ? 56 : 190;
+    const pic: SheetPic = { id: `pic-${Date.now().toString(36)}`, src: ink.png, x: Math.round((lefts[sel.a.c] ?? 0) / z), y: Math.round((tops[sel.a.r] ?? 0) / z), w, h: Math.round(w * ink.h / ink.w), alt: t('sig.alt', { name: sg.name }) };
+    changeSheet(sh => {
+      sh.pics = [...(sh.pics ?? []), pic];
+      // A signature line: name, title and date in the cells under the signature.
+      if (how === 'line') {
+        const rowsDown = Math.max(1, Math.ceil(pic.h / ROW_H));
+        const lines = [sg.name, sg.title, todayText(lang)].filter(Boolean);
+        lines.forEach((text, i) => { sh.cells[key(sel.a.c, sel.a.r + rowsDown + i)] = { input: text, ...(i === 0 && sg.name ? { style: { bold: true } } : {}) }; });
+      }
+    });
+    setPicSel(pic.id);
   };
 
   // ---------- find and replace ----------
@@ -1280,6 +1330,8 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key;
     if (chart && (k === 'Delete' || k === 'Backspace')) { e.preventDefault(); deleteChart(); return; }
+    if (picSel && (k === 'Delete' || k === 'Backspace')) { e.preventDefault(); deletePic(); return; }
+    if (picSel && k === 'Escape') { setPicSel(null); return; }
     if (chart && k === 'Escape') { setChartSel(null); return; }
     // From a merged block, arrows leave from its far edge.
     const m = mergeAt(sel.f.c, sel.f.r);
@@ -1393,7 +1445,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   useEffect(() => { if (edit) { const el = editorRef.current; el?.focus(); if (el && edit.mode === 'enter') el.setSelectionRange(el.value.length, el.value.length); } }, [edit?.where, edit?.mode, !!edit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------- sheets ----------
-  const pickSheet = (i: number) => { if (edit) commitEdit(); setActive(i); setSel({ a: { c: 0, r: 0 }, f: { c: 0, r: 0 } }); setChartSel(null); setFilterMenu(null); };
+  const pickSheet = (i: number) => { if (edit) commitEdit(); setActive(i); setSel({ a: { c: 0, r: 0 }, f: { c: 0, r: 0 } }); setChartSel(null); setPicSel(null); setFilterMenu(null); };
   const addSheet = () => {
     const b = bookRef.current;
     let n = b.sheets.length + 1;
@@ -1491,7 +1543,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const b = bookRef.current;
     commit({ ...b, sheets: b.sheets.filter((_, j) => j !== i) });
     setActive(a => Math.max(0, a >= i ? a - 1 : a));
-    setChartSel(null);
+    setChartSel(null); setPicSel(null);
   };
   const duplicateSheet = (i: number) => {
     const b = bookRef.current;
@@ -1743,6 +1795,17 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
         </div>,
       );
     }
+    if (main) for (const pic of sheet.pics ?? []) {
+      const on = pic.id === picSel;
+      out.push(
+        <div key={pic.id} className={`pic-obj${on ? ' on' : ''}`} style={{ left: pic.x * z, top: pic.y * z, width: pic.w * z, height: pic.h * z }}
+          onPointerDown={e => movePic(pic, e, 'move')} onMouseDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}>
+          <img src={pic.src} alt={pic.alt ?? ''} draggable={false} />
+          {on && <span className="pic-size" title={t('class.pic.size')} onPointerDown={e => movePic(pic, e, 'size')} />}
+          {on && <button type="button" className="pic-del" aria-label={t('class.pic.delete')} title={t('class.pic.delete')} onPointerDown={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onClick={deletePic}>×</button>}
+        </div>,
+      );
+    }
     return out;
   };
 
@@ -1986,6 +2049,11 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             </Group>
             <Group label="class.group.filters">
               <Btn big icon="filter" title="class.filter" active={!!sheet.filter} onClick={toggleFilter} />
+            </Group>
+            <Group label="sig.group">
+              <Drop big icon="signature" title="sig.button">
+                {close => <SignatureMenu onPlace={placeSignature} onNew={() => setSigDialog(true)} close={close} />}
+              </Drop>
             </Group>
           </>}
           {shownTab === 'formulas' && <>
@@ -2330,6 +2398,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       {proDialog === 'converter' && <Converter lang={proLang} start={typeof values.get(key(sel.a.c, sel.a.r)) === 'number' ? values.get(key(sel.a.c, sel.a.r)) as number : undefined}
         hasSelection={[...Array(range.r2 - range.r1 + 1)].some((_, i) => typeof values.get(key(range.c2, range.r1 + i)) === 'number')}
         onFormula={putFormula} onConvertSelection={convertSelection} onClose={() => setProDialog(null)} />}
+      {sigDialog && <SignatureDialog onClose={() => { setSigDialog(false); gridRef.current?.focus(); }} onSaved={sg => placeSignature(sg, 'line')} />}
       {fnDialog && <InsertFunction start={fnDialog} onClose={() => setFnDialog(null)} onPick={fn => startEdit(`=${fn}(`, 'edit')} />}
       {whatIf === 'seek' && <GoalSeekDialog book={book} sheet={active} at={cellName(sel.a.c, sel.a.r)} onClose={() => setWhatIf(null)} onKeep={(k, v) => writeValues([[k, v]])} />}
       {whatIf === 'scen' && <ScenarioDialog book={book} sheet={active} selection={nameBox} onClose={() => setWhatIf(null)}

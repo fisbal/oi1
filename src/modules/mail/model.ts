@@ -1,6 +1,7 @@
 // In 1 Mail: mails, folders, contacts and a signature, kept on the device. No server and no password: a mail leaves
 // through the person's own mail app (mailto), Gmail or Outlook on the web, or as a ready-to-send .eml file (with its
 // attachments, opened as a new mail by Outlook, Apple Mail and Thunderbird). Received mails come in as .eml files.
+import { cleanSig, type MailSig } from './signatures';
 
 let counter = 0;
 export const newId = (p = 'm') => `${p}${Date.now().toString(36)}${(counter++).toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -13,7 +14,11 @@ export interface Mail {
   subject: string; html: string; at: string; read: boolean; star: boolean; labels: string[]; attachments: Attachment[];
 }
 export interface Contact { id: string; name: string; email: string; group: string }
-export interface MailBox { v: 1; me: { name: string; email: string }; signature: string; mails: Mail[]; contacts: Contact[] }
+export interface MailBox {
+  v: 1; me: { name: string; email: string }; signature: string; mails: Mail[]; contacts: Contact[];
+  /** Several signatures (Pro, Perso…); which one new mails and replies get ('' = none). */
+  sigs?: MailSig[]; sigNew?: string; sigReply?: string;
+}
 
 export const LABELS: { id: string; color: string }[] = [
   { id: 'work', color: '#1E88E5' }, { id: 'personal', color: '#43A047' }, { id: 'family', color: '#F4511E' }, { id: 'urgent', color: '#E53935' },
@@ -56,6 +61,9 @@ export function cleanBox(x: unknown): MailBox {
       const y = (c && typeof c === 'object' ? c : {}) as Record<string, unknown>;
       return { id: str(y.id) || newId('c'), name: str(y.name).slice(0, 200), email: str(y.email).slice(0, 320), group: str(y.group).slice(0, 100) };
     }).filter(c => c.email).slice(0, 10000),
+    ...(Array.isArray(o.sigs) ? { sigs: o.sigs.map(cleanSig).filter((x): x is MailSig => !!x).slice(0, 30) } : {}),
+    ...(typeof o.sigNew === 'string' ? { sigNew: o.sigNew.slice(0, 60) } : {}),
+    ...(typeof o.sigReply === 'string' ? { sigReply: o.sigReply.slice(0, 60) } : {}),
   };
 }
 

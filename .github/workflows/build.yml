@@ -162,6 +162,9 @@ jobs:
       - name: The In 1 voice button opens apps, starts dictation, undoes and asks In 1 Assistant (PC, phone, both ways) (check:voice)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:voice
+      - name: Signatures drawn, typed (21 styles) or imported, placed in Letter, Class and Mail, kept on the device (PC, Mac, tablet, phone, both ways) (check:signature)
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:signature
       - name: In 1 Notes listens and takes notes only after everyone agrees, red light, summary + to-dos to Plan (PC, tablet, phone, both ways) (check:listen)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:listen

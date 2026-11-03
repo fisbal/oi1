@@ -5,6 +5,8 @@
 // person, from contacts or an In 1 Class table), "Write with AI", "Reply with AI" and 22 tones, and documents from the
 // other In 1 apps attached in one click. Everything stays on the device.
 
+import { sigFor, sigHtml } from './signatures';
+import { MailSigsDialog } from './SigsDialog';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -84,7 +86,7 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   const [copilotStart, setCopilotStart] = useState<{ id: string; n: number } | undefined>();
   const [aiAsk, setAiAsk] = useState<{ text: string; busy: boolean; error: string } | null>(null);
   const [ask, setAsk] = useState<{ title: string; label: string; value: string; ok: (v: string) => void; danger?: boolean } | null>(null);
-  const [dlg, setDlg] = useState<'contacts' | 'me' | 'merge' | null>(null);
+  const [dlg, setDlg] = useState<'contacts' | 'me' | 'merge' | 'sigs' | null>(null);
   const [mergeRows, setMergeRows] = useState<Record<string, string>[] | null>(null);
   const [note, setNote] = useState('');
   const [narrow, setNarrow] = useState(false);
@@ -158,7 +160,8 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     if (open) { setFolder(list[0].folder); setLabel(null); openMail(list[0].id); }
   };
   const compose = (patch: Partial<Mail> = {}) => {
-    const sig = boxRef.current.signature ? `<p></p><p>--</p>${safeHtml(boxRef.current.signature)}` : '';
+    const own = sigFor(boxRef.current);
+    const sig = own ? `<p></p>${safeHtml(own)}` : '';
     const m = newMail('drafts', { from: from(), html: `<p></p>${sig}`, ...patch });
     addMails([m]);
     requestAnimationFrame(() => (document.querySelector(`.module-host:not([hidden]) .mailapp .ml-field input`) as HTMLInputElement | null)?.focus());
@@ -201,15 +204,17 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
 
   // ---------- actions on mails ----------
   const quoteOf = (m: Mail) => `<p></p><p>${esc(t('mail.wrote', { who: m.from || '—', when: new Date(m.at).toLocaleString(lang) }))}</p><blockquote>${safeHtml(m.html)}</blockquote>`;
+  /** The signature chosen for replies and forwards, above the quoted mail ('' when none). */
+  const replySig = () => { const own = sigFor(boxRef.current, true); return own ? `${safeHtml(own)}<p></p>` : ''; };
   const reply = (all = false) => {
     if (!current) return;
     const me = addressOf(from()).toLowerCase();
     const others = all ? [...current.to, ...current.cc].filter(a => addressOf(a).toLowerCase() !== me) : [];
-    compose({ to: current.from ? [current.from] : [], cc: others, subject: /^(re|ré|aw|res)\s*:/i.test(current.subject) ? current.subject : `${t('mail.re')} ${current.subject}`, html: `<p></p>${quoteOf(current)}` });
+    compose({ to: current.from ? [current.from] : [], cc: others, subject: /^(re|ré|aw|res)\s*:/i.test(current.subject) ? current.subject : `${t('mail.re')} ${current.subject}`, html: `<p></p>${replySig()}${quoteOf(current)}` });
   };
   const forward = () => {
     if (!current) return;
-    compose({ subject: `${t('mail.fwd')} ${current.subject}`, html: `<p></p>${quoteOf(current)}`, attachments: current.attachments });
+    compose({ subject: `${t('mail.fwd')} ${current.subject}`, html: `<p></p>${replySig()}${quoteOf(current)}`, attachments: current.attachments });
   };
   const delMail = (id = sel) => {
     const m = boxRef.current.mails.find(x => x.id === id);
@@ -301,7 +306,7 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
         if (tr) { const keep: string[] = []; const hide = (s: string) => s.replace(/\{\{[^}]+\}\}/g, m => `⟦${keep.push(m) - 1}⟧`); const show = (s: string) => s.replace(/⟦(\d+)⟧/g, (_m, i: string) => keep[Number(i)] ?? ''); const got = await tr([hide(subject), hide(body)]); subject = show(got[0] || subject); body = show(got[1] || body); }
       } catch { /* stays in English */ }
     }
-    const html = textToHtml(body) + (box.signature ? `<p>--</p>${safeHtml(box.signature)}` : '');
+    const html = textToHtml(body) + safeHtml(sigFor(box));
     if (current && editing && !textOf(edRef.current?.getHTML() ?? current.html).trim()) { setMail(current.id, { subject, html }); edRef.current?.commands.setContent(html); }
     else compose({ subject, html });
     closeRibbonPeek();
@@ -318,7 +323,7 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     try {
       const got = await mailWithAi(shell.ai, text, lang, box.me.name, c.signal);
       if (!got.body.trim()) throw new Error(t('mail.aiEmpty'));
-      const html = textToHtml(got.body) + (box.signature ? `<p>--</p>${safeHtml(box.signature)}` : '');
+      const html = textToHtml(got.body) + safeHtml(sigFor(box));
       const cur = boxRef.current.mails.find(m => m.id === sel);
       if (cur && (cur.folder === 'drafts') && !textOf(edRef.current?.getHTML() ?? cur.html).trim()) { setMail(cur.id, { subject: cur.subject || got.subject, html }); edRef.current?.commands.setContent(html); }
       else compose({ subject: got.subject, html });
@@ -479,7 +484,13 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
           </Group>
           <Group label="mail.group.attach">
             <Btn big icon="upload" title="mail.attach" onClick={() => attachInput.current?.click()} disabled={!editing} />
-            <Btn text icon="signature" title="mail.signature" onClick={() => (box.signature && ed && editing ? run(c => c.insertContent(`<p>--</p>${safeHtml(box.signature)}`)) : setDlg('me'))} />
+            <Drop text icon="signature" title="mail.signature">
+              {close => <div className="ml-sig-menu">
+                {(box.sigs ?? []).map(sg => <button key={sg.id} type="button" disabled={!editing} onClick={() => { close(); run(c => c.insertContent(safeHtml(sigHtml(sg)))); }}>✍️ {sg.label}{sg.name ? ` · ${sg.name}` : ''}</button>)}
+                {!box.sigs?.length && box.signature && <button type="button" disabled={!editing} onClick={() => { close(); run(c => c.insertContent(`<p>--</p>${safeHtml(box.signature)}`)); }}>✍️ {t('mail.signature')}</button>}
+                <button type="button" onClick={() => { close(); setDlg('sigs'); }}>⚙️ {t('mail.sig.manage')}</button>
+              </div>}
+            </Drop>
           </Group>
           <Group label="letter.group.insert">
             <Btn text icon="link" title="letter.link" onClick={() => setAsk({ title: t('letter.link'), label: t('letter.linkPrompt'), value: ed?.getAttributes('link').href ?? 'https://', ok: v => run(c => (v.trim() && v.trim() !== 'https://' ? c.extendMarkRange('link').setLink({ href: v.trim() }) : c.unsetLink())) })} disabled={noEd} />
@@ -700,6 +711,7 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
           <label className="nt-ask"><span>{ask.label}</span>{!ask.danger && <input autoFocus value={ask.value} onChange={e => setAsk({ ...ask, value: e.target.value })} />}</label>
         </Dialog>
       )}
+      {dlg === 'sigs' && <MailSigsDialog box={box} onClose={() => setDlg(null)} onSave={(sigs, sigNew, sigReply) => { change(b => ({ ...b, sigs, sigNew, sigReply })); setDlg(null); }} />}
       {dlg === 'me' && <MeDialog box={box} onClose={() => setDlg(null)} onSave={(me, signature) => { change(b => ({ ...b, me, signature })); setDlg(null); }} />}
       {dlg === 'contacts' && <ContactsDialog contacts={box.contacts} onClose={() => setDlg(null)} onChange={contacts => change(b => ({ ...b, contacts }))}
         onWrite={c => { setDlg(null); compose({ to: [c.name ? `${c.name} <${c.email}>` : c.email] }); }} onImport={() => contactsInput.current?.click()} />}

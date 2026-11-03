@@ -41,6 +41,7 @@ export const HELP_LETTER: Record<string, HelpText> = {
   'letter.pageNumber': ['Numbers the pages by themselves, at the top or bottom.', 'Numérote les pages automatiquement, en haut ou en bas.'],
   'letter.date': ['Inserts today’s date in the format you choose.', 'Insère la date du jour dans le format choisi.'],
   'letter.symbol': ['Inserts a sign that is not on the keyboard: €, ©, ½, →, accents…', 'Insère un signe absent du clavier : €, ©, ½, →, accents…'],
+  'sig.button': ['Places your signature: drawn with the finger or mouse, typed in one of 21 handwriting styles, or from a photo. Choose the signature alone, a full signature line (name, title, date) or your initials. Kept only on this device.', 'Place votre signature : dessinée au doigt ou à la souris, tapée dans un des 21 styles manuscrits, ou depuis une photo. Choisissez la signature seule, une ligne de signature complète (nom, titre, date) ou vos initiales. Gardée seulement sur cet appareil.'],
   'letter.qr': ['Makes a QR code from a link or text; phones open it by pointing their camera.', 'Crée un code QR à partir d’un lien ou d’un texte ; un téléphone l’ouvre avec sa caméra.'],
   'letter.letterBlock': ['Adds the usual parts of a letter: sender, recipient, place and date, subject, closing, signature.', 'Ajoute les parties d’une lettre : expéditeur, destinataire, lieu et date, objet, formule de politesse, signature.'],
   // Design / Layout
