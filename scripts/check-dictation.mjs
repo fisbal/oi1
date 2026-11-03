@@ -66,6 +66,20 @@ const SHELL_WEB = `(() => {
     stop() { setTimeout(() => this.onend?.(), 20); } abort() { this.stop(); } }
   window.SpeechRecognition = SR; window.webkitSpeechRecognition = SR;
 })();`;
+// A speech service that hears phrases with pauses between them (no punctuation, like Chrome): [ms before, words].
+const SCRIPTED_WEB = `(() => {
+  class SR { start() { setTimeout(() => { this.onstart?.(); this.onaudiostart?.(); }, 30);
+      if (window.__played) return; window.__played = true;
+      let t = 0;
+      for (const [wait, words] of window.__script) {
+        t += wait;
+        setTimeout(() => this.onresult?.({ resultIndex: 0, results: [Object.assign([{ transcript: words.split(' ')[0] }], { isFinal: false })] }), t);
+        t += 300;
+        setTimeout(() => this.onresult?.({ resultIndex: 0, results: [Object.assign([{ transcript: words }], { isFinal: true })] }), t);
+      } }
+    stop() { setTimeout(() => this.onend?.(), 20); } abort() { this.stop(); } }
+  window.SpeechRecognition = SR; window.webkitSpeechRecognition = SR;
+})();`;
 const FAKE_ASR = `window.__oi1FakeAsr = (audio, lang) => { (window.__asrCalls ||= []).push({ n: audio.length, lang }); return lang.startsWith('fr') ? 'bonjour virgule le monde point' : 'hello comma device world full stop'; };`;
 const TAURI = `window.__TAURI_INTERNALS__ = {};`;
 const DENY = `navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('no', 'NotAllowedError'));`;
@@ -173,6 +187,22 @@ try {
         check(ok, `${d.name} Assistant: the spoken request is added to the box ("${await page.locator(`${H} .as-input`).inputValue()}")`);
       } finally { await ctx.close(); }
     }
+  }
+
+  // 7. Smart dictation (Martin, 2026-11-03): punctuation and new lines from the pauses, a letter takes shape by itself,
+  //    "euh" dropped, "efface ça" takes the last phrase back, the last sentence gets its full stop at the end.
+  for (const d of DEVICES) {
+    const script = [[300, 'bonjour madame'], [1700, 'euh je vous écris pour le rapport'], [600, 'de la semaine'], [1700, 'est-ce que vous l\'avez reçu'], [1700, 'merci'], [1700, 'efface ça'], [1700, 'cordialement']];
+    const { ctx, page } = await newPage(d, 'fr', [SCRIPTED_WEB, `window.__script = ${JSON.stringify(script)};`]);
+    try {
+      await openApp(page, 'Letter', '.body-text');
+      await page.locator(`${H} .body-text`).click();
+      await ribbon(page, 'letter.dictate', 'Accueil');
+      const want = 'Bonjour madame,\n\nJe vous écris pour le rapport de la semaine. Est-ce que vous l\'avez reçu ?\n\nCordialement,';
+      const ok = await until(page, ([sel, w]) => (document.querySelector(sel)?.innerText ?? '').replace(/\u00a0/g, ' ').includes(w), [`${H} .body-text`, want], 20000);
+      const text = (await letterText(page)).replace(/\u00a0/g, ' ');
+      check(ok, `${d.name} smart dictation: commas, full stops, "?", new paragraphs and "efface ça" come from the pauses ("${text.slice(0, 160).replace(/\n/g, '⏎')}")`);
+    } finally { await ctx.close(); }
   }
 
   // 3. Speech service that hears but never sends words: switches to the device after a few seconds (PC only).

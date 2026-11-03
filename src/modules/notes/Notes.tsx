@@ -5,6 +5,7 @@
 // offline, dictation types what you say, and the AI summarizes, makes to-do lists, explains, and answers from your
 // own notes. Everything stays on the device (IndexedDB) and every Notes tab shows the same notebooks.
 
+import { AutoPunctBtn } from '../../ui/AutoPunctBtn';
 import { useDictation } from '../../ui/useDictation';
 import { insertDictation } from '../../ui/dictation';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -309,7 +310,10 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
   };
 
   // ---------- dictation (shared engine: Web Speech when it works, Whisper on the device otherwise) ----------
-  const dict = useDictation(lang, text => insertDictation(ed, text));
+  const dict = useDictation(lang, text => insertDictation(ed, text), {
+    before: () => { if (!ed) return ''; const at = ed.state.selection.from; return ed.state.doc.textBetween(Math.max(0, at - 60), at, '\n'); },
+    undo: () => { ed?.commands.undo(); },
+  });
   const dictating = dict.active;
   const dictate = dict.toggle;
   const dictNote = useRef('');
@@ -593,6 +597,7 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
           </Group>
           <Group label="notes.group.voice">
             <Btn big icon="mic" title={dictating ? 'notes.stopDictation' : 'notes.dictate'} active={dictating} onClick={dictate} />
+            <AutoPunctBtn />
             <Btn big icon="speak" title="notes.readAloud" onClick={() => {
               if (speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
               const u = new SpeechSynthesisUtterance(selectionText() || textOf(ed?.getHTML() ?? page.html));

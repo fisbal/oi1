@@ -69,6 +69,8 @@ export default function Assistant({ shell, handoff }: { shell: ShellApi; handoff
   useLanguage();
   const lang = getLanguage();
   const [task, setTask] = useState(handoff?.kind === 'html' ? textOf(handoff.html) : '');
+  const taskRef = useRef(task);
+  taskRef.current = task;
   const [files, setFiles] = useState<Attached[]>([]);
   const [noAi, setNoAi] = useState(() => { try { return localStorage.getItem(NO_AI) === '1'; } catch { return false; } });
   const [phase, setPhase] = useState<Phase>('home');
@@ -192,7 +194,11 @@ export default function Assistant({ shell, handoff }: { shell: ShellApi; handoff
   };
 
   // Dictation: shared engine (Web Speech when it works, Whisper on the device otherwise).
-  const dict = useDictation(lang, text => setTask(v => joinDictation(v, text)));
+  const dictUndo = useRef<string[]>([]);
+  const dict = useDictation(lang, text => { dictUndo.current.push(taskRef.current); setTask(v => joinDictation(v, text)); }, {
+    before: () => taskRef.current,
+    undo: () => { const prev = dictUndo.current.pop(); if (prev !== undefined) setTask(prev); },
+  });
   const listening = dict.active;
   const dictate = dict.toggle;
   useEffect(() => { if (dict.error) shell.notify(dict.message); }, [dict.error, dict.message, shell]);
