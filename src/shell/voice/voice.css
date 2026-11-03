@@ -7,6 +7,15 @@
 }
 .in1-voice-btn:hover { border-color: var(--gold); }
 .in1-voice-btn.on { background: #c62828; border-color: #c62828; color: #fff; box-shadow: 0 0 0 4px rgba(198, 40, 40, .2); animation: in1-pulse 1.4s ease-in-out infinite; }
+/* The name "In 1" is listened for (on the device only): a steady green light on the button. */
+.in1-voice-btn.name { position: relative; border-color: #2e7d32; }
+.in1-voice-light { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: #43a047; box-shadow: 0 0 0 2px var(--panel, #1b1b22); }
+.in1-name-btn {
+  flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; margin-left: 4px; padding: 0; border-radius: 15px;
+  border: 1px solid var(--hair); background: transparent; color: var(--ink); cursor: pointer; opacity: .8;
+}
+.in1-name-btn:hover { border-color: var(--gold); opacity: 1; }
+.in1-name-btn.on { background: #2e7d32; border-color: #2e7d32; color: #fff; opacity: 1; }
 @keyframes in1-pulse { 50% { box-shadow: 0 0 0 7px rgba(198, 40, 40, .08); } }
 .in1-voice-note {
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; width: max-content; max-width: min(360px, calc(100vw - 32px));
@@ -14,4 +23,4 @@
   box-shadow: 0 10px 28px rgba(0, 0, 0, .25); font-size: 13px; line-height: 1.35; overflow-wrap: anywhere;
 }
 .in1-voice-dot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: #e53935; vertical-align: 1px; animation: in1-pulse 1.4s infinite; }
-@media (max-width: 760px) { .in1-voice-name { display: none; } .in1-voice-btn { width: 34px; padding: 0; justify-content: center; } }
+@media (max-width: 760px) { .in1-voice-name { display: none; } .in1-voice-btn { width: 34px; padding: 0; justify-content: center; } .in1-name-btn { width: 26px; height: 26px; margin-left: 2px; } }
