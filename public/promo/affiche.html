@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="fr" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=816">
+<meta name="google" content="notranslate">
+<title>Office In 1 — Affiche</title>
+<link rel="icon" href="../icons/icon.svg">
+<!-- The printable poster (US Letter): what Office In 1 is, how it differs, two QR codes to install.
+     The apps, screenshots and version come from info.json, so scripts/promo.mjs prints it again at every build.
+     ?lang=fr|en|both (French front, English back)   ?theme=dark (black and gold; light is the default) -->
+<style>
+@font-face { font-family: 'Playfair Display Variable'; src: url(fonts/playfair-display-latin-wght-normal.woff2) format('woff2'); font-weight: 400 900; }
+@font-face { font-family: 'DM Sans Variable'; src: url(fonts/dm-sans-latin-wght-normal.woff2) format('woff2'); font-weight: 100 1000; }
+@page { size: Letter; margin: 0; }
+:root { --bg: #07070A; --panel: rgba(255,255,255,.045); --line: rgba(242,215,139,.24); --text: #F4EFE6; --dim: #B9B1A3; --gold: #D4A843; --gold-hi: #F2D78B;
+  --goldfill: linear-gradient(135deg, #B8892E, #F2D78B 55%, #D4A843); --glow1: rgba(212,168,67,.26); --glow2: rgba(212,168,67,.12); --oi: rgba(212,168,67,.13); }
+.light { --bg: #FBF8F2; --panel: #fff; --line: rgba(160,120,40,.28); --text: #1B1712; --dim: #5E564A; --gold: #A9792A; --gold-hi: #8C6420;
+  --glow1: rgba(212,168,67,.16); --glow2: rgba(212,168,67,.08); --oi: rgba(212,168,67,.14); }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 816px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { background: var(--bg); color: var(--text); font: 13px/1.4 'DM Sans Variable', system-ui, sans-serif; }
+.page { position: relative; width: 816px; height: 1056px; overflow: hidden; break-after: page; padding: 34px 46px 34px; display: flex; flex-direction: column;
+  background: radial-gradient(55% 32% at 18% 6%, var(--glow1), transparent 70%), radial-gradient(45% 30% at 95% 92%, var(--glow2), transparent 70%), var(--bg); }
+.page::after { content: ''; position: absolute; inset: 14px; border: 1px solid var(--line); border-radius: 18px; pointer-events: none; }
+.serif { font-family: 'Playfair Display Variable', Georgia, serif; }
+.g { color: var(--gold); }
+.dark .g { color: #E4BF5E; } /* plain gold: gradient text prints as a box in PDF */
+
+/* Top */
+header { display: flex; align-items: center; gap: 14px; }
+header img { width: 58px; height: 58px; filter: drop-shadow(0 0 18px rgba(212,168,67,.45)); }
+header h1 { font: 800 42px/1 'Playfair Display Variable', Georgia, serif; letter-spacing: -.01em; }
+header .kick { margin-left: auto; text-align: right; font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+
+/* Hero */
+.hero { display: flex; gap: 18px; margin-top: 12px; align-items: center; }
+.hero .txt { flex: 1; min-width: 0; }
+.hero h2 { font: 800 48px/1.02 'Playfair Display Variable', Georgia, serif; letter-spacing: -.015em; }
+.hero p.sub { margin-top: 12px; font-size: 15px; color: var(--dim); max-width: 330px; }
+.mil { margin-top: 14px; display: inline-flex; gap: 10px; align-items: center; padding: 9px 14px; border-radius: 12px; background: var(--oi); border: 1px solid var(--line); font-size: 12.5px; max-width: 350px; }
+.mil b { color: var(--gold-hi); }
+.light .mil b { color: var(--gold-hi); }
+.mil .anc { font-size: 20px; line-height: 1; }
+.devices { position: relative; width: 330px; height: 290px; flex: none; }
+.laptop { position: absolute; left: 0; top: 18px; width: 300px; }
+.laptop .scr { width: 300px; height: 194px; border-radius: 12px 12px 0 0; background: #111; border: 7px solid #1a1a1f; border-bottom-width: 9px; overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(242,215,139,.35), 0 26px 40px -18px rgba(0,0,0,.75); }
+.laptop .scr img { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
+.laptop .base { margin: 0 -18px; height: 11px; border-radius: 0 0 14px 14px; background: linear-gradient(#3a3a42, #1c1c21); box-shadow: 0 0 0 1px rgba(242,215,139,.3), 0 14px 22px -10px rgba(0,0,0,.6); position: relative; }
+.laptop .base::after { content: ''; position: absolute; left: 50%; top: 0; width: 56px; height: 4px; margin-left: -28px; border-radius: 0 0 6px 6px; background: rgba(0,0,0,.45); }
+.phone { position: absolute; right: 0; bottom: 0; width: 102px; height: 218px; border-radius: 17px; overflow: hidden; background: #000; border: 4px solid #1a1a1f; z-index: 2;
+  box-shadow: 0 0 0 1px rgba(242,215,139,.4), 0 22px 40px -14px rgba(0,0,0,.8); }
+.phone img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.tag { position: absolute; font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; color: var(--gold); }
+.tag.pc { left: 0; top: 0; }
+.tag.ph { right: 4px; bottom: 232px; }
+
+/* Apps */
+h3 { font: 700 19px/1.1 'Playfair Display Variable', Georgia, serif; margin-bottom: 9px; }
+h3 small { font: 500 11.5px 'DM Sans Variable', sans-serif; color: var(--dim); margin-left: 8px; letter-spacing: 0; }
+.apps { margin-top: 14px; }
+.chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px 6px; }
+.chip { display: flex; align-items: center; gap: 7px; padding: 5px 9px; border-radius: 9px; background: var(--panel); border: 1px solid var(--line); font-size: 11.5px; white-space: nowrap; }
+.chip i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.chip span { color: var(--dim); font-size: 10px; margin-left: auto; padding-left: 6px; }
+
+/* Comparison */
+.cmp { margin-top: 14px; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11.5px; }
+th, td { padding: 5px 10px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
+thead th { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); font-weight: 700; border-bottom: 1px solid var(--line); }
+tbody th { font-weight: 600; width: 22%; }
+td { color: var(--dim); width: 26%; }
+td.oi, th.oi { background: var(--oi); color: var(--text); font-weight: 600; }
+thead th.oi { color: var(--gold-hi); border-radius: 10px 10px 0 0; }
+tbody tr:last-child td.oi { border-radius: 0 0 10px 10px; }
+td.oi::before { content: '✓ '; color: var(--gold); font-weight: 800; }
+.note { margin-top: 5px; font-size: 8.5px; color: var(--dim); opacity: .85; }
+
+/* Install */
+.install { margin-top: auto; padding-top: 12px; display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; }
+.qcard { display: flex; gap: 14px; align-items: center; padding: 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+.qcard.main { background: var(--oi); border-color: var(--gold); }
+.qr { position: relative; flex: none; background: #fff; border-radius: 12px; padding: 6px; }
+.qr img.code { display: block; }
+.qr .mark { position: absolute; left: 50%; top: 50%; border-radius: 22%; box-shadow: 0 0 0 4px #fff; }
+.main .qr img.code { width: 150px; height: 150px; }
+.main .qr .mark { width: 36px; height: 36px; margin: -18px; }
+.store .qr img.code { width: 112px; height: 112px; }
+.store .qr .mark { width: 26px; height: 26px; margin: -13px; }
+.qcard .t { font: 700 19px/1.15 'Playfair Display Variable', Georgia, serif; }
+.qcard .s { margin-top: 5px; font-size: 11.5px; color: var(--dim); }
+.qcard ul { list-style: none; margin-top: 7px; font-size: 11.5px; }
+.qcard li { margin-top: 2px; }
+.qcard li::before { content: '› '; color: var(--gold); font-weight: 800; }
+.qcard .url { margin-top: 7px; font-size: 11px; color: var(--gold-hi); font-weight: 700; word-break: break-all; }
+.bag { width: 15px; height: 15px; vertical-align: -2px; margin-right: 4px; }
+
+footer { margin-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: var(--dim); }
+</style>
+</head>
+<body>
+<template id="tpl">
+<div class="page">
+  <header><img src="../icons/icon.svg" alt=""><h1>Office In <span class="g">1</span></h1><div class="kick" data-k="kick"></div></header>
+  <section class="hero">
+    <div class="txt"><h2 data-k="big"></h2><p class="sub" data-k="sub"></p><div class="mil" data-k="mil"></div></div>
+    <div class="devices" data-k="devices"></div>
+  </section>
+  <section class="apps"><h3 data-k="h-apps"></h3><div class="chips" data-k="chips"></div></section>
+  <section class="cmp"><h3 data-k="h-cmp"></h3><table data-k="tbl"></table><p class="note" data-k="note"></p></section>
+  <section class="install" data-k="install"></section>
+  <footer><span data-k="f1"></span><span data-k="f2"></span></footer>
+</div>
+</template>
+<script src="kit.js"></script>
+<script>
+(async () => {
+  const q = new URLSearchParams(location.search);
+  // ?lang=both prints French then English (two pages, front and back); otherwise one page in the asked language.
+  const langs = q.get('lang') === 'both' ? ['fr', 'en'] : [OI1Kit.lang()];
+  document.body.classList.add(q.get('theme') === 'dark' ? 'dark' : 'light'); // light by default (Martin, 2026-11-03)
+  document.documentElement.lang = langs[0];
+  const d = await OI1Kit.load(), k = d.links;
+  document.title = 'Office In 1 — ' + (langs.length > 1 ? 'Affiche · Poster' : langs[0] === 'fr' ? 'Affiche' : 'Poster');
+  const bag = '<svg class="bag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>';
+
+  for (const L of langs) {
+    const FR = L === 'fr', tx = (f, e) => FR ? f : e;
+    const page = document.getElementById('tpl').content.firstElementChild.cloneNode(true);
+    page.lang = L;
+    const $ = key => page.querySelector(`[data-k="${key}"]`);
+    const apps = (d.apps && (d.apps[L] || d.apps.fr)) || [];
+    const n = apps.length || 12;
+
+    $('kick').innerHTML = tx('Tout votre bureau<br>au même endroit', 'Your whole office<br>in one place');
+    $('big').innerHTML = tx(`${n} applis.<br><span class="g">1</span> seule app.`, `${n} apps.<br><span class="g">1</span> single app.`);
+    $('sub').textContent = tx('Lettres, tableurs, présentations, PDF, notes, agenda, courriels, formulaires et photos, liés entre eux. Ouvre vos fichiers Word, Excel et PowerPoint.',
+      'Letters, spreadsheets, presentations, PDFs, notes, calendar, mail, forms and photos, all linked. Opens your Word, Excel and PowerPoint files.');
+    $('mil').innerHTML = `<span class="anc">⚓</span><span>${tx('<b>Déjà prêts :</b> note de service, demande de congé militaire, CV militaire (militaire du rang, officier, transition au civil).',
+      '<b>Ready to use:</b> memo, military leave request, military CV (NCM, officer, transition to civilian).')}</span>`;
+
+    const shot = key => d.shots && d.shots[L] && d.shots[L][key];
+    // The same suite on a computer and on a phone (real screenshots of this build).
+    const pc = shot('pc'), ph = shot('letter') || shot('home');
+    $('devices').innerHTML = (pc ? `<span class="tag pc">${tx('Ordinateur', 'Computer')}</span><div class="laptop"><div class="scr"><img src="${pc}" alt=""></div><div class="base"></div></div>` : '') +
+      (ph ? `<span class="tag ph">${tx('Téléphone', 'Phone')}</span><div class="phone"><img src="${ph}" alt=""></div>` : '');
+
+    $('h-apps').innerHTML = tx('Tout ce qu’il faut, dans une seule fenêtre', 'Everything you need, in one window');
+    $('chips').innerHTML = apps.map(a => `<div class="chip"><i style="background:${a.color || '#D4A843'}"></i>${a.name.replace(/^In 1 /, '')}<span>${a.ready ? (a.kind || '') : tx('bientôt', 'soon')}</span></div>`).join('');
+
+    $('h-cmp').innerHTML = tx('Ce qui change', 'What is different') + `<small>${tx('comparé aux suites habituelles', 'compared with the usual suites')}</small>`;
+    const rows = FR ? [
+      ['Vos applis', `${n} dans une seule app`, 'Word, Excel, PowerPoint… séparés', 'Docs, Sheets, Slides… séparés'],
+      ['Abonnement', 'Aucun', 'Oui, mensuel ou annuel', 'Non'],
+      ['Compte obligatoire', 'Non', 'Compte Microsoft', 'Compte Google'],
+      ['Vos fichiers', 'Sur votre appareil', 'OneDrive par défaut', 'Google Drive'],
+      ['Modèles militaires', 'Inclus', 'À chercher', 'À chercher'],
+    ] : [
+      ['Your apps', `${n} in a single app`, 'Word, Excel, PowerPoint… separate', 'Docs, Sheets, Slides… separate'],
+      ['Subscription', 'None', 'Yes, monthly or yearly', 'No'],
+      ['Account required', 'No', 'Microsoft account', 'Google account'],
+      ['Your files', 'On your device', 'OneDrive by default', 'Google Drive'],
+      ['Military templates', 'Included', 'Search for them', 'Search for them'],
+    ];
+    $('tbl').innerHTML = `<thead><tr><th></th><th class="oi">Office In 1</th><th>Microsoft 365</th><th>Google Docs</th></tr></thead><tbody>` +
+      rows.map(r => `<tr><th>${r[0]}</th><td class="oi">${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('') + '</tbody>';
+    const when = new Date(d.built || Date.now()).toLocaleDateString(FR ? 'fr-CA' : 'en-CA', { month: 'long', year: 'numeric' });
+    $('note').textContent = tx(`Offres grand public, ${when}. Microsoft 365, Word, Excel, PowerPoint, OneDrive, Google Docs, Sheets, Slides et Drive sont des marques de leurs propriétaires.`,
+      `Consumer offers, ${when}. Microsoft 365, Word, Excel, PowerPoint, OneDrive, Google Docs, Sheets, Slides and Drive are trademarks of their owners.`);
+
+    $('install').innerHTML = `
+      <div class="qcard main"><div class="qr"><img class="code" src="qr.svg" alt="QR"><img class="mark" src="../icons/icon.svg" alt=""></div>
+        <div><div class="t">${tx('Scannez pour installer', 'Scan to install')}</div>
+        <div class="s">${tx('Choisissez votre appareil :', 'Pick your device:')}</div>
+        <ul><li>Android</li><li>iPhone · iPad</li><li>Mac</li><li>Windows · Web</li></ul>
+        <div class="url">${OI1Kit.host(k.get)}</div></div></div>
+      <div class="qcard store"><div class="qr"><img class="code" src="qr-store.svg" alt="QR Microsoft Store"><img class="mark" src="../icons/icon.svg" alt=""></div>
+        <div><div class="t">${bag}Microsoft Store</div>
+        <div class="s">${tx('Sur un PC Windows : installation signée, mises à jour automatiques.', 'On a Windows PC: signed install, automatic updates.')}</div>
+        <div class="url">${tx('Cherchez « Office In 1 »', 'Search “Office In 1”')}</div></div></div>`;
+
+    $('f1').textContent = [d.version && 'v' + d.version, tx('Se met à jour tout seul', 'Updates itself'), tx('5 langues', '5 languages'), tx('Fonctionne hors ligne', 'Works offline')].filter(Boolean).join(' · ');
+    $('f2').textContent = tx('Créé à Québec par MartinB', 'Made in Québec City by MartinB');
+    document.body.appendChild(page);
+  }
+
+  await Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
+  await document.fonts.ready;
+  window.promoReady = true;
+})();
+</script>
+</body>
+</html>
