@@ -301,25 +301,107 @@ const KNOWN = (() => {
 
 const nodeText = (n: JSONContent): string => (n.text ?? '') + (n.content ?? []).map(nodeText).join('');
 const allBold = (n: JSONContent) => !!n.content?.length && n.content.every(c => c.type !== 'text' || !c.text?.trim() || c.marks?.some(m => m.type === 'bold'));
+/** A line of an old table of contents: "Introduction ........ 3", "1. Contexte\t4", "Conclusion 12". */
+/** A line of an old table of contents with its dots or tab: "Introduction ........ 3", "1. Contexte\t4". */
+const tocLeader = (t: string) => /(?:\.{2,}|…+|\t|\s{2,}|_{3,})\s*\d{1,4}\s*$/.test(t);
+/** Inside an old table of contents, "Conclusion 12" is a line of it too (but "Chapitre 2" is a title). */
+const tocEntry = (t: string) => tocLeader(t) || (t.length <= 80 && /\S\s+\d{1,3}$/.test(t) && !/\b(?:19|20)\d\d$/.test(t)
+  && !/^(?:chapitre|chapter|partie|part|kapitel|cap[ií]tulo|section|annexe|appendix|anexo|anhang|teil)\s+[\dIVX]+$/i.test(t.trim()));
+const isAppendix = (t: string) => APPX.has(t) || /^(?:annexe|appendix|anexo|anhang)\b/.test(t);
+const isRefs = (t: string) => REFS.has(t);
 
 /** Is this paragraph really a title the person typed as normal text? Returns its level, or 0. */
 function titleLevel(n: JSONContent): number {
   if (n.type !== 'paragraph') return 0;
   const t = nodeText(n).trim();
-  if (t.length < 2 || t.length > 90 || /[.;,]$/.test(t)) return 0;
+  if (t.length < 2 || t.length > 90 || /[.;,]$/.test(t) || tocLeader(t)) return 0;
   const num = /^(\d+(?:\.\d+)*)\.?\s+\S/.exec(t);
-  if (KNOWN.has(plain(t)) || TOCS.has(plain(t))) return num ? num[1].split('.').length : 1;
+  if (KNOWN.has(plain(t)) || TOCS.has(plain(t)) || isAppendix(plain(t))) return num ? num[1].split('.').length : 1;
   if (num && t.length <= 70 && /^\d+(?:\.\d+)*\.?\s+\p{Lu}/u.test(t)) return Math.min(num[1].split('.').length, 3);
   if (allBold(n) && t.length <= 70) return 1;
   return 0;
 }
+/** The start of the work itself: a table of contents, a known part (Introduction, Résumé…) or a numbered title. */
+const isPartStart = (n: JSONContent) => {
+  if (n.type !== 'paragraph' && n.type !== 'heading') return false;
+  const raw = nodeText(n).trim(), t = plain(raw);
+  if (!raw || tocLeader(raw)) return false;
+  return TOCS.has(t) || KNOWN.has(t) || isAppendix(t) || /^\d+(?:\.\d+)*\.?\s+\p{Lu}/u.test(raw) && raw.length <= 70 && !/[.;,]$/.test(raw);
+};
 
 const isBreak = (n: JSONContent) => n.type === 'pageBreak';
-const isEmpty = (n: JSONContent) => n.type === 'paragraph' && !nodeText(n).trim();
+const isEmpty = (n: JSONContent) => n.type === 'paragraph' && !nodeText(n).trim() && !(n.content ?? []).some(c => c.type !== 'text');
 const heading = (level: number, n: JSONContent): JSONContent => ({
   type: 'heading', attrs: { level },
   content: (n.content ?? []).map(c => (c.type === 'text' ? { ...c, marks: (c.marks ?? []).filter(m => m.type !== 'bold') } : c)).filter(c => c.type !== 'text' || c.text),
 });
+
+/** The look a paragraph got from Word, Google Docs or a website: the norm decides it now. */
+const LOOK_ATTRS = ['textAlign', 'lineHeight', 'spaceBefore', 'spaceAfter', 'indentLeft', 'indentRight', 'indentFirst', 'background', 'borders', 'styleId'] as const;
+/** Marks that are the text's own meaning (bold, italic, a link, a yellow field…) stay; fonts, sizes and colors go. */
+const LOOK_MARKS = new Set(['textStyle']);
+
+/**
+ * Takes away the look pasted or typed by hand so the norm shows everywhere: fonts, sizes, colors, line spacing,
+ * alignment and indents of every paragraph and heading. Words, bold, italic, links, notes and fields stay.
+ * [keepAlign] keeps a title page's centered lines. Inside tables and lists only the text's look goes.
+ */
+export function cleanLook(n: JSONContent, keepAlign = false, inside = false): JSONContent {
+  const out: JSONContent = { ...n };
+  if (n.marks) {
+    const marks = n.marks.filter(m => !LOOK_MARKS.has(m.type));
+    if (marks.length) out.marks = marks; else delete out.marks;
+  }
+  if ((n.type === 'paragraph' || n.type === 'heading') && n.attrs) {
+    const attrs: Record<string, unknown> = { ...n.attrs };
+    for (const k of LOOK_ATTRS) {
+      if (k === 'textAlign' && keepAlign) continue;
+      if (inside && k !== 'lineHeight' && k !== 'styleId') continue;
+      delete attrs[k];
+    }
+    out.attrs = attrs;
+  }
+  if (n.content) {
+    const deeper = inside || (n.type !== 'paragraph' && n.type !== 'heading' && n.type !== 'doc');
+    out.content = n.content.map(c => cleanLook(c, keepAlign, deeper));
+  }
+  return out;
+}
+
+/** "Seulement l'apparence": the same text and parts, only the norm's look (no pasted fonts, no piles of empty lines). */
+export function lookOnly(current: JSONContent[]): JSONContent[] {
+  const out: JSONContent[] = [];
+  for (const n of current) {
+    if (isEmpty(n) && out.length && isEmpty(out[out.length - 1])) continue;
+    const c = cleanLook(n);
+    // A centered line (a title, a name on a cover) was centered on purpose: it stays centered.
+    out.push(n.attrs?.textAlign === 'center' ? { ...c, attrs: { ...c.attrs, textAlign: 'center', indentFirst: 0 } } : c);
+  }
+  return out;
+}
+
+/** A sentence cut at the end of each line (text copied from a PDF): the lines go back together. */
+function joinBrokenLines(nodes: JSONContent[]): JSONContent[] {
+  const out: JSONContent[] = [];
+  for (const n of nodes) {
+    const prev = out[out.length - 1];
+    if (prev && prev.type === 'paragraph' && n.type === 'paragraph' && !prev.attrs?.textAlign) {
+      const a = nodeText(prev).replace(/\s+$/, ''), b = nodeText(n).trim();
+      if (a && b && !/[.!?:;…»”")\]]$/.test(a) && /^\p{Ll}/u.test(b) && !titleLevel(prev)) {
+        const hyphen = /\p{L}-$/u.test(a);
+        const left = (prev.content ?? []).slice();
+        const last = left[left.length - 1];
+        if (last?.type === 'text') left[left.length - 1] = { ...last, text: hyphen ? last.text!.replace(/-\s*$/, '') : last.text!.replace(/\s+$/, '') + ' ' };
+        else left.push({ type: 'text', text: ' ' });
+        const right = (n.content ?? []).map((c, i) => (i === 0 && c.type === 'text' ? { ...c, text: c.text!.replace(/^\s+/, '') } : c));
+        out[out.length - 1] = { ...prev, content: [...left, ...right].filter(c => c.type !== 'text' || c.text) };
+        continue;
+      }
+    }
+    out.push(n);
+  }
+  return out;
+}
 
 export interface Reorganized { content: JSONContent[]; titles: number; madeTitles: boolean; sortedRefs: number; keptTitlePage: boolean }
 
@@ -332,19 +414,42 @@ export interface Reorganized { content: JSONContent[]; titles: number; madeTitle
  */
 export function reorganizeDoc(w: WorkLayout, lang: WorkLang, date: string, current: JSONContent[]): Reorganized {
   const T = (a: string, b: string) => workText(a, b, lang);
+  // 0. A title page the person already made: the short lines before the work starts (its table of contents, its
+  //    introduction, its first numbered part). They stay as they are, centered, never taken for headings.
+  let start = 0;
+  while (start < current.length && (isEmpty(current[start]) || isBreak(current[start]))) start++;
+  const partAt = current.findIndex((n, i) => i >= start && isPartStart(n));
+  let own: JSONContent[] = [];
+  if (partAt > start) {
+    const lines = current.slice(start, partAt).filter(n => !isEmpty(n) && !isBreak(n));
+    const short = lines.every(n => (n.type === 'paragraph' || n.type === 'heading') && nodeText(n).trim().length <= 120 && !/[.;]$/.test(nodeText(n).trim()) || n.type === 'image');
+    if (lines.length && lines.length <= 14 && short) {
+      own = lines.map(n => cleanLook(n.type === 'heading' ? { ...n, type: 'paragraph', attrs: {}, content: (n.content ?? []).map(c => (c.type === 'text' ? { ...c, marks: [...(c.marks ?? []).filter(m => m.type !== 'bold'), { type: 'bold' }] } : c)) } : n, true))
+        .map(n => (n.type === 'paragraph' ? { ...n, attrs: { ...n.attrs, textAlign: n.attrs?.textAlign ?? 'center', indentFirst: 0 } } : n));
+      current = current.slice(partAt);
+    }
+  }
   // 1. Titles: real headings stay, typed titles become headings; an old table of contents goes away (rebuilt below).
+  //    The look pasted from Word or a website goes too: the norm's font, size, spacing and alignment show everywhere.
   let nodes: JSONContent[] = [];
   let skipToc = false;
-  for (const n of current) {
-    const t = plain(nodeText(n));
+  for (const n0 of current) {
+    const n = cleanLook(n0);
+    const raw = nodeText(n).trim(), t = plain(raw);
     if ((n.type === 'heading' || titleLevel(n)) && TOCS.has(t)) { skipToc = true; continue; }
     if (skipToc) {
-      if (n.type === 'heading' || titleLevel(n) || isBreak(n)) skipToc = false;
-      else continue;
+      // Its lines ("Introduction ...... 3"), empty lines and breaks go; the first real part ends it.
+      if (isEmpty(n) || isBreak(n) || tocEntry(raw) || (n.type === 'table' && nodes.length === 0)) continue;
+      skipToc = false;
     }
-    if (n.type === 'heading') nodes.push(KNOWN.has(t) ? { ...n, attrs: { ...n.attrs, level: 1 } } : n);
+    // Empty lines used as spacing: the norm's spacing replaces them. Pictures in a paragraph stay.
+    if (isEmpty(n)) continue;
+    if (n.type === 'heading') nodes.push(KNOWN.has(t) || isAppendix(t) ? { ...n, attrs: { ...n.attrs, level: 1 } } : n);
     else { const lvl = titleLevel(n); nodes.push(lvl ? heading(lvl, n) : n); }
   }
+  nodes = joinBrokenLines(nodes);
+  // Page breaks: never two in a row, none at the start or the end (big parts get theirs below).
+  nodes = nodes.filter((n, i) => !isBreak(n) || (i > 0 && !isBreak(nodes[i - 1])));
   while (nodes.length && (isEmpty(nodes[0]) || isBreak(nodes[0]))) nodes.shift();
   while (nodes.length && (isEmpty(nodes[nodes.length - 1]) || isBreak(nodes[nodes.length - 1]))) nodes.pop();
 
@@ -364,15 +469,21 @@ export function reorganizeDoc(w: WorkLayout, lang: WorkLang, date: string, curre
     }
   }
 
-  // 3. A title page the person already made (short lines before the first title) stays; otherwise the norm's one.
-  const firstHead = nodes.findIndex(n => n.type === 'heading');
-  const before = firstHead > 0 ? nodes.slice(0, firstHead).filter(n => !isEmpty(n) && !isBreak(n)) : [];
-  const keptTitlePage = before.length > 0 && before.length <= 14 && before.every(n => n.type === 'paragraph' && nodeText(n).trim().length <= 120);
+  // 3. The person's own title page stays; otherwise the norm's one (with yellow fields to fill). Without a known part
+  //    to find it by, a few short lines before the first title are a title page too.
+  if (!own.length) {
+    const firstHead = nodes.findIndex(n => n.type === 'heading');
+    const before = firstHead > 0 ? nodes.slice(0, firstHead).filter(n => !isBreak(n)) : [];
+    if (before.length && before.length <= 14 && before.every(n => n.type === 'paragraph' && nodeText(n).trim().length <= 120 && !/[.;]$/.test(nodeText(n).trim()))) {
+      own = before.map(n => ({ ...n, attrs: { ...n.attrs, textAlign: 'center', indentFirst: 0 } }));
+      nodes = nodes.slice(firstHead);
+    }
+  }
+  const keptTitlePage = own.length > 0;
   const head: JSONContent[] = [];
   if (keptTitlePage) {
-    head.push(...nodes.slice(0, firstHead).filter(n => !isBreak(n)));
+    head.push(...own);
     if (w.title !== 'mla' && w.title !== 'none') head.push({ type: 'pageBreak' });
-    nodes = nodes.slice(firstHead);
   } else head.push(...titlePage(w, lang, date));
   if (w.parts.some(p => p[0] === -1)) {
     head.push({ type: 'heading', attrs: { level: 1, textAlign: 'center' }, content: [{ type: 'text', text: T('Table des matières', 'Table of contents') }] });
@@ -399,12 +510,13 @@ export function reorganizeDoc(w: WorkLayout, lang: WorkLang, date: string, curre
       const t = plain(nodeText(n));
       const lvl = Number(n.attrs?.level ?? 1);
       if (inRefs && lvl <= 1) { flush(); inRefs = false; }
-      const big = REFS.has(t) || APPX.has(t) || (chapters && lvl === 1);
+      const big = isRefs(t) || isAppendix(t) || (chapters && lvl === 1);
       if (big && out.length && !isBreak(out[out.length - 1])) out.push({ type: 'pageBreak' });
       out.push(n);
-      if (REFS.has(t)) inRefs = true;
+      if (isRefs(t)) inRefs = true;
       return;
     }
+    if (isBreak(n) && out.length && isBreak(out[out.length - 1])) return;
     if (inRefs) refs.push(n);
     else out.push(n);
   });

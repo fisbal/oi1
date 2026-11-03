@@ -3,7 +3,7 @@ import type { JSONContent } from '@tiptap/core';
 import { readDocx } from '../docx/read';
 import { letterToDocx } from '../docx/write';
 import { defaultStyles, type LetterDoc } from '../model';
-import { TOC_MARK, WORK_LAYOUTS, reorganizeDoc, workDoc, workMargins, workStyles } from '../templates/works';
+import { TOC_MARK, WORK_LAYOUTS, lookOnly, reorganizeDoc, workDoc, workMargins, workStyles } from '../templates/works';
 import { WORKS_MISSING, workText } from '../templates/worksI18n';
 
 const textOf = (n: JSONContent): string => (n.text ?? '') + (n.content ?? []).map(textOf).join('');
@@ -132,4 +132,65 @@ describe('reorganize my text (Martin, 2026-11-02)', () => {
     const heads = r.content.filter(n => n.type === 'heading').map(textOf);
     expect(heads).toEqual(['Introduction', 'Short bold line']);
   });
+
+  // Martin (2026-11-03): "quand on vient déjà avec son texte, il fait un peu désordre". A text pasted from Word:
+  // its own title page, an old table of contents, fonts and colors, empty lines, lines cut like in a PDF.
+  const S = (t: string, style: Record<string, unknown>, attrs: Record<string, unknown> = {}): JSONContent => ({ type: 'paragraph', attrs, content: [{ type: 'text', text: t, marks: [{ type: 'textStyle', attrs: style }] }] });
+  const E: JSONContent = { type: 'paragraph' };
+  const pasted: JSONContent[] = [
+    { type: 'paragraph', attrs: { textAlign: 'center' }, content: [{ type: 'text', text: 'Les énergies renouvelables', marks: [{ type: 'bold' }, { type: 'textStyle', attrs: { fontFamily: 'Arial', fontSize: '20pt', color: '#1F4E79' } }] }] },
+    { ...P('Marie Tremblay'), attrs: { textAlign: 'center' } }, { ...P('Cours ENV-1001'), attrs: { textAlign: 'center' } }, E, E,
+    P('TABLE DES MATIÈRES', true), P('Introduction ......... 3'), P('1. Contexte historique ...... 4'), P('Conclusion\t8'), E,
+    { type: 'heading', attrs: { level: 1, textAlign: 'left' }, content: [{ type: 'text', text: 'INTRODUCTION', marks: [{ type: 'textStyle', attrs: { fontSize: '16pt', color: '#2E74B5' } }] }] },
+    S("L'hydroélectricité occupe une place centrale.", { fontFamily: 'Calibri', fontSize: '11pt', color: '#333333' }, { lineHeight: '1.15', textAlign: 'right', spaceAfter: 8 }),
+    E, E, E,
+    P('1. Contexte historique', true),
+    P('La nationalisation de 1963 a permis de regrouper les producteurs'), P('et a transfor-'), P('mé la province.'),
+    P('Chapitre 2', true), P('Texte du chapitre.'),
+    P('CONCLUSION'), P('Le Québec a des atouts.'),
+    { type: 'pageBreak' }, { type: 'pageBreak' },
+    P('BIBLIOGRAPHIE', true), P('Whitmore, J. (2024). État.'), E, P('Bélanger, M. (2019). Hydro.'),
+    P('Annexe A – Carte des barrages', true), P('Voir la carte.'),
+  ];
+  const r = reorganizeDoc(byId('apaProvost'), 'fr', 'x', pasted);
+  const heads = r.content.filter(n => n.type === 'heading').map(textOf);
+
+  it('pasted from Word: keeps the person\'s title page once, centered, and adds no second one', () => {
+    expect(r.keptTitlePage).toBe(true);
+    expect(textOf(r.content[0])).toBe('Les énergies renouvelables');
+    expect(r.content[0].type).toBe('paragraph');
+    expect(r.content[0].attrs?.textAlign).toBe('center');
+    expect(words(r.content)).not.toContain('[Prénom Nom]');
+    expect(heads).not.toContain('Les énergies renouvelables');
+  });
+  it('pasted from Word: the old table of contents goes, its lines never become titles', () => {
+    expect(heads).toEqual(['Table des matières', 'INTRODUCTION', '1. Contexte historique', 'Chapitre 2', 'CONCLUSION', 'BIBLIOGRAPHIE', 'Annexe A – Carte des barrages']);
+    expect(words(r.content)).not.toMatch(/\.{3}|\t8/);
+  });
+  it('pasted from Word: fonts, sizes, colors, spacing and alignment make way for the norm', () => {
+    const json = JSON.stringify(r.content);
+    expect(json).not.toMatch(/textStyle|Calibri|#333333|1\.15|"textAlign":"right"|"spaceAfter"/);
+    expect(json).toContain('"bold"');
+  });
+  it('pasted from Word: no empty lines, no double page breaks, lines cut like in a PDF join again', () => {
+    const body = r.content.slice(r.content.findIndex(n => textOf(n) === 'INTRODUCTION'));
+    expect(body.some(n => n.type === 'paragraph' && !textOf(n).trim())).toBe(false);
+    expect(r.content.some((n, i) => n.type === 'pageBreak' && r.content[i + 1]?.type === 'pageBreak')).toBe(false);
+    expect(words(r.content)).toContain('La nationalisation de 1963 a permis de regrouper les producteurs et a transformé la province.');
+  });
+  it('pasted from Word: references sorted, appendices on a new page', () => {
+    const i = r.content.findIndex(n => textOf(n) === 'BIBLIOGRAPHIE');
+    expect(r.content.slice(i + 1, i + 3).map(textOf)).toEqual(['Bélanger, M. (2019). Hydro.', 'Whitmore, J. (2024). État.']);
+    const a = r.content.findIndex(n => textOf(n).startsWith('Annexe A'));
+    expect(r.content[a - 1].type).toBe('pageBreak');
+  });
+  it('"Seulement l\'apparence" takes away the pasted look and piles of empty lines, keeps every part', () => {
+    const l = lookOnly(pasted);
+    const json = JSON.stringify(l);
+    expect(json).not.toMatch(/textStyle|Calibri|1\.15/);
+    expect(l.filter(n => n.type === 'heading').map(textOf)).toEqual(['INTRODUCTION']);
+    expect(l.some((n, i) => n.type === 'paragraph' && !textOf(n) && l[i + 1]?.type === 'paragraph' && !textOf(l[i + 1]))).toBe(false);
+    expect(words(l)).toContain('Introduction ......... 3');
+  });
 });
+

@@ -32,6 +32,19 @@ const DEVICES = [
   { name: 'phone sideways', viewport: { width: 844, height: 390 }, mobile: true },
 ];
 const P = '.module-host:not([hidden])';
+const W = s => `<span style="font-family:Calibri;font-size:11pt;color:#333333">${s}</span>`;
+const PASTED = `<p style="text-align:center"><b><span style="font-family:Arial;font-size:20pt;color:#1F4E79">Les énergies renouvelables au Québec</span></b></p>
+<p style="text-align:center"><span style="font-family:Arial;font-size:14pt">Marie Tremblay</span></p><p style="text-align:center">Cours ENV-1001</p><p>&nbsp;</p><p>&nbsp;</p>
+<p><b><span style="font-size:16pt;color:#2E74B5">TABLE DES MATIÈRES</span></b></p><p>Introduction ......................... 3</p><p>1. Contexte historique ............. 4</p><p>Conclusion ............................ 8</p><p>&nbsp;</p>
+<h1 style="color:#2E74B5;font-family:Calibri Light;font-size:16pt">INTRODUCTION</h1>
+<p style="line-height:115%;margin-bottom:8pt;text-align:right">${W("L'hydroélectricité occupe une place centrale au Québec.")}</p><p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>
+<p><b>1. Contexte historique</b></p>
+<p style="font-family:Georgia;font-size:13pt">La nationalisation de 1963 a permis de regrouper les producteurs privés sous Hydro-Québec. Cette décision</p>
+<p style="font-family:Georgia;font-size:13pt">a transformé l'économie de la province et</p><p style="font-family:Georgia;font-size:13pt">a donné naissance à de grands chantiers.</p>
+<p><b>1.1 Les grands barrages</b></p><ul><li>Manic-5 (1970)</li><li>La Grande-2 (1979)</li></ul>
+<p><span style="font-size:24pt">CONCLUSION</span></p><p>${W('Le Québec dispose d’atouts majeurs.')}</p>
+<p><b>BIBLIOGRAPHIE</b></p><p>Whitmore, J. (2024). <i>État de l'énergie au Québec</i>. HEC Montréal.</p><p>Bélanger, M. (2019). <i>Hydro-Québec</i>. Boréal.</p>
+<p><b>Annexe A – Carte des barrages</b></p><p>Voir la carte jointe.</p>`;
 
 async function openDrop(page, key) {
   const b = page.locator(`${P} [data-help="${key}"]:visible`).first();
@@ -167,6 +180,36 @@ for (const d of DEVICES) {
     await page.waitForTimeout(400);
     const back = await body.innerText();
     check(!back.includes('Prénom Nom') && back.includes('Zola, É. (1885). Germinal.'), `${n}: reorganize: Ctrl+Z gives the text back as it was (${JSON.stringify(back.replace(/\s+/g, ' ').slice(0, 90))})`);
+
+    // Martin (2026-11-03): "quand on vient déjà avec son texte, il fait un peu désordre". A work pasted from Word:
+    // its own title page, an old table of contents, Calibri 11 in grey, empty lines, a text copied from a PDF.
+    await body.click();
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.press('Delete');
+    await body.evaluate((el, html) => { const dt = new DataTransfer(); dt.setData('text/html', html); dt.setData('text/plain', 'x'); el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); }, PASTED);
+    await page.waitForTimeout(500);
+    await openDrop(page, 'letter.works');
+    await page.locator('.work-item[data-work="apaProvost"]').click();
+    await page.locator('.work-choice[data-mode="reorganize"]').click();
+    await page.waitForTimeout(1500);
+    const w = await body.evaluate(el => {
+      const blocks = [...el.querySelectorAll(':scope > p, :scope > h1, :scope > h2, :scope > h3')];
+      const texts = blocks.map(b => (b.textContent || '').trim());
+      const body = blocks.slice(texts.indexOf('INTRODUCTION'));
+      return {
+        heads: [...el.querySelectorAll(':scope > h1, :scope > h2')].map(h => (h.textContent || '').trim()),
+        first: texts[0], firstAlign: blocks[0] ? getComputedStyle(blocks[0]).textAlign : '',
+        text: el.textContent || '',
+        styled: el.querySelectorAll('span[style*="font-family"], span[style*="font-size"], span[style*="color"]').length,
+        fonts: [...new Set(body.filter(b => b.tagName === 'P' && b.textContent.trim()).map(b => getComputedStyle(b).fontFamily.split(',')[0] + ' ' + getComputedStyle(b).fontSize + ' ' + getComputedStyle(b).lineHeight))],
+        empties: body.filter(b => b.tagName === 'P' && !(b.textContent || '').trim() && !b.querySelector('img')).length,
+      };
+    });
+    check(w.first === 'Les énergies renouvelables au Québec' && w.firstAlign === 'center' && !/\[Prénom Nom\]/.test(w.text), `${n}: pasted work: its own title page is kept once, centered (${w.first})`);
+    check(!/\.{5}/.test(w.text) && JSON.stringify(w.heads) === JSON.stringify(['Table des matières', 'INTRODUCTION', '1. Contexte historique', '1.1 Les grands barrages', 'CONCLUSION', 'BIBLIOGRAPHIE', 'Annexe A – Carte des barrages']), `${n}: pasted work: the old table of contents is gone, the right titles (${w.heads.join(' | ')})`);
+    check(w.styled === 0 && w.fonts.length === 1 && /Times/.test(w.fonts[0]), `${n}: pasted work: one look everywhere, the norm's (${w.fonts.join(' / ')}; ${w.styled} pasted styles left)`);
+    check(w.empties === 0, `${n}: pasted work: no empty lines left in the text (${w.empties})`);
+    check(w.text.includes("regrouper les producteurs privés sous Hydro-Québec. Cette décision a transformé l'économie de la province et a donné naissance"), `${n}: pasted work: the lines copied from a PDF are joined again`);
   } catch (e) {
     problems.push(`${n}: stopped: ${String(e.message ?? e).split('\n')[0]}`);
   } finally { await ctx.close(); }
