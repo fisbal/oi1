@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { t } from '../../shell/i18n';
 import { Dialog } from '../kit';
 import {
-  INK_COLORS, SIGNATURE_FONTS, fontLabel, importedInk, initialsOf, newId, saveSignature, trimCanvas, typedInk,
+  INK_COLORS, SIGNATURE_FONTS, fontLabel, importedInk, inkUrl, initialsOf, newId, saveSignature, trimCanvas, typedInk,
   type Ink, type Signature, type SignatureKind,
 } from './store';
 import './signature.css';
@@ -149,7 +149,7 @@ export function SignatureDialog({ onClose, onSaved, start = 'draw' }: { onClose:
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => void pickPhoto(e.target.files?.[0])} />
             <button type="button" className="sig-photo-pick" onClick={() => fileRef.current?.click()}>{photo ? t('sig.otherPhoto') : t('sig.pickPhoto')}</button>
             <p className="sig-note">{t('sig.photoTip')}</p>
-            {photo && <div className="sig-preview"><img src={photo.png} alt={t('sig.preview')} /></div>}
+            {photo && <div className="sig-preview"><img src={inkUrl(photo.png)} alt={t('sig.preview')} /></div>}
           </div>
         )}
 

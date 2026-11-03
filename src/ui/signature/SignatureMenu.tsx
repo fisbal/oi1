@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { t } from '../../shell/i18n';
 import { MenuItem } from '../kit';
-import { defaultSignature, deleteSignature, listSignatures, setDefaultSignature, type Signature } from './store';
+import { defaultSignature, deleteSignature, inkUrl, listSignatures, setDefaultSignature, type Signature } from './store';
 import './signature.css';
 
 export type SignaturePlace = 'sig' | 'line' | 'initials';
@@ -34,7 +34,7 @@ export function SignatureMenu({ onPlace, onNew, close }: { onPlace: (s: Signatur
         {all.map(s => (
           <div className="sig-item" key={s.id}>
             <button type="button" title={t('sig.useThis')} aria-pressed={s.id === main.id} onClick={() => { setDefaultSignature(s.id); place('sig', s); }}>
-              <img src={s.png} alt={t('sig.preview')} />
+              <img src={inkUrl(s.png)} alt={t('sig.preview')} />
               <small>{s.id === main.id ? '★ ' : ''}{s.name || t(`sig.mode.${s.kind}`)}</small>
             </button>
             <button type="button" className="sig-del" aria-label={t('sig.delete')} title={t('sig.delete')}

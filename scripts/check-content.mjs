@@ -29,6 +29,7 @@ const SHORT_BY_NATURE = {
   'Outline to In 1 Letter': 'lists the open letters',
   'Send code to Letter': 'lists the open letters',
   'Cite again': 'lists the sources already cited, so it grows with them',
+  'Signature': 'lists the person’s own signatures (kept on the device), so it grows with them; the 21 styles are in the maker',
   'My dictionary': 'lists the words the user added, so it grows with them',
   'Cross-reference': 'lists the headings and captions of the letter',
   'Bibliography': 'a few titles for the same list, like Word',

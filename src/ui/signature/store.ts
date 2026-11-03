@@ -140,5 +140,26 @@ export async function importedInk(src: string): Promise<Ink | null> {
   return trimCanvas(c);
 }
 
+/**
+ * A kept picture shown again on screen: only a real PNG or JPEG (base64) gets through, turned into a blob: URL of
+ * its own bytes, so nothing read back from storage is ever put in the page as text.
+ */
+const inkUrls = new Map<string, string>();
+export function inkUrl(src: string | undefined): string {
+  if (!src) return '';
+  const hit = inkUrls.get(src);
+  if (hit) return hit;
+  const m = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/]+={0,2})$/.exec(src);
+  if (!m) return '';
+  try {
+    const bin = atob(m[2]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([bytes], { type: m[1] }));
+    inkUrls.set(src, url);
+    return url;
+  } catch { return ''; }
+}
+
 /** Today's date as people write it under a signature. */
 export const todayText = (lang: string) => new Date().toLocaleDateString(lang || undefined, { dateStyle: 'long' });

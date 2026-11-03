@@ -6,7 +6,7 @@ import { t } from '../../shell/i18n';
 import { safeHtml } from '../../shell/safeHtml';
 import { Dialog } from '../../ui/kit';
 import { SignatureDialog } from '../../ui/signature/SignatureDialog';
-import { listSignatures } from '../../ui/signature/store';
+import { inkUrl, listSignatures } from '../../ui/signature/store';
 import type { MailBox } from './model';
 import { SIG_LOOKS, sigHtml, type MailSig } from './signatures';
 
@@ -56,7 +56,7 @@ export function MailSigsDialog({ box, onClose, onSave }: { box: MailBox; onClose
               <button type="button" className={!s.hand ? 'on' : ''} onClick={() => set({ hand: undefined })}>{t('mail.sig.noHand')}</button>
               {hands.map(h => (
                 <button key={h.id} type="button" className={s.hand === h.png ? 'on' : ''} title={h.name} onClick={() => set({ hand: h.png, handW: 180, handH: Math.round(180 * h.h / h.w) })}>
-                  <img src={h.png} alt={t('sig.preview')} />
+                  <img src={inkUrl(h.png)} alt={t('sig.preview')} />
                 </button>
               ))}
               <button type="button" onClick={() => setMaking(true)}>＋ {t('sig.new')}</button>
@@ -65,7 +65,7 @@ export function MailSigsDialog({ box, onClose, onSave }: { box: MailBox; onClose
           <div>
             <b>{t('mail.sig.logo')}</b>
             <div className="ml-sig-hands">
-              {s.logo && <img className="ml-sig-logo" src={s.logo} alt={t('mail.sig.logo')} />}
+              {s.logo && <img className="ml-sig-logo" src={inkUrl(s.logo)} alt={t('mail.sig.logo')} />}
               <label className="ml-sig-file">{s.logo ? t('mail.sig.otherLogo') : t('mail.sig.pickLogo')}
                 <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) void smallPicture(f).then(logo => set({ logo })); }} />
               </label>
