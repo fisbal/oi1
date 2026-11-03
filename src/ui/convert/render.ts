@@ -1,6 +1,7 @@
 // Drawing a document as pages out of sight, then as pictures: PNG, JPEG, WebP, SVG and a PDF made of page images
 // (for the Convert tab). html-to-image (MIT) copies the page with its styles and fonts into a picture; pdf-lib (MIT)
 // puts the pictures into a PDF.
+import { safeHtml } from '../../shell/safeHtml';
 
 import type { Pages } from '../../shell/convert';
 
@@ -28,7 +29,8 @@ export async function htmlPages(html: string, css: string): Promise<Pages> {
   const host = offscreen(w);
   const style = `<style>${css}</style>`;
   // Measure the whole text at the page's width once.
-  host.innerHTML = `${style}<div class="cv-doc" style="width:${w - 2 * pad}px;padding:0;margin:0">${html}</div>`;
+  // faults-ok: the converter's own style; the document goes through safeHtml
+  host.innerHTML = `${style}<div class="cv-doc" style="width:${w - 2 * pad}px;padding:0;margin:0">${safeHtml(html)}</div>`;
   let doc = host.querySelector('.cv-doc') as HTMLElement;
   await settle(host);
   // A wide sheet or table: wider pages (same A4 shape), so no column is cut off.
@@ -37,7 +39,8 @@ export async function htmlPages(html: string, css: string): Promise<Pages> {
     w = Math.min(4000, need + 2 * pad);
     h = Math.round((w * A4.h) / A4.w);
     host.style.width = `${w}px`;
-    host.innerHTML = `${style}<div class="cv-doc" style="width:${w - 2 * pad}px;padding:0;margin:0">${html}</div>`;
+    // faults-ok: the converter's own style; the document goes through safeHtml
+    host.innerHTML = `${style}<div class="cv-doc" style="width:${w - 2 * pad}px;padding:0;margin:0">${safeHtml(html)}</div>`;
     doc = host.querySelector('.cv-doc') as HTMLElement;
     await settle(host);
   }
@@ -57,12 +60,14 @@ export async function htmlPages(html: string, css: string): Promise<Pages> {
   }
   if (!tops.length) while (pageTop + inner < total) { pageTop += inner; breaks.push(pageTop); }
   const content = doc.innerHTML;
+  // faults-ok: the converter's own style
   host.innerHTML = style;
   const nodes = breaks.map((top, i) => {
     const bottom = breaks[i + 1] ?? total;
     const page = document.createElement('div');
     page.className = 'cv-page';
     page.style.cssText = `position:relative;width:${w}px;height:${h}px;background:#fff;overflow:hidden;box-sizing:border-box`;
+    // faults-ok: pieces of the document measured above, already through safeHtml
     page.innerHTML = `<div style="position:absolute;left:${pad}px;top:${pad}px;width:${w - 2 * pad}px;height:${Math.min(inner, bottom - top)}px;overflow:hidden"><div class="cv-doc" style="position:absolute;left:0;top:${-top}px;width:100%">${content}</div></div>`;
     host.appendChild(page);
     return page;

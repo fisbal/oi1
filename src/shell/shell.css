@@ -310,6 +310,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   padding: 10px 18px; border-radius: 99px; border: 1px solid var(--hair); background: rgba(var(--bg-rgb), .92); color: var(--ink);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 12px 30px rgba(var(--shade-rgb), calc(.5 * var(--shade-k))); font-size: 14px;
   animation: reveal .4s var(--ease) both;
+  /* A message never blocks a tap: on a phone it sat over the last choices of a list (fault detector). */
+  pointer-events: none;
 }
 .toast::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 10px var(--gold); }
 

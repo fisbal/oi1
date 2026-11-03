@@ -22,6 +22,7 @@ function make(strip: HTMLElement, dir: 'l' | 'r'): HTMLButtonElement {
   b.className = `scroll-arrow scroll-arrow-${dir}`;
   b.setAttribute('aria-label', dir === 'l' ? '‹' : '›');
   b.tabIndex = -1;
+  // faults-ok: a fixed arrow icon
   b.innerHTML = chevron(dir);
   b.addEventListener('pointerdown', e => e.preventDefault()); // keep the focus and selection where they are
   b.addEventListener('click', e => {

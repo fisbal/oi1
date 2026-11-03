@@ -12,11 +12,6 @@
 .style-tile span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .style-tile.on { outline: 2px solid var(--gold); outline-offset: 1px; box-shadow: 0 3px 0 rgba(var(--shade-rgb), calc(.45 * var(--shade-k))), 0 0 16px rgba(212,168,67,.4); }
 
-.table-grid { padding: 4px; }
-.table-grid-label { font-size: 12px; color: var(--muted); padding: 0 2px 8px; }
-.table-grid-row { display: flex; gap: 2px; margin-bottom: 2px; }
-.table-grid button { width: 17px; height: 17px; padding: 0; border: 1px solid rgba(var(--fg-rgb), .12); background: rgba(var(--fg-rgb), .03); border-radius: 4px; }
-.table-grid button.on { background: rgba(212,168,67,.35); border-color: var(--gold); box-shadow: 0 0 6px rgba(212,168,67,.4); }
 .symbols { display: grid; grid-template-columns: repeat(10, 30px); gap: 2px; }
 .symbols button { height: 30px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--ink); font-size: 16px; }
 .symbols button:hover { border-color: var(--hair); background: rgba(212,168,67,.1); color: var(--gold-light); }
@@ -263,8 +258,8 @@
 .theme-lines i:first-child { width: 70%; height: 3px; opacity: 1; }
 .theme-lines i:last-child { width: 55%; }
 .theme-name {
-  position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 4px; font: 600 9.5px var(--sans); color: var(--ink); text-align: center;
-  background: rgba(var(--bg-rgb), .78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 2px; font: 600 9px var(--sans); color: var(--ink); text-align: center;
+  background: rgba(var(--bg-rgb), .78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.2px;
 }
 
 .callout-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; }

@@ -1,3 +1,4 @@
+// faults-ok-file: Code+ checks the person's code for these patterns; they are messages, not calls.
 // The Problems panel: a fast checker that runs as you type, in every file of the project, with no server.
 // Each rule says what is wrong and why in plain words, and most carry a fix the programmer can accept or not.
 // The rules are the mistakes the trade has paid for again and again: syntax, loose equality, secrets in code,

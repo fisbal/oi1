@@ -51,7 +51,9 @@
     "check:form": "node scripts/check-form.mjs",
     "check:works": "node scripts/check-works.mjs",
     "check:mail": "node scripts/check-mail.mjs",
-    "check:image": "node scripts/check-image.mjs"
+    "check:image": "node scripts/check-image.mjs",
+    "check:faults-code": "node scripts/faults-code.mjs",
+    "faults:ui": "node scripts/faults-ui.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
