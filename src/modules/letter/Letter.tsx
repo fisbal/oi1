@@ -44,7 +44,7 @@ import { SourceDialog } from './sourceDialog';
 import { RefCheckDialog, RefModelsDialog } from './refModels';
 import { LETTERS } from './templates/letters';
 import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, selectNextField } from './templates/markup';
-import { TOC_MARK, WORK_LAYOUTS, reorganizeDoc, workDoc, workMargins, workStyles } from './templates/works';
+import { TOC_MARK, WORK_LAYOUTS, lookOnly, reorganizeDoc, workDoc, workMargins, workStyles } from './templates/works';
 import { workText } from './templates/worksI18n';
 
 const WORK_LOCALE = { fr: 'fr-CA', en: 'en-CA', es: 'es-ES', pt: 'pt-BR', de: 'de-DE' } as const;
@@ -916,6 +916,13 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
         made = reorganizeDoc(w, lang, longDate(WORK_LOCALE[lang]), (body.getJSON().content ?? []) as JSONContent[]);
         // Its own undo group: never merged with the typing just before it, nor with what comes after.
         body.chain().command(({ tr }) => { closeHistory(tr); return true; }).setContent({ type: 'doc', content: made.content }, { emitUpdate: true }).run();
+        body.view.dispatch(closeHistory(body.state.tr));
+      }
+      if (mode === 'look') {
+        // The same text and parts; the fonts, sizes, colors and spacing pasted from Word or a website make way for
+        // the norm's, and piles of empty lines become one. One undo step too.
+        const cleaned = lookOnly((body.getJSON().content ?? []) as JSONContent[]);
+        body.chain().command(({ tr }) => { closeHistory(tr); return true; }).setContent({ type: 'doc', content: cleaned }, { emitUpdate: true }).run();
         body.view.dispatch(closeHistory(body.state.tr));
       }
       // The page number where the norm puts it (MLA: the name, then the number).
