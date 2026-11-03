@@ -460,6 +460,7 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
   );
   const ribbon = (
     <div className="ribbon">
+      <div className="ribbon-head">
       <div className="ribbon-tabs" role="tablist">
         <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
         {tabs.map(x => <button key={x.id} type="button" role="tab" aria-selected={tab === x.id} className={tab === x.id ? 'on' : ''} onClick={() => setTab(x.id)}>{t(x.label)}</button>)}
@@ -467,6 +468,7 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
         <button type="button" role="tab" aria-selected={tab === 'convert'} className={`ribbon-special ribbon-convert${tab === 'convert' ? ' on' : ''}`} onClick={() => setTab('convert')}>{t('convert.tab')}</button>
         <TutoTab />
         <RibbonToggle />
+        </div>
         <span className="ribbon-quick">
           <CopilotButton open={copilot} onClick={() => setCopilot(o => !o)} />
           <Btn icon="undo" title="letter.undo" onClick={() => run(c => c.undo())} disabled={!st?.undo} />

@@ -522,6 +522,7 @@ function ImageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const openSide = (s: Side) => { setSide(cur => (cur === s && narrow ? null : s)); closeRibbonPeek(); };
   const ribbon = (
     <div className="ribbon">
+      <div className="ribbon-head">
       <div className="ribbon-tabs" role="tablist">
         <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
         {tabs.map(x => <button key={x.id} type="button" role="tab" aria-selected={tab === x.id} className={tab === x.id ? 'on' : ''} onClick={() => goTab(x.id)}>{t(x.label)}</button>)}
@@ -529,6 +530,7 @@ function ImageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
         <button type="button" role="tab" aria-selected={tab === 'convert'} className={`ribbon-special ribbon-convert${tab === 'convert' ? ' on' : ''}`} onClick={() => goTab('convert')}>{t('convert.tab')}</button>
         <TutoTab />
         <RibbonToggle />
+        </div>
         <span className="ribbon-quick">
           <CopilotButton open={copilot} onClick={() => setCopilot(o => !o)} />
           <Btn icon="undo" title="letter.undo" onClick={undoOnce} disabled={!undo.current.length} />

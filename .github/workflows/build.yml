@@ -154,6 +154,9 @@ jobs:
       - name: Every icon is centered in its capsule in every app (PC + phone)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:icons
+      - name: Undo and redo always in view in every app, and they really undo (PC, Mac, tablet, phone, both ways) (check:undo)
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:undo
       - name: Every tab of Office In 1 can be renamed and its document takes the name (PC + phone)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:rename

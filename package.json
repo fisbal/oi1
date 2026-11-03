@@ -20,6 +20,7 @@
     "check:sync": "node scripts/check-sync.mjs",
     "check:proof": "node scripts/check-proof.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
+    "check:undo": "node scripts/check-undo.mjs",
     "check:audience": "node scripts/check-audience.mjs",
     "check:formulas": "node scripts/check-formulas.mjs",
     "check:metiers": "node scripts/check-metiers.mjs",
