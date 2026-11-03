@@ -7,7 +7,7 @@
 //   dist/promo/OfficeIn1-Guide-FR.pdf / -EN.pdf  the social media guide (promo/guide.html)
 //   dist/promo/poster-<lang>-square.png (1080x1080) and -story.png (1080x1920) for posts and statuses
 //   dist/promo/qr-store.svg         QR code straight to the Microsoft Store page
-//   dist/promo/OfficeIn1-Affiche-FR.pdf / -EN.pdf / -FR-EN.pdf (2 pages) (+ -claire: less ink)  the printable poster (promo/affiche.html)
+//   dist/promo/OfficeIn1-Affiche-FR.pdf / -EN.pdf / -FR-EN.pdf (2 pages), light (+ -sombre: black and gold)  the printable poster (promo/affiche.html)
 // Run after `npm run build` (CI runs it on every push):  node scripts/promo.mjs
 // Exits with an error when a part is missing, so a broken kit is seen on the PR.
 
@@ -261,8 +261,8 @@ try {
     await c.close();
   }
 
-  // 6. The printable poster (US Letter, one page), dark and light (less ink), in both languages.
-  for (const lang of [...Object.keys(LANGS), 'both']) for (const theme of ['dark', 'light']) {
+  // 6. The printable poster (US Letter, one page), light (the main one) and dark, in both languages and both together.
+  for (const lang of [...Object.keys(LANGS), 'both']) for (const theme of ['light', 'dark']) {
     const c = await browser.newContext({ viewport: { width: 816, height: 1056 } });
     const p = await c.newPage();
     await p.goto(`${ROOT}promo/affiche.html?lang=${lang}&theme=${theme}`);
@@ -281,7 +281,7 @@ try {
     });
     for (const b of bad) problems.push(`poster PDF ${lang} ${theme}: ${b}`);
     const name = lang === 'both' ? 'FR-EN' : lang.toUpperCase();
-    await p.pdf({ path: `${OUT}/OfficeIn1-Affiche-${name}${theme === 'light' ? '-claire' : ''}.pdf`, format: 'Letter', printBackground: true, preferCSSPageSize: true, pageRanges: lang === 'both' ? '1-2' : '1' });
+    await p.pdf({ path: `${OUT}/OfficeIn1-Affiche-${name}${theme === 'dark' ? '-sombre' : ''}.pdf`, format: 'Letter', printBackground: true, preferCSSPageSize: true, pageRanges: lang === 'both' ? '1-2' : '1' });
     await c.close();
   }
 
@@ -292,8 +292,8 @@ try {
 
 // Everything the kit page links to must exist and not be empty.
 const need = ['info.json', 'qr.svg', 'qr.png', 'qr-store.svg'];
-for (const l of Object.keys(LANGS)) need.push(`OfficeIn1-Demo-${l.toUpperCase()}.mp4`, `OfficeIn1-Guide-${l.toUpperCase()}.pdf`, `poster-${l}-square.png`, `poster-${l}-story.png`, `OfficeIn1-Affiche-${l.toUpperCase()}.pdf`, `OfficeIn1-Affiche-${l.toUpperCase()}-claire.pdf`);
-need.push('OfficeIn1-Affiche-FR-EN.pdf', 'OfficeIn1-Affiche-FR-EN-claire.pdf');
+for (const l of Object.keys(LANGS)) need.push(`OfficeIn1-Demo-${l.toUpperCase()}.mp4`, `OfficeIn1-Guide-${l.toUpperCase()}.pdf`, `poster-${l}-square.png`, `poster-${l}-story.png`, `OfficeIn1-Affiche-${l.toUpperCase()}.pdf`, `OfficeIn1-Affiche-${l.toUpperCase()}-sombre.pdf`);
+need.push('OfficeIn1-Affiche-FR-EN.pdf', 'OfficeIn1-Affiche-FR-EN-sombre.pdf');
 for (const f of need) if (!existsSync(`${OUT}/${f}`) || statSync(`${OUT}/${f}`).size < 500) problems.push(`${f} is missing`);
 for (const lang of Object.keys(LANGS)) if (Object.keys(info.shots[lang] ?? {}).length < 4) problems.push(`${lang}: fewer than 4 screenshots`);
 

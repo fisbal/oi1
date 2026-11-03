@@ -8,7 +8,7 @@
 <link rel="icon" href="../icons/icon.svg">
 <!-- The printable poster (US Letter): what Office In 1 is, how it differs, two QR codes to install.
      The apps, screenshots and version come from info.json, so scripts/promo.mjs prints it again at every build.
-     ?lang=fr|en|both (French front, English back)   ?theme=light (less ink) -->
+     ?lang=fr|en|both (French front, English back)   ?theme=dark (black and gold; light is the default) -->
 <style>
 @font-face { font-family: 'Playfair Display Variable'; src: url(fonts/playfair-display-latin-wght-normal.woff2) format('woff2'); font-weight: 400 900; }
 @font-face { font-family: 'DM Sans Variable'; src: url(fonts/dm-sans-latin-wght-normal.woff2) format('woff2'); font-weight: 100 1000; }
@@ -120,7 +120,7 @@ footer { margin-top: 10px; display: flex; justify-content: space-between; font-s
   const q = new URLSearchParams(location.search);
   // ?lang=both prints French then English (two pages, front and back); otherwise one page in the asked language.
   const langs = q.get('lang') === 'both' ? ['fr', 'en'] : [OI1Kit.lang()];
-  document.body.classList.add(q.get('theme') === 'light' ? 'light' : 'dark');
+  document.body.classList.add(q.get('theme') === 'dark' ? 'dark' : 'light'); // light by default (Martin, 2026-11-03)
   document.documentElement.lang = langs[0];
   const d = await OI1Kit.load(), k = d.links;
   document.title = 'Office In 1 — ' + (langs.length > 1 ? 'Affiche · Poster' : langs[0] === 'fr' ? 'Affiche' : 'Poster');

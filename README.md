@@ -36,7 +36,7 @@ One office suite, one app:
   apps and their lines are read from the home screen, every app is screenshotted, the HTML demo
   (`public/promo/video.html`) is filmed into MP4 and the guide (`public/promo/guide.html`) printed to PDF.
   Links live in `public/promo/config.json`; texts and feature lines in `public/promo/kit.js`.
-- **Printable poster:** `OfficeIn1-Affiche-FR.pdf` / `-EN.pdf` / `-FR-EN.pdf` (bilingual, 2 pages) (and `-claire`, less ink), US Letter, from
+- **Printable poster:** `OfficeIn1-Affiche-FR.pdf` / `-EN.pdf` / `-FR-EN.pdf` (bilingual, 2 pages), light (and `-sombre`, black and gold), US Letter, from
   `public/promo/affiche.html`: what Office In 1 is, how it differs from Microsoft 365 and Google Docs, and two QR
   codes (all installs through `get/`, and the Microsoft Store page). Printed again at every build.
 
