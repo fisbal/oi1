@@ -205,7 +205,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
 // its open PDF, and never prints the Office In 1 window. ProDFos itself is a stand-in page here that records what it is told.
 for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, false], ['Phone', { width: 390, height: 844 }, true]]) {
   const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
-  await ctx.route('https://fisbal.github.io/prodfos/**', r => r.fulfill({ contentType: 'text/html', body: '<!doctype html><title>ProDFos</title><body>PDF<script>window.addEventListener("message", e => { if (e.data && e.data.type === "oi1-print") { window.printed = (window.printed || 0) + 1; document.title = "printed " + window.printed; } });</script>' }));
+  await ctx.route('https://fisbal.github.io/prodfos/**', r => r.fulfill({ contentType: 'text/html', body: '<!doctype html><title>ProDFos</title><body>PDF<script>window.addEventListener("message", e => { if (e.data && e.data.type === "oi1-print") { window.printed = (window.printed || 0) + 1; document.title = "printed " + window.printed; const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="; parent.postMessage({ type: "prodfos-print-pages", name: "test.pdf", pages: [png, png] }, "*"); } });</script>' }));
   const page = await ctx.newPage();
   await page.addInitScript(`try { if (!sessionStorage.getItem('set')) { localStorage.setItem('oi1:language', 'fr'); sessionStorage.setItem('set', '1'); } } catch {} window.print = () => { window.__oi1Printed = (window.__oi1Printed || 0) + 1; };`);
   await page.goto(url);
@@ -215,8 +215,16 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   const frame = page.frameLocator(`${H} iframe.embed`);
   await frame.locator('body').waitFor({ timeout: 10000 }).catch(() => {});
   await page.locator(`${H} .embed-bar`).click().catch(() => {});
+  check(/[?&]host=oi1/.test(await page.locator(`${H} iframe.embed`).getAttribute('src') ?? ''), `${name} ProDFos: Office In 1 tells ProDFos it is inside (host=oi1)`);
+  // ProDFos cannot print a PDF from inside the frame (Martin, 2026-11-03: "print still not working"): it sends its pages
+  // as pictures and Office In 1 prints them from its own window, one page per sheet.
+  const popup = page.waitForEvent('popup', { timeout: 5000 }).catch(() => null);
   await page.keyboard.press('Control+P');
   await page.waitForTimeout(500);
+  const win = await popup;
+  if (win) await win.waitForLoadState().catch(() => {});
+  const shown = win ? await win.evaluate(() => ({ imgs: document.images.length, title: document.title })).catch(() => ({ imgs: 0, title: '' })) : { imgs: 0, title: '' };
+  check(shown.imgs === 2 && shown.title === 'test.pdf', `${name} ProDFos: the pages print from Office In 1's window (${shown.imgs} pages, "${shown.title}")`);
   const printed = await page.frames().find(f => f.url().startsWith('https://fisbal.github.io/prodfos/'))?.evaluate(() => window.printed || 0).catch(() => 0);
   check(printed === 1, `${name} ProDFos: Ctrl+P asks ProDFos to print the open PDF (${printed})`);
   check(!(await page.evaluate(() => window.__oi1Printed || 0)), `${name} ProDFos: Ctrl+P does not print the Office In 1 window`);
