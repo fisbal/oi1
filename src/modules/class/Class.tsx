@@ -3,6 +3,8 @@
 // Like Excel: fonts, borders, merged cells, wrapped text, frozen panes, the fill handle, filters,
 // conditional formatting, charts, find and replace, zoom and printing.
 
+import { onVoiceDo, type VoiceDo } from '../../ui/voiceDo';
+import { wordsToNumber } from '../../shell/voice/commands';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
@@ -398,6 +400,34 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     });
   };
   const mergedHere = merges.some(m => overlaps(m, range));
+
+  // ---------- "In 1" by voice (Martin, 2026-11-03: "go to Class and write four") ----------
+  // The sheet on screen writes in the active cell ("quatre" → 4) and goes down, clears or colors the selection,
+  // deletes the selected rows. The latest values through refs: the listener is set once.
+  const voiceRef = useRef<(d: VoiceDo) => boolean>(() => false);
+  voiceRef.current = d => {
+    if (!gridRef.current?.offsetParent) return false;
+    if (edit) commitEdit();
+    switch (d.what) {
+      case 'type': {
+        const n = wordsToNumber(d.value ?? '');
+        const text = n === null ? (d.value ?? '') : String(n).replace('.', decimalComma(lang) ? ',' : '.');
+        const { c, r } = sel.a;
+        changeSheet(s => setEntry(s.cells, c, r, text));
+        go(c, r + 1);
+        return true;
+      }
+      case 'delete': clearRange(); return true;
+      case 'removeLine': shift('r', range.r1, -(range.r2 - range.r1 + 1)); return true;
+      case 'color': styleRange(st => ({ ...st, color: d.value || undefined })); return true;
+      case 'bold': styleRange(st => ({ ...st, bold: !activeStyle.bold || undefined })); return true;
+      case 'italic': styleRange(st => ({ ...st, italic: !activeStyle.italic || undefined })); return true;
+      case 'underline': styleRange(st => ({ ...st, underline: !activeStyle.underline || undefined })); return true;
+      case 'selectAll': return false;
+    }
+    return false;
+  };
+  useEffect(() => onVoiceDo(d => voiceRef.current(d)), []);
 
   // ---------- rows and columns ----------
   /** Inserts (by > 0) or deletes (by < 0) rows or columns at `at`, moving cells and the formulas that point at them. */

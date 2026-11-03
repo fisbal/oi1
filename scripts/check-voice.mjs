@@ -27,7 +27,7 @@ const QUEUE_WEB = `(() => {
 const H = '.app-frame:not([hidden])';
 const until = async (page, fn, arg, ms = 8000) => { try { await page.waitForFunction(fn, arg, { timeout: ms }); return true; } catch { return false; } };
 
-for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, false], ['Small PC', { width: 1000, height: 700 }, false], ['Phone', { width: 390, height: 844 }, true], ['Phone sideways', { width: 844, height: 390 }, true]]) {
+for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, false], ['Small PC', { width: 1000, height: 700 }, false], ['Tablet', { width: 820, height: 1180 }, true], ['Phone', { width: 390, height: 844 }, true], ['Phone sideways', { width: 844, height: 390 }, true]]) {
   const ctx = await browser.newContext({ viewport, locale: 'fr-FR', isMobile: mobile, hasTouch: mobile, permissions: ['microphone'] });
   const page = await ctx.newPage();
   page.on('pageerror', e => problems.push(`${name}: script error: ${e.message}`));
@@ -71,6 +71,37 @@ ${QUEUE_WEB}`);
     return { h: Math.round(r.height), w: Math.round(r.width), lines: n && n.offsetParent ? n.getClientRects().length : 1, nameH: n && n.offsetParent ? Math.round(n.getBoundingClientRect().height) : 0, tabs: document.querySelectorAll('div.tab[data-app]').length };
   });
   check(shape.h <= 36 && shape.lines === 1 && shape.nameH <= 20 && shape.w >= 30, `${name}: with ${shape.tabs} tabs open the 🎙️ In 1 button keeps its shape (${shape.w}x${shape.h}, name ${shape.nameH}px high)`);
+
+  // Smart commands (Martin, 2026-11-03): "close" closes, "go to Class and write four", "make it red", "remove the line",
+  // and any button by its name.
+  page.on('dialog', d => d.accept());
+  const say = async words => { await page.evaluate(w => window.__queue.push(w), words); await page.waitForTimeout(300); await btn.click(); };
+  const count = app => page.evaluate(a => document.querySelectorAll(`div.tab[data-app="${a}"]`).length, app);
+  const classes = await count('class');
+  await say('In 1 ouvre Letter');
+  await page.waitForTimeout(2200);
+  await say('In 1 va dans Class et écris quatre');
+  const four = await until(page, sel => [...document.querySelectorAll(sel)].some(c => c.textContent.trim() === '4'), `${H} .cells-area [data-cell], ${H} .cells-area td, ${H} .cells-area .cell`, 9000);
+  check(four && await count('class') === classes, `${name}: "va dans Class et écris quatre" goes to the open Class (no new tab) and writes 4 in the cell`);
+  await page.waitForTimeout(1500);
+  await say('In 1 ferme Class');
+  check(await until(page, n => document.querySelectorAll('div.tab[data-app="class"]').length === n - 1, classes, 6000), `${name}: "ferme Class" closes a Class tab (it used to open one again)`);
+  await page.waitForTimeout(1200);
+  await say('In 1 nouvelle lettre');
+  await page.waitForTimeout(2500);
+  const ed = page.locator(`${H} .body-area .ProseMirror`).first();
+  await ed.click();
+  await say('In 1 écris Bonjour Martin');
+  check(await until(page, sel => /Bonjour Martin/.test(document.querySelector(sel)?.innerText ?? ''), `${H} .body-area .ProseMirror`, 6000), `${name}: "écris Bonjour Martin" writes it in the letter`);
+  await page.waitForTimeout(1800);
+  await say('In 1 mets-le en rouge');
+  check(await until(page, sel => [...document.querySelectorAll(sel)].some(s => /Bonjour Martin/.test(s.textContent) && /rgb\(224, 49, 49\)|#e03131/i.test(s.getAttribute('style') || '')), `${H} .body-area .ProseMirror span`, 6000), `${name}: "mets-le en rouge" colors the text red`);
+  await page.waitForTimeout(1800);
+  await say('In 1 enlève la ligne');
+  check(await until(page, sel => !/Bonjour Martin/.test(document.querySelector(sel)?.innerText ?? ''), `${H} .body-area .ProseMirror`, 6000), `${name}: "enlève la ligne" removes the paragraph`);
+  await page.waitForTimeout(1800);
+  await say('In 1 clique sur Insertion');
+  check(await until(page, sel => /Insertion/.test(document.querySelector(sel)?.textContent ?? ''), `${H} .ribbon-tabs button[role="tab"][aria-selected="true"]`, 6000), `${name}: "clique sur Insertion" presses the button with that name`);
   await ctx.close();
 }
 

@@ -4,10 +4,11 @@
 // runs only on the device (Whisper in the browser, nothing is sent anywhere), shows a green light on the button, pauses
 // while a document dictates or the app is hidden, and stays on until the person turns it off.
 import { useEffect, useRef, useState } from 'react';
-import { getLanguage, t } from '../i18n';
+import { getLanguage, t, type MessageKey } from '../i18n';
 import { modules } from '../modules';
 import { dictationRunning, startDictation, type Dictation } from '../../ui/dictation';
-import { heardName, parseVoice, type VoiceAction } from './commands';
+import { heardName, parseSteps, type VoiceAction } from './commands';
+import { voiceDo } from '../../ui/voiceDo';
 import './voice.css';
 
 const SPEECH: Record<string, string> = { fr: 'fr-FR', en: 'en-US', es: 'es-ES', pt: 'pt-PT', de: 'de-DE' };
@@ -27,13 +28,89 @@ function shortcut(key: string) {
   for (const type of ['keydown', 'keyup']) target.dispatchEvent(new KeyboardEvent(type, { key, ctrlKey: true, bubbles: true, cancelable: true }));
 }
 
-export function runVoice(a: VoiceAction, open: (id: string) => void): string {
+/** What the shell lets the voice do with the tabs. */
+export interface VoiceHost {
+  /** A new document of this app. */
+  open(id: string): void;
+  /** The app's open tab (the last one used) if there is one, else a new one. */
+  go(id: string): void;
+  /** Closes the app's tab on screen or its last one, all its tabs, or the tab on screen; gives how many. */
+  close(id: string | undefined, all: boolean): number;
+}
+
+const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/\(.*?\)/g, ' ').replace(/[.,;:!?«»“”"…’'›‹]/g, ' ').replace(/\s+/g, ' ').trim();
+const ARTICLE = /^(?:le |la |les |l |un |une |du |des |the |a |an |el |los |las |o |os |as |der |die |das |den )/;
+/**
+ * "Every button should be linked to In 1's listening" (Martin, 2026-11-03): the button, ribbon tab or menu item of the
+ * app on screen whose name was said ("In 1, gras", "In 1, Insertion", "clique sur Tableau"). Names are the ones shown
+ * on screen, so it works in the 5 languages and for every app, now and later.
+ */
+export function pressByName(words: string): string | null {
+  const want = norm(words).replace(ARTICLE, '');
+  if (want.length < 3) return null;
+  const frame = shown();
+  const roots = [frame, document.querySelector('.drop-panel')].filter(Boolean) as HTMLElement[];
+  let best: { el: HTMLElement; score: number; name: string } | null = null;
+  for (const root of roots) {
+    for (const el of root.querySelectorAll<HTMLElement>('button, [role="menuitem"], [role="tab"], a.work-model')) {
+      if (!el.offsetParent || (el as HTMLButtonElement).disabled) continue;
+      const names = [el.getAttribute('aria-label'), el.getAttribute('title'), el.dataset.oi1Tip, el.textContent].filter(Boolean).map(x => norm(x!)).filter(x => x.length >= 2);
+      for (const name of names) {
+        const n = name.replace(ARTICLE, '');
+        const score = n === want ? 3 : (n.startsWith(`${want} `) || (want.startsWith(`${n} `) && n.length >= 4)) ? 2 : 0;
+        if (score > (best?.score ?? 0)) best = { el, score, name };
+      }
+    }
+  }
+  if (!best) return null;
+  best.el.click();
+  return best.name;
+}
+
+const wait = (ms: number) => new Promise(r => window.setTimeout(r, ms));
+
+export async function runSteps(steps: VoiceAction[], host: VoiceHost): Promise<string> {
+  const said: string[] = [];
+  for (const [i, a] of steps.entries()) {
+    said.push(runVoice(a, host));
+    // An app that opens needs a moment before the next step can act in it.
+    if (i < steps.length - 1) await wait(a.kind === 'open' || a.kind === 'close' ? 1600 : 350);
+  }
+  return said.join(' · ');
+}
+
+export function runVoice(a: VoiceAction, host: VoiceHost): string {
   switch (a.kind) {
     case 'open': {
       const m = modules.find(x => x.id === a.app);
       if (!m) return t('voice.unknown');
-      open(m.id);
+      if (a.fresh) host.open(m.id); else host.go(m.id);
       return t('voice.opened', { app: m.name });
+    }
+    case 'close': {
+      const m = a.app ? modules.find(x => x.id === a.app) : undefined;
+      const n = host.close(m?.id, !!a.all);
+      return n ? t('voice.closed', { app: m?.name ?? '', n }) : t('voice.nothingToClose');
+    }
+    case 'type': {
+      if (voiceDo({ what: 'type', value: a.text })) return t('voice.typed', { text: a.text });
+      // Any other text box that has the focus.
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.isContentEditable || el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) && document.execCommand('insertText', false, a.text)) return t('voice.typed', { text: a.text });
+      return t('voice.openFirst');
+    }
+    case 'do': {
+      if (voiceDo({ what: a.what, value: a.value })) return t(`voice.do.${a.what}` as MessageKey);
+      // The app's own button by its name (Bold, Delete row…), else the key.
+      const names: Record<string, string[]> = { bold: ['letter.bold', 'class.bold'], italic: ['letter.italic', 'class.italic'], underline: ['letter.underline', 'class.underline'] };
+      if (names[a.what] && press(names[a.what])) return t(`voice.do.${a.what}` as MessageKey);
+      if (a.what === 'delete') { document.execCommand('delete'); return t('voice.do.delete'); }
+      if (a.what === 'selectAll') { document.execCommand('selectAll'); return t('voice.do.selectAll'); }
+      return t('voice.openFirst');
+    }
+    case 'button': {
+      const name = pressByName(a.words);
+      return name ? t('voice.pressed', { name }) : t('voice.noButton', { name: a.words });
     }
     case 'dictate':
       // The voice button's own listening ends first, then the document's dictation starts.
@@ -45,21 +122,25 @@ export function runVoice(a: VoiceAction, open: (id: string) => void): string {
       try { sessionStorage.setItem('oi1.voice.listen', '1'); } catch { /* private mode */ }
       window.setTimeout(() => {
         window.dispatchEvent(new CustomEvent('oi1-voice-listen'));
-        window.setTimeout(() => { let left = false; try { left = sessionStorage.getItem('oi1.voice.listen') === '1'; } catch { /* */ } if (left) open('notes'); }, 120);
+        window.setTimeout(() => { let left = false; try { left = sessionStorage.getItem('oi1.voice.listen') === '1'; } catch { /* */ } if (left) host.go('notes'); }, 120);
       }, 450);
       return t('voice.notesListen');
     case 'key': {
-      const done = a.key === 'undo' ? press(['letter.undo'])
-        : a.key === 'redo' ? press(['letter.redo'])
+      const done = a.key === 'undo' ? press(['letter.undo', 'class.undo', 'undo'])
+        : a.key === 'redo' ? press(['letter.redo', 'class.redo', 'redo'])
         : a.key === 'zoomIn' ? press(['letter.zoomIn', 'class.zoomIn', 'zoomIn'])
         : a.key === 'zoomOut' ? press(['letter.zoomOut', 'class.zoomOut', 'zoomOut'])
         : false;
       if (!done && (a.key === 'save' || a.key === 'print')) shortcut(a.key === 'save' ? 's' : 'p');
       return t(`voice.did.${a.key}`);
     }
-    case 'ask':
+    case 'ask': {
+      // A button of the app on screen said by its name ("In 1, Insertion", "In 1, gras"); otherwise In 1 Assistant.
+      const name = pressByName(a.text);
+      if (name) return t('voice.pressed', { name });
       window.dispatchEvent(new CustomEvent('oi1-assistant', { detail: a.text }));
       return t('voice.asked');
+    }
     case 'stop': return t('voice.bye');
     default: return t('voice.unknown');
   }
@@ -68,7 +149,7 @@ export function runVoice(a: VoiceAction, open: (id: string) => void): string {
 const NAME_KEY = 'oi1.voice.name';
 const nameWanted = () => { try { return localStorage.getItem(NAME_KEY) === 'on'; } catch { return false; } };
 
-export function In1Voice({ open }: { open: (id: string) => void }) {
+export function In1Voice({ host }: { host: VoiceHost }) {
   const [on, setOn] = useState(false);
   const [note, setNote] = useState('');
   // The name "In 1": wanted (the person's choice, kept) and really listening now (the green light).
@@ -82,13 +163,13 @@ export function In1Voice({ open }: { open: (id: string) => void }) {
   const waiting = useRef(0); // the name was said alone: the next phrase is the request (until this time)
   const wanted = useRef(name);
   const loadingNote = useRef(false);
-  const openRef = useRef(open);
-  openRef.current = open;
+  const hostRef = useRef(host);
+  hostRef.current = host;
   const say = (s: string, ms = 3500) => { setNote(s); clearTimeout(noteTimer.current); if (ms) noteTimer.current = window.setTimeout(() => setNote(''), ms); };
   const act = (words: string) => {
-    const a = parseVoice(words, getLanguage());
-    if (a.kind === 'none') { say(t('voice.listening'), 0); waiting.current = Date.now() + 6000; return; }
-    say(`« ${words} » — ${runVoice(a, id => openRef.current(id))}`, 5000);
+    const steps = parseSteps(words, getLanguage());
+    if (steps[0].kind === 'none') { say(t('voice.listening'), 0); waiting.current = Date.now() + 6000; return; }
+    void runSteps(steps, hostRef.current).then(done => say(`« ${words} » — ${done}`, 5000));
   };
 
   // ---- the name "In 1"
@@ -142,7 +223,7 @@ export function In1Voice({ open }: { open: (id: string) => void }) {
     heard.current = '';
     window.setTimeout(startName, 900);
     if (!words) { say(t('voice.nothing')); return; }
-    say(`« ${words} » — ${runVoice(parseVoice(words, getLanguage()), open)}`, 5000);
+    void runSteps(parseSteps(words, getLanguage()), hostRef.current).then(done => say(`« ${words} » — ${done}`, 5000));
   };
 
   const start = () => {

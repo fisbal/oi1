@@ -5,6 +5,7 @@
 // offline, dictation types what you say, and the AI summarizes, makes to-do lists, explains, and answers from your
 // own notes. Everything stays on the device (IndexedDB) and every Notes tab shows the same notebooks.
 
+import { editorVoiceDo, onVoiceDo } from '../../ui/voiceDo';
 import { AutoPunctBtn } from '../../ui/AutoPunctBtn';
 import { useDictation } from '../../ui/useDictation';
 import { insertDictation } from '../../ui/dictation';
@@ -392,6 +393,8 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
     window.addEventListener('oi1-voice-dictate', on);
     return () => window.removeEventListener('oi1-voice-dictate', on);
   }, [ed, dict]);
+  // "In 1, écris…", "mets-le en rouge"…: the note on screen does it.
+  useEffect(() => onVoiceDo(d => editorVoiceDo(ed, d)));
   const dictNote = useRef('');
   useEffect(() => {
     const last = dictNote.current;

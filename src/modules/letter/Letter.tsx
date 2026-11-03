@@ -4,6 +4,7 @@ import type { SignaturePlace } from '../../ui/signature/SignatureMenu';
 import { todayText, type Signature } from '../../ui/signature/store';
 import { useDictation } from '../../ui/useDictation';
 import { insertDictation } from '../../ui/dictation';
+import { editorVoiceDo, onVoiceDo } from '../../ui/voiceDo';
 import { closeHistory } from '@tiptap/pm/history';
 import { EditorContent, useEditor, useEditorState, type Editor, type JSONContent } from '@tiptap/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -576,6 +577,8 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     window.addEventListener('oi1-voice-dictate', on);
     return () => window.removeEventListener('oi1-voice-dictate', on);
   }, [body, dict]);
+  // "In 1, écris…", "supprime la sélection", "mets-le en rouge", "enlève la ligne": the letter on screen does it.
+  useEffect(() => onVoiceDo(d => (body?.view.dom.offsetParent ? editorVoiceDo(dictEd(), d) : false)));
   useEffect(() => { if (dict.error) shell.notify(dict.message); }, [dict.error, dict.message, shell]);
   useEffect(() => () => { window.speechSynthesis?.cancel(); }, []);
 
