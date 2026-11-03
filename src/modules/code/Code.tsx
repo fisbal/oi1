@@ -122,6 +122,7 @@ async function projectFromHandoff(h: Handoff): Promise<Project> {
   }
   const files: Files = {
     'data.json': tableToJson(h.table),
+    // faults-ok: the text of a file Code+ writes for the person, never put in this page
     'index.html': `<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <title>${escapeHtml(name || 'Table')}</title>\n  <style>body{font-family:system-ui,sans-serif;padding:24px}table{border-collapse:collapse}td,th{border:1px solid #ddd;padding:6px 10px}th{background:#f4f0e6}</style>\n</head>\n<body>\n  <table id="table"></table>\n  <script type="module">\n    import rows from './data.json';\n    const keys = Object.keys(rows[0] ?? {});\n    document.getElementById('table').innerHTML =\n      '<tr>' + keys.map(k => '<th>' + k + '</th>').join('') + '</tr>' +\n      rows.map(r => '<tr>' + keys.map(k => '<td>' + r[k] + '</td>').join('') + '</tr>').join('');\n  </script>\n</body>\n</html>\n`,
   };
   return { ...emptyProject(), name, files, open: ['data.json', 'index.html'], active: 'index.html' };
@@ -805,6 +806,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
             const [body] = await translateHtml([doc.body.innerHTML], tr);
             const titleEl = doc.querySelector('title');
             if (titleEl?.textContent) titleEl.textContent = (await tr([titleEl.textContent]))[0] || titleEl.textContent;
+            // faults-ok: a parsed copy of the person's own page, never shown here; it becomes the file's text.
             doc.body.innerHTML = body;
             files[path] = `<!doctype html>\n${doc.documentElement.outerHTML}\n`;
           }

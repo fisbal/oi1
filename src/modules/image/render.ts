@@ -107,8 +107,25 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
   return p;
 }
 
+const GL_OPTS = { premultipliedAlpha: false, preserveDrawingBuffer: true, antialias: false };
+let gpuOk: boolean | null = null;
+/** Can this device draw with WebGL 2? Tried once on a spare canvas: a canvas that got a WebGL context can never give a
+ *  2D one, so the photo's own canvas must not be spoiled by a try that fails (the fault detector found the crash). */
+function gpuWorks(img: HTMLImageElement): boolean {
+  if (gpuOk !== null) return gpuOk;
+  try {
+    const probe = document.createElement('canvas');
+    probe.width = probe.height = 4;
+    const gl = probe.getContext('webgl2', GL_OPTS) as WebGL2RenderingContext | null;
+    const r = gl ? gpuRenderer(gl, img, probe) : null;
+    gpuOk = !!r;
+    r?.dispose();
+  } catch { gpuOk = false; }
+  return gpuOk;
+}
+
 export function createRenderer(img: HTMLImageElement, canvas = document.createElement('canvas'), preferGpu = true): Renderer {
-  const gl = preferGpu ? canvas.getContext('webgl2', { premultipliedAlpha: false, preserveDrawingBuffer: true, antialias: false }) : null;
+  const gl = preferGpu && gpuWorks(img) ? canvas.getContext('webgl2', GL_OPTS) as WebGL2RenderingContext | null : null;
   if (gl) {
     const r = gpuRenderer(gl, img, canvas);
     if (r) return r;
@@ -199,10 +216,14 @@ function cpuRenderer(img: HTMLImageElement, canvas: HTMLCanvasElement): Renderer
     canvas,
     draw(doc, maxSide, opts) {
       const out = outputSize(doc);
+      // Without a graphics card every pixel is computed by hand: the preview stays at 1200 px so the buttons answer at
+      // once (the fault detector found presses waiting seconds); saving still uses the full size (maxSide 0).
+      if (maxSide) maxSide = Math.min(maxSide, 1200);
       const k = maxSide && Math.max(out.w, out.h) > maxSide ? maxSide / Math.max(out.w, out.h) : 1;
       const w = Math.max(1, Math.round(out.w * k)), h = Math.max(1, Math.round(out.h * k));
       canvas.width = w; canvas.height = h;
-      const g = canvas.getContext('2d')!;
+      const g = canvas.getContext('2d');
+      if (!g) return { w, h }; // a canvas spoiled by a lost WebGL context: Image gives a fresh one with the next photo
       const data = g.createImageData(w, h);
       const d = data.data;
       const p: Params = opts?.neutral ? { a: Object.fromEntries(KEYS.map(x => [x, 0])) as Params['a'], tone: null, mono: false } : params(doc);

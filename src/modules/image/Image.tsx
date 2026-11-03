@@ -724,8 +724,8 @@ function ImageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
                   onPointerDown={() => { if (!cropping) holdTimer.current = window.setTimeout(() => setHolding(true), 450); }}
                   onPointerUp={() => { window.clearTimeout(holdTimer.current); setHolding(false); }} onPointerLeave={() => { window.clearTimeout(holdTimer.current); setHolding(false); }} onPointerCancel={() => { window.clearTimeout(holdTimer.current); setHolding(false); }}
                   onPointerMove={() => window.clearTimeout(holdTimer.current)}>
-                  <canvas ref={canvasRef} className="im-canvas" role="img" aria-label={title} />
-                  <canvas ref={beforeRef} className="im-before" aria-hidden="true" hidden={compare === null && !holding}
+                  <canvas key={`c-${doc?.src.length ?? 0}-${doc?.src.slice(-24)}`} ref={canvasRef} className="im-canvas" role="img" aria-label={title} />
+                  <canvas key={`b-${doc?.src.length ?? 0}-${doc?.src.slice(-24)}`} ref={beforeRef} className="im-before" aria-hidden="true" hidden={compare === null && !holding}
                     style={{ clipPath: holding ? 'none' : `inset(0 ${(1 - (compare ?? 0.5)) * 100}% 0 0)` }} />
                   {compare !== null && !holding && !cropping && (
                     <div className="im-split" style={{ left: `${compare * 100}%` }}

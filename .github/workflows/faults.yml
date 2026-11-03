@@ -1,0 +1,80 @@
+# The fault detector every day (Martin, 2026-11-03: "un détecteur qui vérifie le code source et détecte toute
+# malformation ou potentiel problème… sans que je te le demande"). Part 1 (the code) also runs on every pull request
+# in build.yml. Here part 2 presses every button of every app on a PC and on a phone, in parallel groups, and the
+# report goes to one issue "Fault detector report", updated each day, so the problems are found before people do.
+name: Fault detector
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: faults
+  cancel-in-progress: true
+
+jobs:
+  press:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { group: pc-1, screens: pc, apps: 'Letter,Class' }
+          - { group: pc-2, screens: pc, apps: 'Stage,Code+,Draw' }
+          - { group: pc-3, screens: pc, apps: 'Notes,Plan,Form,Mail,Image,Assistant' }
+          - { group: phone-1, screens: phone, apps: 'Letter,Class,Stage' }
+          - { group: phone-2, screens: phone, apps: 'Code+,Draw,Notes,Plan,Form,Mail,Image,Assistant' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Press every button (${{ matrix.group }})
+        run: npm run faults:ui || true
+        env:
+          APPS: ${{ matrix.apps }}
+          SCREENS: ${{ matrix.screens }}
+          OUT: screens/faults-ui-${{ matrix.group }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: faults-${{ matrix.group }}
+          path: screens/faults-ui-${{ matrix.group }}.*
+
+  report:
+    needs: press
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Fault detector, the code
+        run: npm run check:faults-code || true
+      - uses: actions/download-artifact@v4
+        with:
+          path: screens
+          merge-multiple: true
+      - name: One report
+        run: node scripts/faults-report.mjs > screens/faults-report.md
+      - name: Update the issue "Fault detector report"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          n=$(gh issue list --state open --search 'in:title "Fault detector report"' --json number --jq '.[0].number')
+          if [ -n "$n" ]; then gh issue edit "$n" --body-file screens/faults-report.md; gh issue comment "$n" --body "Updated $(date -u +%F): $(head -3 screens/faults-report.md | tail -1)";
+          else gh issue create --title "Fault detector report" --body-file screens/faults-report.md; fi

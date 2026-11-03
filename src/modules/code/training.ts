@@ -1,3 +1,4 @@
+// faults-ok-file: Code+ lessons: the unsafe code is the bad example the lesson corrects.
 // Training: 20 courses of short exercises, each checked by real tests in the sandbox. Four kinds of exercise,
 // because people learn code in different ways: write it, find the bug, put the lines in order (Parsons
 // problems, Parsons & Haden 2006) and predict what it prints. Hints come in levels (a question first, then

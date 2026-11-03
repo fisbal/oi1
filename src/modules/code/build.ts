@@ -237,7 +237,16 @@ export async function buildPreview(files: Files, page: string, storage: Record<s
     const module = el.getAttribute('type') === 'module';
     if (src) {
       const target = resolvePath(page, src, files);
-      if (!target) continue;
+      if (!target) {
+        // A script the project does not have: say so clearly instead of letting the browser fetch it from Office In 1
+        // itself (the fault detector saw "blocked by CORS policy" for a missing main.js).
+        if (!/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(src)) {
+          errors.push({ path: page, message: `Cannot find "${src}"` });
+          el.removeAttribute('src');
+          el.textContent = `console.error(${JSON.stringify(`${page}: cannot find "${src}"`)});`;
+        }
+        continue;
+      }
       el.removeAttribute('src');
       if (module || TS.test(target) || JSX.test(target)) {
         el.setAttribute('type', 'module');
