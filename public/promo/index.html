@@ -103,10 +103,12 @@ pre { white-space: pre-wrap; font: 14px/1.5 inherit; font-family: inherit; backg
     ['MP4', `OfficeIn1-Demo-${O}.mp4`, tx('Vidéo en anglais', 'Video in French')],
     ['PDF', `OfficeIn1-Guide-${U}.pdf`, tx('Guide : comment présenter et installer', 'Guide: how to present and install')],
     ['PDF', `OfficeIn1-Guide-${O}.pdf`, tx('Guide en anglais', 'Guide in French')],
+    ['PDF', `OfficeIn1-Affiche-${U}.pdf`, tx('Affiche à imprimer (Lettre) avec 2 codes QR', 'Printable poster (Letter) with 2 QR codes')],
+    ['PDF', `OfficeIn1-Affiche-${U}-claire.pdf`, tx('Affiche, version claire (moins d’encre)', 'Poster, light version (less ink)')],
   ];
   $('h-files').textContent = tx('Fichiers à publier', 'Files to post');
   $('files').innerHTML = files.map(([kind, f, s]) => `<a class="file" href="${f}" download><span class="k">${kind}</span><span><strong>${f}</strong><small>${s}</small></span></a>`).join('');
-  $('auto').textContent = tx('Tout ce kit est refait automatiquement à chaque mise à jour d’Office In 1 (applis, captures, vidéo, PDF). Le code QR ne change jamais.', 'This whole kit is made again automatically with every Office In 1 update (apps, screenshots, video, PDF). The QR code never changes.');
+  $('auto').textContent = tx('Tout ce kit est refait automatiquement à chaque mise à jour d’Office In 1 (applis, captures, vidéo, PDF). Le code QR ne change jamais.', 'This whole kit is made again automatically with every Office In 1 update (apps, screenshots, video, PDF, poster). The QR code never changes.');
 
   $('h-texts').textContent = tx('Textes prêts à coller', 'Ready-to-paste texts');
   const nets = ['facebook', 'instagram', 'tiktok', 'whatsapp'];

@@ -6,6 +6,8 @@
 //   dist/promo/OfficeIn1-Demo-FR.mp4 / -EN.mp4   the demo (promo/video.html) recorded at 1080x1920, 30 fps
 //   dist/promo/OfficeIn1-Guide-FR.pdf / -EN.pdf  the social media guide (promo/guide.html)
 //   dist/promo/poster-<lang>-square.png (1080x1080) and -story.png (1080x1920) for posts and statuses
+//   dist/promo/qr-store.svg         QR code straight to the Microsoft Store page
+//   dist/promo/OfficeIn1-Affiche-FR.pdf / -EN.pdf (+ -claire: less ink)  the printable poster (promo/affiche.html)
 // Run after `npm run build` (CI runs it on every push):  node scripts/promo.mjs
 // Exits with an error when a part is missing, so a broken kit is seen on the PR.
 
@@ -50,6 +52,11 @@ const qr = qrcode(0, 'H');
 qr.addData(config.get);
 qr.make();
 writeFileSync(`${OUT}/qr.svg`, qr.createSvgTag({ cellSize: 10, margin: 4, scalable: true }).replace('<svg ', '<svg role="img" aria-label="QR Office In 1" '));
+// A second QR, straight to the Microsoft Store page, for the printed poster (install of choice).
+const qrs = qrcode(0, 'H');
+qrs.addData(config.store);
+qrs.make();
+writeFileSync(`${OUT}/qr-store.svg`, qrs.createSvgTag({ cellSize: 10, margin: 4, scalable: true }).replace('<svg ', '<svg role="img" aria-label="QR Microsoft Store" '));
 
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
 for (let i = 0; i < 80; i++) {
@@ -221,14 +228,35 @@ try {
     await c.close();
   }
 
+  // 6. The printable poster (US Letter, one page), dark and light (less ink), in both languages.
+  for (const lang of Object.keys(LANGS)) for (const theme of ['dark', 'light']) {
+    const c = await browser.newContext({ viewport: { width: 816, height: 1056 } });
+    const p = await c.newPage();
+    await p.goto(`${ROOT}promo/affiche.html?lang=${lang}&theme=${theme}`);
+    await p.waitForFunction(() => window.promoReady === true, null, { timeout: 30000 });
+    // More apps or longer lines must never push anything off the page or under the install band.
+    const bad = await p.evaluate(() => {
+      const out = [], page = document.getElementById('page').getBoundingClientRect();
+      const foot = document.querySelector('footer').getBoundingClientRect();
+      if (foot.bottom > page.bottom - 16) out.push(`footer runs off the page by ${Math.round(foot.bottom - page.bottom + 16)}px`);
+      const cmp = document.querySelector('.cmp').getBoundingClientRect(), ins = document.getElementById('install').getBoundingClientRect();
+      if (cmp.bottom > ins.top + 1) out.push(`comparison runs under the QR codes by ${Math.round(cmp.bottom - ins.top)}px`);
+      for (const e of document.querySelectorAll('.chip, td, th, .qcard')) if (e.scrollWidth > e.clientWidth + 1) out.push(`"${e.textContent.trim().slice(0, 30)}" is cut`);
+      return out;
+    });
+    for (const b of bad) problems.push(`poster PDF ${lang} ${theme}: ${b}`);
+    await p.pdf({ path: `${OUT}/OfficeIn1-Affiche-${lang.toUpperCase()}${theme === 'light' ? '-claire' : ''}.pdf`, format: 'Letter', printBackground: true, preferCSSPageSize: true, pageRanges: '1' });
+    await c.close();
+  }
+
 } finally {
   await browser.close();
   server.kill();
 }
 
 // Everything the kit page links to must exist and not be empty.
-const need = ['info.json', 'qr.svg', 'qr.png'];
-for (const l of Object.keys(LANGS)) need.push(`OfficeIn1-Demo-${l.toUpperCase()}.mp4`, `OfficeIn1-Guide-${l.toUpperCase()}.pdf`, `poster-${l}-square.png`, `poster-${l}-story.png`);
+const need = ['info.json', 'qr.svg', 'qr.png', 'qr-store.svg'];
+for (const l of Object.keys(LANGS)) need.push(`OfficeIn1-Demo-${l.toUpperCase()}.mp4`, `OfficeIn1-Guide-${l.toUpperCase()}.pdf`, `poster-${l}-square.png`, `poster-${l}-story.png`, `OfficeIn1-Affiche-${l.toUpperCase()}.pdf`, `OfficeIn1-Affiche-${l.toUpperCase()}-claire.pdf`);
 for (const f of need) if (!existsSync(`${OUT}/${f}`) || statSync(`${OUT}/${f}`).size < 500) problems.push(`${f} is missing`);
 for (const lang of Object.keys(LANGS)) if (Object.keys(info.shots[lang] ?? {}).length < 4) problems.push(`${lang}: fewer than 4 screenshots`);
 
