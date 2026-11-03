@@ -25,7 +25,17 @@ const prodfos: OI1Module = {
       frame.contentWindow?.postMessage({ type: 'oi1-lang', lang: getLanguage() }, new URL(PRODFOS_URL).origin);
     };
     label();
-    return { unmount: onLanguageChange(label) };
+    // Ctrl+P (⌘P) while this tab is on screen prints the open PDF in ProDFos, not the Office In 1 window.
+    // When the PDF itself has the focus, ProDFos catches Ctrl+P on its own.
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.key.toLowerCase() !== 'p' || !el.offsetParent) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      frame.contentWindow?.postMessage({ type: 'oi1-print' }, new URL(PRODFOS_URL).origin);
+    };
+    window.addEventListener('keydown', onKey, true);
+    const offLang = onLanguageChange(label);
+    return { unmount: () => { offLang(); window.removeEventListener('keydown', onKey, true); } };
   },
 };
 
