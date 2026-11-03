@@ -824,6 +824,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   return (
     <div ref={rootRef} className={`code${mobileView === 'preview' ? ' show-preview' : ''}`} onKeyDownCapture={onKey} style={{ '--code-size': `${size}px` } as CSSProperties}>
       <div className="ribbon">
+        <div className="ribbon-head">
         <div className="ribbon-tabs" role="tablist">
           <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
           {([['home', 'letter.tab.home'], ['run', 'code.tab.run'], ['tools', 'code.tab.tools'], ['corrector', 'code.tab.corrector'], ['training', 'code.tab.training'], ['github', 'code.tab.github']] as const).map(([id, label]) => (
@@ -833,6 +834,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
           <button type="button" role="tab" aria-selected={tab === 'convert'} className={`ribbon-special ribbon-convert${tab === 'convert' ? ' on' : ''}`} onClick={() => setTab('convert')}>{t('convert.tab')}</button>
         <TutoTab />
         <RibbonToggle />
+          </div>
           <span className="ribbon-quick">
             <CopilotButton open={copilot} onClick={() => setCopilot(o => !o)} />
             <Btn icon="undo" title="letter.undo" onClick={command(undo)} disabled={!active} />

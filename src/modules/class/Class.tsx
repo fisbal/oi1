@@ -1824,6 +1824,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       }
     }}>
       <div className="ribbon">
+        <div className="ribbon-head">
         <div className="ribbon-tabs" role="tablist">
           <button type="button" className="ribbon-file" onClick={() => setPanel('file')}>{t('letter.tab.file')}</button>
           {tabs.map(x => <button key={x.id} type="button" role="tab" aria-selected={shownTab === x.id} className={shownTab === x.id ? 'on' : ''} onClick={() => setTab(x.id)}>{t(x.label)}</button>)}
@@ -1832,6 +1833,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
         <TutoTab />
         <RibbonToggle />
           {chart && <button type="button" role="tab" aria-selected={shownTab === 'chart'} className={shownTab === 'chart' ? 'on' : ''} onClick={() => setTab('chart')}>{t('class.tab.chart')}</button>}
+          </div>
           <span className="ribbon-quick">
             <CopilotButton open={copilot} onClick={() => setCopilot(o => !o)} />
             <Btn icon="undo" title="letter.undo" onClick={undoOnce} disabled={!undo.current.length} />

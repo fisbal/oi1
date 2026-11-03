@@ -299,6 +299,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
 
   return (
     <div className="ribbon">
+      <div className="ribbon-head">
       <div className="ribbon-tabs" role="tablist">
         <button type="button" className="ribbon-file" onClick={actions.fileMenu}>{t('letter.tab.file')}</button>
         {TABS.map(id => (
@@ -319,6 +320,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           <button type="button" role="tab" aria-selected={shownTab === 'picture'} className={shownTab === 'picture' ? 'on' : ''}
             onMouseDown={e => e.preventDefault()} onClick={() => setTab('picture')}>{t(tabLabel.picture)}</button>
         )}
+        </div>
         <span className="ribbon-quick">
           <CopilotButton open={suite.copilot} onClick={actions.copilot} />
           <button type="button" className="cmd-search" onMouseDown={e => e.preventDefault()} onClick={actions.commandSearch} title={`${t('letter.commandSearch')} (Alt+Q)`}>

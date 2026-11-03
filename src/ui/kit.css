@@ -26,6 +26,18 @@
 .ribbon-tabs > .ribbon-special { color: var(--gold); }
 .ribbon-tabs > .ribbon-special .dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 6px var(--gold); vertical-align: 1px; }
 .ribbon-quick { margin-left: auto; display: flex; align-items: center; gap: 4px; padding-left: 12px; }
+/* Undo / redo and the copilot stay in view on every screen (Martin, 2026-11-03: on a phone they were hidden at the end of
+   the sliding tab row, so only Ctrl+Z could undo): the tabs slide, this group never does. */
+.ribbon-head { display: flex; align-items: center; min-width: 0; }
+.ribbon-head > .ribbon-tabs { flex: 1 1 auto; min-width: 0; }
+.ribbon-head > .ribbon-quick { flex: none; padding: 6px 10px 0 8px; }
+.ribbon-quick > .rb:not(:disabled) { color: var(--ink); }
+.ribbon-quick > .rb:disabled { opacity: .45; }
+@media (max-width: 760px) {
+  .ribbon-head > .ribbon-quick { gap: 2px; padding: 3px 6px 0 4px; }
+  .ribbon-quick .copilot-pill > span, .ribbon-quick .cmd-search > span, .ribbon-quick .cmd-search kbd { display: none; }
+  .ribbon-quick .cmd-search { width: auto; min-width: 0; }
+}
 
 /* Command search: every command, found by typing, like a command palette. */
 .cmd-search {
