@@ -154,7 +154,7 @@ export default function App() {
   };
   const renameBox = (label: string) => (
     <input className="tab-rename" autoFocus aria-label={t('tab.renameBox', { name: label })} value={renaming?.text ?? ''} maxLength={80}
-      onFocus={e => e.currentTarget.select()}
+      onFocus={e => { e.currentTarget.select(); e.currentTarget.scrollIntoView?.({ inline: 'nearest', block: 'nearest' }); }}
       onClick={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}
       onChange={e => { const text = e.target.value; setRenaming(r => (r ? { ...r, text } : r)); }}
       onKeyDown={e => {
