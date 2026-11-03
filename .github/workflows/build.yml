@@ -85,6 +85,8 @@ jobs:
       - run: npm ci
       - run: npm version "$OI1_VERSION" --no-git-tag-version --allow-same-version
       - run: npm test
+      - name: Fault detector, the code (types, translations, buttons without action, unsafe HTML, CSS, the checks themselves)
+        run: npm run check:faults-code
       - run: npm run build
       - name: Check every app on phones, tablets, PCs and Macs
         if: env.FULL_CHECKS == 'true'

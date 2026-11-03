@@ -120,6 +120,7 @@ export async function showSteps(ribbon: HTMLElement, steps: Control[]) {
   const list = document.createElement('ol');
   steps.forEach((s, i) => {
     const li = document.createElement('li');
+    // faults-ok: a step number
     li.innerHTML = `<b>${i + 1}</b>`;
     li.append(document.createTextNode(s.name));
     if (!els[i]) li.classList.add('want-missing');

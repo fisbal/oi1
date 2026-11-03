@@ -8,6 +8,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { FileRef, Handoff, OpenedFile, RecentFile, ShellApi } from '../../shell/contract';
 import { getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
+import { printWindow } from '../../shell/printWindow';
 import { Btn, ColorGrid, Dialog, Drop, Group, Icon, MenuItem, RibbonToggle } from '../../ui/kit';
 import { AppKeys, appColor } from '../../ui/AppKeys';
 import { FileMenu } from '../../ui/FileMenu';
@@ -560,11 +561,8 @@ function DrawEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   const print = async () => {
     const png = await rasterize(docRef.current);
     const src = await readDataUrl(png);
-    const w = window.open('', '_blank');
-    if (!w) return;
-    w.document.write(`<!doctype html><title>${title.replace(/</g, '')}</title><style>@page{margin:10mm}body{margin:0}img{width:100%}</style><img src="${src}">`);
-    w.document.close();
-    w.onload = () => w.print();
+    // The print window gets the picture through safeHtml (CodeQL: no raw HTML written into a window).
+    printWindow(title.replace(/</g, ''), `<img src="${src}" alt="">`, '@page{margin:10mm}body{margin:0}img{width:100%}', getLanguage());
   };
   const share = async () => {
     const png = await rasterize(docRef.current);

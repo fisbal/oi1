@@ -11,7 +11,7 @@ import { chromium } from 'playwright';
 // Buttons without an explanation yet, per app. These numbers may only shrink.
 const STILL_TO_EXPLAIN = { Class: 0, Letter: 0, Stage: 0, 'Code+': 0, Draw: 0, Notes: 0, Plan: 0, Form: 0, Mail: 0, Image: 0 };
 
-const PORT = Number(process.env.PORT) || 4196;
+const PORT = Number(process.env.PORT) || 4224;
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore', detached: true });
 const url = `http://localhost:${PORT}/`;
 for (let i = 0; i < 60; i++) { try { if ((await fetch(url)).ok) break; } catch { /* not up yet */ } await new Promise(r => setTimeout(r, 500)); }

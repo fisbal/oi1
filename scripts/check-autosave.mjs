@@ -6,7 +6,7 @@
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 
-const PORT = Number(process.env.PORT) || 4186;
+const PORT = Number(process.env.PORT) || 4225;
 // From the last change to "Saved" in the app bar (the working copy), and to the file being written (AutoSave).
 const DEVICE_MS = 1500, FILE_MS = 6000;
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore', detached: true });

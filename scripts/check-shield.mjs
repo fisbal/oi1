@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 import JSZip from 'jszip';
 
-const PORT = Number(process.env.PORT) || 4204;
+const PORT = Number(process.env.PORT) || 4227;
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore', detached: true });
 const url = `http://localhost:${PORT}/`;
 for (let i = 0; i < 60; i++) { try { if ((await fetch(url)).ok) break; } catch { /* not up yet */ } await new Promise(r => setTimeout(r, 500)); }

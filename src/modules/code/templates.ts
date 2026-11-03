@@ -1,3 +1,4 @@
+// faults-ok-file: example projects for Code+, their code is text shown to the person.
 // Ready-made projects to start from. Each one runs as is in the preview and on GitHub Pages.
 
 import type { MessageKey } from '../../shell/i18n';

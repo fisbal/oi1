@@ -1,6 +1,7 @@
 // The Print window of In 1 Class: what to print on the left, the real pages on the right ("Page 2 of 5"), then
 // Print or Save as PDF. Every choice except "Print what" is the sheet's page setup, saved with the workbook (and in
 // the .xlsx, so Excel prints the same way).
+import { safeHtml } from '../../shell/safeHtml';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { t, type MessageKey } from '../../shell/i18n';
@@ -74,7 +75,8 @@ export function PrintPanel({ input, what: whatIn, onSetup, onSave, onClose }: {
     const host = offscreen(box.w);
     try {
       const doc = new DOMParser().parseFromString(html, 'text/html');
-      host.innerHTML = `<style>${doc.querySelector('style')?.textContent ?? ''}</style>${doc.body.innerHTML}`;
+      // faults-ok: the sheet's own print style (made by Class) and its body through safeHtml
+      host.innerHTML = `<style>${doc.querySelector('style')?.textContent ?? ''}</style>${safeHtml(doc.body.innerHTML)}`;
       await settle(host);
       const nodes = Array.from(host.querySelectorAll<HTMLElement>('.page'));
       const blob = await pagesToPdf({ nodes, width: box.w, height: box.h, done: () => host.remove() }, input.file);
