@@ -7,7 +7,7 @@
 //   dist/promo/OfficeIn1-Guide-FR.pdf / -EN.pdf  the social media guide (promo/guide.html)
 //   dist/promo/poster-<lang>-square.png (1080x1080) and -story.png (1080x1920) for posts and statuses
 //   dist/promo/qr-store.svg         QR code straight to the Microsoft Store page
-//   dist/promo/OfficeIn1-Affiche-FR.pdf / -EN.pdf (+ -claire: less ink)  the printable poster (promo/affiche.html)
+//   dist/promo/OfficeIn1-Affiche-FR.pdf / -EN.pdf / -FR-EN.pdf (2 pages) (+ -claire: less ink)  the printable poster (promo/affiche.html)
 // Run after `npm run build` (CI runs it on every push):  node scripts/promo.mjs
 // Exits with an error when a part is missing, so a broken kit is seen on the PR.
 
@@ -150,6 +150,39 @@ try {
       for (const e of errors) problems.push(`${lang} ${app}: script error: ${e}`);
       await c.close();
     }
+
+    // The same suite on a computer (for the printed poster): In 1 Class with a small table and a chart, 1440x900.
+    {
+      const c = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1.5, colorScheme: 'dark', locale });
+      const p = await c.newPage();
+      await p.goto(ROOT);
+      await p.waitForTimeout(800);
+      try {
+        await p.locator('.slab:has-text("In 1 Class")').first().click({ timeout: 3000 });
+        await p.waitForTimeout(1800);
+        const host = p.locator('.module-host:not([hidden])');
+        const rows = lang === 'fr' ? [['Mois', 'Ventes', 'Dépenses'], ['Janvier', '1200', '800'], ['Février', '1850', '950'], ['Mars', '2400', '1100'], ['Avril', '2900', '1250'], ['Mai', '3300', '1400'], ['Total', '=SUM(B2:B6)', '=SUM(C2:C6)']]
+          : [['Month', 'Sales', 'Costs'], ['January', '1200', '800'], ['February', '1850', '950'], ['March', '2400', '1100'], ['April', '2900', '1250'], ['May', '3300', '1400'], ['Total', '=SUM(B2:B6)', '=SUM(C2:C6)']];
+        const area = await host.locator('.cells-area').boundingBox({ timeout: 2000 });
+        await p.mouse.click(area.x + 12, area.y + 8);
+        for (const r of rows) for (const [i, v] of r.entries()) { await p.keyboard.type(v); await p.keyboard.press(i < r.length - 1 ? 'Tab' : 'Enter'); }
+        // Select the months and add a column chart from the Insert tab, as a person would.
+        await p.mouse.click(area.x + 12, area.y + 8);
+        await p.keyboard.down('Shift');
+        for (let i = 0; i < 2; i++) await p.keyboard.press('ArrowRight');
+        for (let i = 0; i < 5; i++) await p.keyboard.press('ArrowDown');
+        await p.keyboard.up('Shift');
+        await host.locator('.ribbon-tabs [role=tab]').nth(1).click({ timeout: 2000 });
+        await p.waitForTimeout(400);
+        await host.locator('.ribbon-panel button').first().click({ timeout: 2000 });
+        await p.waitForTimeout(1200);
+        await p.mouse.move(1300, 850);
+        await p.waitForTimeout(600);
+      } catch { /* the plain sheet on a computer is a fine picture too */ }
+      await p.screenshot({ path: `${OUT}/shots/${lang}-pc.jpg`, type: 'jpeg', quality: 84 });
+      info.shots[lang].pc = `shots/${lang}-pc.jpg`;
+      await c.close();
+    }
   }
   writeFileSync(`${OUT}/info.json`, JSON.stringify(info, null, 2));
 
@@ -229,23 +262,26 @@ try {
   }
 
   // 6. The printable poster (US Letter, one page), dark and light (less ink), in both languages.
-  for (const lang of Object.keys(LANGS)) for (const theme of ['dark', 'light']) {
+  for (const lang of [...Object.keys(LANGS), 'both']) for (const theme of ['dark', 'light']) {
     const c = await browser.newContext({ viewport: { width: 816, height: 1056 } });
     const p = await c.newPage();
     await p.goto(`${ROOT}promo/affiche.html?lang=${lang}&theme=${theme}`);
     await p.waitForFunction(() => window.promoReady === true, null, { timeout: 30000 });
     // More apps or longer lines must never push anything off the page or under the install band.
     const bad = await p.evaluate(() => {
-      const out = [], page = document.getElementById('page').getBoundingClientRect();
-      const foot = document.querySelector('footer').getBoundingClientRect();
-      if (foot.bottom > page.bottom - 16) out.push(`footer runs off the page by ${Math.round(foot.bottom - page.bottom + 16)}px`);
-      const cmp = document.querySelector('.cmp').getBoundingClientRect(), ins = document.getElementById('install').getBoundingClientRect();
-      if (cmp.bottom > ins.top + 1) out.push(`comparison runs under the QR codes by ${Math.round(cmp.bottom - ins.top)}px`);
+      const out = [];
+      for (const pg of document.querySelectorAll('.page')) {
+        const page = pg.getBoundingClientRect(), foot = pg.querySelector('footer').getBoundingClientRect();
+        if (foot.bottom > page.bottom - 16) out.push(`${pg.lang}: footer runs off the page by ${Math.round(foot.bottom - page.bottom + 16)}px`);
+        const cmp = pg.querySelector('.cmp').getBoundingClientRect(), ins = pg.querySelector('.install').getBoundingClientRect();
+        if (cmp.bottom > ins.top + 1) out.push(`${pg.lang}: comparison runs under the QR codes by ${Math.round(cmp.bottom - ins.top)}px`);
+      }
       for (const e of document.querySelectorAll('.chip, td, th, .qcard')) if (e.scrollWidth > e.clientWidth + 1) out.push(`"${e.textContent.trim().slice(0, 30)}" is cut`);
       return out;
     });
     for (const b of bad) problems.push(`poster PDF ${lang} ${theme}: ${b}`);
-    await p.pdf({ path: `${OUT}/OfficeIn1-Affiche-${lang.toUpperCase()}${theme === 'light' ? '-claire' : ''}.pdf`, format: 'Letter', printBackground: true, preferCSSPageSize: true, pageRanges: '1' });
+    const name = lang === 'both' ? 'FR-EN' : lang.toUpperCase();
+    await p.pdf({ path: `${OUT}/OfficeIn1-Affiche-${name}${theme === 'light' ? '-claire' : ''}.pdf`, format: 'Letter', printBackground: true, preferCSSPageSize: true, pageRanges: lang === 'both' ? '1-2' : '1' });
     await c.close();
   }
 
@@ -257,6 +293,7 @@ try {
 // Everything the kit page links to must exist and not be empty.
 const need = ['info.json', 'qr.svg', 'qr.png', 'qr-store.svg'];
 for (const l of Object.keys(LANGS)) need.push(`OfficeIn1-Demo-${l.toUpperCase()}.mp4`, `OfficeIn1-Guide-${l.toUpperCase()}.pdf`, `poster-${l}-square.png`, `poster-${l}-story.png`, `OfficeIn1-Affiche-${l.toUpperCase()}.pdf`, `OfficeIn1-Affiche-${l.toUpperCase()}-claire.pdf`);
+need.push('OfficeIn1-Affiche-FR-EN.pdf', 'OfficeIn1-Affiche-FR-EN-claire.pdf');
 for (const f of need) if (!existsSync(`${OUT}/${f}`) || statSync(`${OUT}/${f}`).size < 500) problems.push(`${f} is missing`);
 for (const lang of Object.keys(LANGS)) if (Object.keys(info.shots[lang] ?? {}).length < 4) problems.push(`${lang}: fewer than 4 screenshots`);
 
