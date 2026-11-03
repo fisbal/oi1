@@ -16,6 +16,7 @@ import { store } from './storage';
 import { aiFor } from './ai';
 import { aiTranslator, bestTranslator, originalOf, registerTranslator, rememberChoice, rememberedChoice, restoreOriginal, translateFromOriginal, translatorFor, type LangChoice } from './translate';
 import { LangChoiceDialog } from './LangChoice';
+import { In1Voice } from './voice/In1Voice';
 import { guardFile } from './shield/guard';
 import { ShieldButton, ShieldHost } from './shield/Shield';
 import { installScrollArrows, schedule as scheduleScrollArrows } from '../ui/scrollArrows';
@@ -153,7 +154,7 @@ export default function App() {
   };
   const renameBox = (label: string) => (
     <input className="tab-rename" autoFocus aria-label={t('tab.renameBox', { name: label })} value={renaming?.text ?? ''} maxLength={80}
-      onFocus={e => e.currentTarget.select()}
+      onFocus={e => { e.currentTarget.select(); e.currentTarget.scrollIntoView?.({ inline: 'nearest', block: 'nearest' }); }}
       onClick={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}
       onChange={e => { const text = e.target.value; setRenaming(r => (r ? { ...r, text } : r)); }}
       onKeyDown={e => {
@@ -431,6 +432,7 @@ export default function App() {
             )}
           </div>
         )}
+        <In1Voice open={id => { setLauncher(false); void openModule(id); }} />
         <button className="theme-btn" aria-label={theme === 'dark' ? t('shell.themeLight') : t('shell.themeDark')}
           title={theme === 'dark' ? t('shell.themeLight') : t('shell.themeDark')} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
           {theme === 'dark'

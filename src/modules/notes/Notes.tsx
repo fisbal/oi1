@@ -316,6 +316,12 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
   });
   const dictating = dict.active;
   const dictate = dict.toggle;
+  // "In 1, dicte" (voice button): the note on screen starts dictation.
+  useEffect(() => {
+    const on = () => { if (ed?.view.dom.offsetParent && !dict.active) dict.toggle(); };
+    window.addEventListener('oi1-voice-dictate', on);
+    return () => window.removeEventListener('oi1-voice-dictate', on);
+  }, [ed, dict]);
   const dictNote = useRef('');
   useEffect(() => {
     const last = dictNote.current;

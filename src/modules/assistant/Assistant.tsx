@@ -5,7 +5,7 @@
 // inside a document, this one makes the documents. Without any AI it still makes 25 everyday tasks from recipes.
 
 import { useDictation } from '../../ui/useDictation';
-import { joinDictation } from '../../ui/dictation';
+import { isMarkOnly, joinDictation } from '../../ui/dictation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Handoff, ShellApi } from '../../shell/contract';
 import { getLanguage, t, type MessageKey } from '../../shell/i18n';
@@ -195,12 +195,18 @@ export default function Assistant({ shell, handoff }: { shell: ShellApi; handoff
 
   // Dictation: shared engine (Web Speech when it works, Whisper on the device otherwise).
   const dictUndo = useRef<string[]>([]);
-  const dict = useDictation(lang, text => { dictUndo.current.push(taskRef.current); setTask(v => joinDictation(v, text)); }, {
+  const dict = useDictation(lang, text => { if (!isMarkOnly(text)) dictUndo.current.push(taskRef.current); setTask(v => joinDictation(v, text)); }, {
     before: () => taskRef.current,
     undo: () => { const prev = dictUndo.current.pop(); if (prev !== undefined) setTask(prev); },
   });
   const listening = dict.active;
   const dictate = dict.toggle;
+  // "In 1, dicte" (voice button): the Assistant on screen listens to the request.
+  useEffect(() => {
+    const on = () => { if (box.current?.offsetParent && !dict.active) dict.toggle(); };
+    window.addEventListener('oi1-voice-dictate', on);
+    return () => window.removeEventListener('oi1-voice-dictate', on);
+  }, [dict]);
   useEffect(() => { if (dict.error) shell.notify(dict.message); }, [dict.error, dict.message, shell]);
 
   const reset = () => { setPhase('home'); setPlan(null); setMade([]); setError(''); setFallback(null); setTask(''); setFiles([]); setTimeout(() => box.current?.focus(), 0); };

@@ -551,6 +551,12 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
   });
   const dictating = dict.active;
   const dictate = dict.toggle;
+  // "In 1, dicte" (voice button): the letter on screen starts dictation.
+  useEffect(() => {
+    const on = () => { if (body?.view.dom.offsetParent && !dict.active) dict.toggle(); };
+    window.addEventListener('oi1-voice-dictate', on);
+    return () => window.removeEventListener('oi1-voice-dictate', on);
+  }, [body, dict]);
   useEffect(() => { if (dict.error) shell.notify(dict.message); }, [dict.error, dict.message, shell]);
   useEffect(() => () => { window.speechSynthesis?.cancel(); }, []);
 
