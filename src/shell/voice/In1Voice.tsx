@@ -36,6 +36,15 @@ export function runVoice(a: VoiceAction, open: (id: string) => void): string {
       // The voice button's own listening ends first, then the document's dictation starts.
       window.setTimeout(() => window.dispatchEvent(new CustomEvent('oi1-voice-dictate')), 450);
       return shown() ? t('voice.dictating') : t('voice.openFirst');
+    case 'listen':
+      // In 1 Notes opens its consent card (never listens before everyone agrees). Notes on screen takes it
+      // at once; otherwise In 1 Notes opens and takes it when it starts.
+      try { sessionStorage.setItem('oi1.voice.listen', '1'); } catch { /* private mode */ }
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('oi1-voice-listen'));
+        window.setTimeout(() => { let left = false; try { left = sessionStorage.getItem('oi1.voice.listen') === '1'; } catch { /* */ } if (left) open('notes'); }, 120);
+      }, 450);
+      return t('voice.notesListen');
     case 'key': {
       const done = a.key === 'undo' ? press(['letter.undo'])
         : a.key === 'redo' ? press(['letter.redo'])

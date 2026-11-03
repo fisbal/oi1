@@ -45,6 +45,8 @@ import {
   type Library, type Page, type PaperId,
 } from './model';
 import { NOTE_TEMPLATES } from './templates';
+import { meetingHtml, meetingNotes, stamp } from './meeting';
+import { ListenDialog, ListenDone, RecBar, type ListenKind } from './ListenParts';
 
 export const EXTENSIONS = ['.html', '.htm', '.txt', '.md', '.json'];
 const KEY = 'notes:library';
@@ -99,7 +101,7 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
   const [panel, setPanel] = useState<'file' | null>(null);
   const [copilot, setCopilot] = useState(false);
   const [copilotStart, setCopilotStart] = useState<{ id: string; n: number } | undefined>();
-  const [dialog, setDialog] = useState<'tags' | 'study' | 'sketch' | 'link' | null>(null);
+  const [dialog, setDialog] = useState<'tags' | 'study' | 'sketch' | 'link' | 'listen' | null>(null);
   const [ask, setAsk] = useState<Ask>(null);
   const [note, setNote] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
@@ -310,11 +312,79 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
   };
 
   // ---------- dictation (shared engine: Web Speech when it works, Whisper on the device otherwise) ----------
-  const dict = useDictation(lang, text => insertDictation(ed, text), {
-    before: () => { if (!ed) return ''; const at = ed.state.selection.from; return ed.state.doc.textBetween(Math.max(0, at - 60), at, '\n'); },
+  // Listen and take notes: the words go at the end of the listening page, with the time every few minutes.
+  const [listen, setListen] = useState<{ since: number; paused: boolean; page: string } | null>(null);
+  const listenRef = useRef(listen);
+  listenRef.current = listen;
+  const lastStamp = useRef(0);
+  // The editor is made again for each page: timers use the one on screen now, never the one they started with.
+  const edNow = useRef(ed);
+  edNow.current = ed;
+  const [listenDone, setListenDone] = useState<{ todos: string[]; summary: string[] } | null>(null);
+  const onDictated = (text: string) => {
+    if (!ed) return;
+    if (listenRef.current) {
+      ed.commands.focus('end');
+      if (Date.now() - lastStamp.current > 5 * 60_000) {
+        lastStamp.current = Date.now();
+        ed.chain().focus('end').splitBlock().insertContent(`${stamp(new Date(), lang)} `).run();
+      }
+    }
+    insertDictation(ed, text);
+  };
+  const dict = useDictation(lang, onDictated, {
+    // A time stamp "[14:05] " starts a line: the next words start with a capital.
+    before: () => { if (!ed) return ''; const at = ed.state.selection.from; return ed.state.doc.textBetween(Math.max(0, at - 60), at, '\n').replace(/\[\d{1,2}[:h.]\d{2}[^\]]*\]\s*$/, '\n'); },
     undo: () => { ed?.commands.undo(); },
   });
   const dictating = dict.active;
+  const dictRef = useRef(dict);
+  dictRef.current = dict;
+  const startListen = (kind: ListenKind) => {
+    setDialog(null);
+    setListenDone(null);
+    const when = new Date();
+    const p = newPage(`${t(`notes.listen.kind.${kind}`)} – ${when.toLocaleDateString(lang, { day: 'numeric', month: 'long' })} ${when.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' })}`,
+      `<h2>${escapeHtml(t('notes.listen.transcript'))}</h2><p>${escapeHtml(stamp(when, lang))} </p>`);
+    addPage(p);
+    lastStamp.current = Date.now();
+    setListen({ since: Date.now(), paused: false, page: p.id });
+    setNote(t('notes.listen.started'));
+    window.setTimeout(() => { const e = edNow.current; if (e && !e.isDestroyed) e.commands.focus('end'); if (!dictRef.current.active) dictRef.current.toggle(); }, 400);
+  };
+  const pauseListen = () => {
+    const l = listenRef.current;
+    if (!l) return;
+    if (dict.active) dict.toggle();
+    else window.setTimeout(() => { const e = edNow.current; if (e && !e.isDestroyed) e.commands.focus('end'); dictRef.current.toggle(); }, 50);
+    setListen({ ...l, paused: !l.paused });
+  };
+  const stopListen = () => {
+    if (dict.active) dict.toggle();
+    setListen(null);
+    // Let the last words land, then write Summary / Key points / To do above the full text.
+    window.setTimeout(() => {
+      const ed = edNow.current;
+      if (!ed || ed.isDestroyed) return;
+      const text = ed.getText({ blockSeparator: '\n' }).replace(t('notes.listen.transcript'), '');
+      const n = meetingNotes(text);
+      if (!n.summary.length && !n.points.length && !n.todos.length) { setNote(t('notes.listen.nothing')); return; }
+      ed.chain().insertContentAt(0, meetingHtml(n, { summary: t('notes.listen.summary'), points: t('notes.listen.points'), todos: t('notes.listen.todos'), none: t('notes.listen.none') })).run();
+      setListenDone({ todos: n.todos, summary: n.summary });
+    }, 600);
+  };
+  // Dictation that stops by itself (an error, "arrête la dictée") pauses the listening, never loses it.
+  useEffect(() => { if (!dict.active && listenRef.current && !listenRef.current.paused) setListen(l => (l ? { ...l, paused: true } : l)); }, [dict.active]);
+  // "In 1, prends des notes" (voice): the consent card opens, here or when In 1 Notes starts.
+  useEffect(() => {
+    const take = () => { try { if (sessionStorage.getItem('oi1.voice.listen') !== '1') return false; sessionStorage.removeItem('oi1.voice.listen'); } catch { return false; } setDialog('listen'); return true; };
+    const on = () => { if (rootRef.current?.offsetParent) take(); };
+    take();
+    window.addEventListener('oi1-voice-listen', on);
+    return () => window.removeEventListener('oi1-voice-listen', on);
+  }, []);
+  // Leaving the listening page stops it.
+  useEffect(() => { if (listenRef.current && page.id !== listenRef.current.page) { if (dict.active) dict.toggle(); setListen(null); } }, [page.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const dictate = dict.toggle;
   // "In 1, dicte" (voice button): the note on screen starts dictation.
   useEffect(() => {
@@ -603,6 +673,7 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
           </Group>
           <Group label="notes.group.voice">
             <Btn big icon="mic" title={dictating ? 'notes.stopDictation' : 'notes.dictate'} active={dictating} onClick={dictate} />
+            <Btn big icon="comment" title="notes.listen" active={!!listen} onClick={() => (listen ? stopListen() : setDialog('listen'))} />
             <AutoPunctBtn />
             <Btn big icon="speak" title="notes.readAloud" onClick={() => {
               if (speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
@@ -721,6 +792,12 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
             <span className="nt-crumb"><span style={{ color: nb.color }}>{nb.icon}</span> {nb.name} › <span className="nt-dot" style={{ background: sec.color }} />{sec.name}</span>
             {focus && <button type="button" className="nt-open" title={t('notes.focus')} aria-label={t('notes.focus')} onClick={() => setFocus(false)}><Icon name="close" size={14} /></button>}
           </div>
+          {listen && <RecBar since={listen.since} paused={listen.paused} onPause={pauseListen} onStop={stopListen} />}
+          {listenDone && <ListenDone todos={listenDone.todos.length} onClose={() => setListenDone(null)}
+            onAi={() => { setListenDone(null); startAi('summary'); }}
+            onLetter={() => { setListenDone(null); sendToLetter(); }}
+            onPlan={() => { flush.current(); shell.openModule('plan', undefined, { kind: 'table', title, table: { header: true, rows: [[{ text: t('notes.listen.task') }], ...listenDone.todos.map(x => [{ text: x }])] } }); setListenDone(null); }}
+            onMail={() => { flush.current(); shell.openModule('mail', undefined, { kind: 'html', title, html: ed?.getHTML() ?? page.html }); setListenDone(null); }} />}
           <article className={`nt-page nt-paper-${page.paper}${dark ? ' dark' : ''}`} style={{ backgroundColor: page.color, zoom } as CSSProperties}>
             <input className="nt-title" value={page.title} placeholder={title === untitled ? untitled : title} aria-label={t('notes.pageTitle')}
               onChange={e => setPage({ title: e.target.value })} onKeyDown={e => { if (e.key === 'Enter' && ed) { e.preventDefault(); ed.view.focus(); ed.commands.setTextSelection(1); } }} />
@@ -745,6 +822,7 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
       </footer>
 
       {dialog === 'tags' && <TagDialog lib={lib} untitled={untitled} onGo={at => { setDialog(null); go(at); }} onClose={() => setDialog(null)} />}
+      {dialog === 'listen' && <ListenDialog onStart={startListen} onClose={() => setDialog(null)} />}
       {dialog === 'study' && <StudyDialog text={textOf(ed?.getHTML() ?? page.html)} onAi={() => { setDialog(null); startAi('cards'); }} onClose={() => setDialog(null)} />}
       {dialog === 'sketch' && <SketchDialog onClose={() => setDialog(null)} onDone={src => run(c => c.insertContent({ type: 'image', attrs: { src, alt: t('notes.sketch') } }))} />}
       {dialog === 'link' && <LinkDialog initial={(ed?.getAttributes('link').href as string | undefined) ?? ''} onClose={() => setDialog(null)}
