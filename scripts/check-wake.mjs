@@ -58,6 +58,7 @@ const SCREENS = [
   ['Tablet', { width: 820, height: 1180 }, true],
   ['Tablet sideways', { width: 1180, height: 820 }, true],
   ['Phone', { width: 390, height: 844 }, true],
+  ['Small phone', { width: 360, height: 740 }, true],
   ['Phone sideways', { width: 844, height: 390 }, true],
 ];
 for (const [name, viewport, mobile] of SCREENS) {
@@ -68,13 +69,28 @@ for (const [name, viewport, mobile] of SCREENS) {
   await page.goto(url);
   const ear = page.locator('.in1-name-btn');
   const mic = page.locator('.in1-voice-btn');
-  await ear.waitFor({ timeout: 10000 });
-  const [a, b] = [await mic.boundingBox(), await ear.boundingBox()];
-  check(a && b && b.x >= a.x + a.width - 1 && b.x + b.width <= viewport.width && b.y >= 0 && b.width >= 24,
-    `${name}: the 👂 button sits next to the 🎙️ In 1 button, fully on screen (${Math.round(b?.x ?? -1)}, ${Math.round(b?.width ?? 0)} px)`);
+  await ear.waitFor({ state: 'attached', timeout: 10000 });
+  const small = viewport.width <= 480;
+  // The 👂 switch: next to 🎙️ in the top bar, or on small phones inside the note shown by a tap on 🎙️.
+  const turn = async () => {
+    if (!small) { await ear.click(); return; }
+    await mic.click();
+    await page.locator('.in1-name-chip').click();
+  };
+  if (!small) {
+    const [a, b] = [await mic.boundingBox(), await ear.boundingBox()];
+    check(a && b && b.x >= a.x + a.width - 1 && b.x + b.width <= viewport.width && b.y >= 0 && b.width >= 24,
+      `${name}: the 👂 button sits next to the 🎙️ In 1 button, fully on screen (${Math.round(b?.x ?? -1)}, ${Math.round(b?.width ?? 0)} px)`);
+  } else {
+    await mic.click();
+    const chip = await page.locator('.in1-name-chip').boundingBox();
+    check(chip && chip.x >= 0 && chip.x + chip.width <= viewport.width, `${name}: on a small phone the 👂 switch is in the note under 🎙️, fully on screen`);
+    await mic.click();
+    await page.waitForTimeout(400);
+  }
   check(await ear.getAttribute('aria-pressed') === 'false' && await page.evaluate(noLight), `${name}: nothing listens before the person turns it on`);
 
-  await ear.click();
+  await turn();
   check(await ear.getAttribute('aria-pressed') === 'true', `${name}: 👂 turns on`);
   check(await until(page, light), `${name}: the green light shows on the 🎙️ button while In 1 listens for its name`);
   const note = await page.locator('.in1-voice-note').innerText().catch(() => '');
@@ -102,9 +118,9 @@ for (const [name, viewport, mobile] of SCREENS) {
 
   // Kept after a restart.
   await page.reload();
-  await ear.waitFor({ timeout: 10000 });
+  await ear.waitFor({ state: 'attached', timeout: 10000 });
   check(await ear.getAttribute('aria-pressed') === 'true' && await until(page, light), `${name}: the choice is kept after a restart, light on`);
-  await ear.click();
+  await turn();
   check(await ear.getAttribute('aria-pressed') === 'false' && await until(page, noLight, undefined, 3000), `${name}: turned off, the light goes out`);
   const heard = await page.evaluate(() => window.__heard);
   await page.waitForTimeout(3000);

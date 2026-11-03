@@ -196,7 +196,12 @@ export function In1Voice({ open }: { open: (id: string) => void }) {
       <button type="button" className={`in1-name-btn${name ? ' on' : ''}`} aria-pressed={name} aria-label={t('voice.nameButton')} title={name ? t('voice.nameStop') : t('voice.nameHelp')} onClick={toggleName}>
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4.5 6a3.5 3.5 0 0 1 7 0c0 2-2 2.6-2.4 4.4C8.8 12 8 13.5 6.6 13.5 5.6 13.5 5 12.8 5 12" /><path d="M7 6.2a1.2 1.2 0 0 1 2.3.4c0 .8-.9 1-.9 1.8" /></svg>
       </button>
-      {note && <div className="in1-voice-note" role="status">{(on || nameLive) && <i className="in1-voice-dot" />}{note}</div>}
+      {note && <div className="in1-voice-note" role="status">{(on || nameLive) && <i className="in1-voice-dot" />}{note}
+        {/* Small phones have no room for 👂 in the top bar: the same switch sits here while In 1 listens. */}
+        {on && <button type="button" className="in1-name-chip" aria-pressed={name} onClick={() => { const d = run.current; run.current = null; clearTimeout(timer.current); heard.current = ''; d?.stop(); setOn(false); toggleName(); }}>
+          👂 {name ? t('voice.nameStop') : t('voice.nameButton')}
+        </button>}
+      </div>}
     </div>
   );
 }
