@@ -89,6 +89,10 @@ for (const d of DEVICES) {
     await page.waitForTimeout(1500);
     let r = await scan(page);
     if (!r.print) { check(true, `${n}: web layout (no pages on this screen)`); continue; }
+    // The text's language is known (French here), so words are cut at line ends with French rules; lines are weighed
+    // for the whole paragraph (no word alone on the last line).
+    const look = await page.evaluate(b => { const el = document.querySelector(b); const p = el.querySelector('p'); return { lang: el.closest('[lang]')?.getAttribute('lang'), wrap: getComputedStyle(p).textWrapStyle || getComputedStyle(p).textWrap }; }, BODY);
+    check(look.lang === 'fr' && /pretty/.test(String(look.wrap)), `${n}: the text is known as French and its lines are weighed like LaTeX (${JSON.stringify(look)})`);
     check(r.cuts.length >= 3, `${n}: long paragraphs are cut between two pages (${r.cuts.length} cuts)`);
     check(r.off.length === 0, `${n}: no line sits between two pages or in a margin (${r.off.slice(0, 3).join(' | ')})`);
     check(r.cuts.every(c => c.before >= 2 && c.after >= 2), `${n}: at least two lines stay on each side of every cut (${JSON.stringify(r.cuts)})`);

@@ -51,7 +51,7 @@ import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, sel
 import { TOC_MARK, WORK_LAYOUTS, knownTitle, lookOnly, reorganizeDoc, workDoc, workMargins, workStyles, type WorkLayout } from './templates/works';
 import { modelDoc } from './templates/models';
 import { AnalysisPanel, type AnalysisHost } from './AnalysisPanel';
-import { analyze } from './analysis';
+import { analyze, docLanguage } from './analysis';
 import { applyNormContent, coverEnd, normCheck } from './normCheck';
 import { workText } from './templates/worksI18n';
 
@@ -192,7 +192,7 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   const changed = () => { touched.current = true; setDirty(true); autosave(); };
   // Our own checker covers its five languages; for the others, the browser's checker underlines instead.
   const ownProofing = !!baseLang(lang || getLanguage());
-  const attrs = (part: string) => ({ class: `doc-text ${part}-text`, spellcheck: String(view.spell && !ownProofing), lang: lang || '' });
+  const attrs = (part: string) => ({ class: `doc-text ${part}-text`, spellcheck: String(view.spell && !ownProofing), ...(lang ? { lang } : {}) }); // no language chosen: the sheet's (read from the text)
   const proofRef = useRef({ spell: view.spell, lang });
   proofRef.current = { spell: view.spell, lang };
   const proof = useMemo(() => ({ enabled: () => proofRef.current.spell, lang: () => proofRef.current.lang }), []);
@@ -346,6 +346,18 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
       && JSON.stringify(cur.notes) === JSON.stringify(r.notes) ? cur : r));
     store.relayout();
   }, [body, isPrint, ph, m.top, m.bottom, headerHtml, footerHtml, styles, page.size, page.orientation, m.left, m.right, hfVersion]);
+
+  // The language of the text (the one chosen in Review, else read from the words): the browser then cuts words at
+  // line ends with that language's rules, like TeX's hyphenation patterns.
+  const [textLang, setTextLang] = useState('');
+  useEffect(() => {
+    if (!body) return;
+    let timer = 0;
+    const read = () => { clearTimeout(timer); timer = window.setTimeout(() => { const d = docLanguage(body.state.doc.textBetween(0, Math.min(body.state.doc.content.size, 4000), ' ')); setTextLang(d === 'other' ? '' : d); }, 1500); };
+    read();
+    body.on('update', read);
+    return () => { clearTimeout(timer); body.off('update', read); };
+  }, [body]);
 
   const [sheetHeight, setSheetHeight] = useState(ph);
   useLayoutEffect(() => {
@@ -1311,7 +1323,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       <div className="canvas" ref={canvasRef}>
         {(panel === 'find' || panel === 'replace') && <FindBar editor={body} replace={panel === 'replace'} onClose={() => { setPanel(null); body.commands.focus(); }} />}
         <div className="sizer" style={{ width: isPrint ? pw * scale : undefined, height: isPrint ? sheetHeight * scale : undefined }}>
-          <div ref={sheetRef} className={`sheet ${isPrint ? 'print-layout' : 'web-layout'}${view.marks ? ' show-marks' : ''}${page.hyphenate ? ' hyphenate' : ''}${page.lineNumbers ? ` ln ln-${page.lineNumbers}` : ''}${markup ? '' : ' no-markup'}`} style={sheetVars} dir={page.rtl ? 'rtl' : undefined}>
+          <div ref={sheetRef} className={`sheet ${isPrint ? 'print-layout' : 'web-layout'}${view.marks ? ' show-marks' : ''}${page.hyphenate ? ' hyphenate' : ''}${page.lineNumbers ? ` ln ln-${page.lineNumbers}` : ''}${markup ? '' : ' no-markup'}`} style={sheetVars} dir={page.rtl ? 'rtl' : undefined} lang={lang || textLang || getLanguage()}>
             {isPrint && Array.from({ length: layout.pages }, (_, i) => (
               <div key={i} className="page-frame" style={{ top: `calc(${i} * (var(--ph) + var(--pg-gap)))`, background: page.color ?? undefined }}>
                 {page.border && <div className="page-border" style={{ inset: `${page.border.space}pt`, border: `${page.border.w}pt solid ${page.border.color}` }} />}
