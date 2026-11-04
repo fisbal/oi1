@@ -28,6 +28,9 @@ const TASKS = [
   { id: 'Class : formule', sys: CLASS, user: 'Donne la formule pour la moyenne de B2 à B20 en ignorant les cellules vides, et explique en une phrase.', want: ['AVERAGE'] },
 ];
 
+const PROOF = 'You are a meticulous proofreader inside In 1 Letter, a word processor. You fix spelling, grammar, agreement, punctuation and typography mistakes in the language each paragraph is written in. You never change the meaning, the tone, the wording that is already correct, names, numbers or the language. Keep every \uFFFC character exactly where it is: it stands for a picture or a field. Return the same number of paragraphs, in the same order.' +
+  '\n\nAnswer ONLY with JSON (no code fence) that follows this JSON schema:\n' + JSON.stringify({ type: 'object', properties: { paragraphs: { type: 'array', items: { type: 'string' } } }, required: ['paragraphs'] });
+
 const LANGS = [
   ['Français', 'Dans cette étude de cas, les changements a été imposés rapidement et les employés n\'ont pas été informer. Cette situation a nourri la résistance au au changement.', 'Écris un courriel court et poli à mon professeur pour demander deux jours de plus pour remettre mon travail.', ['ont été imposés', 'informés', 'résistance au changement']],
   ['English', 'In this case study, the changes was imposed quickly and the employees has not been told why. This situation fed the resistance to to change.', 'Write a short polite email to my teacher asking for two more days to hand in my work.', ['were imposed', 'have not', 'resistance to change']],
@@ -37,9 +40,8 @@ const LANGS = [
 ];
 TASKS.length = 0; // this run: the 5 languages only
 for (const [lang, text, write, want] of LANGS) {
-  TASKS.push({ id: `${lang} : corriger`, sys: LETTER.split('French').join(lang), user: `${ctx(text)}\n\nCorrect the spelling and grammar of the context. Reply with only the corrected text.`, want });
-  TASKS.push({ id: `${lang} : résumer`, sys: LETTER.split('French').join(lang), user: `${ctx(text)}\n\nSummarize the context in a few bullet points, in the language of the context.` });
-  TASKS.push({ id: `${lang} : écrire`, sys: LETTER.split('French').join(lang), user: write });
+  // The exact request In 1 Letter's "Corriger" button sends (src/modules/letter/copilot.ts + deviceMessages).
+  TASKS.push({ id: `${lang} : corriger (bouton Letter)`, sys: PROOF, user: `Correct these 1 paragraphs. Return them all, corrected, as JSON.\n\n${JSON.stringify({ paragraphs: [text] })}`, want });
 }
 
 const out = ['# In 1 AI: qualité des réponses du copilote', '', `Machine: GitHub runner (WebAssembly/CPU, comme un téléphone sans GPU). ${new Date().toISOString()}`, ''];
