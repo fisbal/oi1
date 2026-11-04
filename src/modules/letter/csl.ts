@@ -116,6 +116,9 @@ export async function makeEngine(styleXml: string, localeXml: string, sources: S
   return new CslRun(engine, items, sources);
 }
 
+/** Only the text outside tags, and no < or > at all (no regex, so nothing can be left half-stripped). */
+const plain = (s: string): string => s.split('<').map((p, i) => (i === 0 ? p : p.slice(p.indexOf('>') + 1 || p.length))).join('').split('>').join('');
+
 /** Turns citeproc's HTML (<i>, <b>, entities) into our pieces of text. */
 export function htmlSegs(html: string): Seg[] {
   const out: Seg[] = [];
@@ -129,7 +132,7 @@ export function htmlSegs(html: string): Seg[] {
     else if (/^<(b|strong)>$/.test(part)) bold++;
     else if (/^<\/(b|strong)>$/.test(part)) bold--;
     else if (part) {
-      const t = decode(part.replace(/<[^>]*>/g, '').replace(/[<>]/g, '')).replace(/\s+/g, ' ');
+      const t = decode(plain(part)).replace(/\s+/g, ' ');
       if (t) out.push({ text: t, ...(italic > 0 ? { italic: true } : {}), ...(bold > 0 ? { bold: true } : {}) });
     }
   }
