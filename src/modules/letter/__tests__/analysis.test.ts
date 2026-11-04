@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Editor, type JSONContent } from '@tiptap/core';
 import { letterExtensions } from '../setup';
-import { analyze, applyEdits, fixPages } from '../analysis';
+import { aiChunks, aiFindings, analyze, applyEdits, fixPages, smallFix } from '../analysis';
 import { applyTitles, findTitles, makeLists } from '../templates/structure';
 import { applyNormContent, normCheck } from '../normCheck';
 import { WORK_LAYOUTS, workMargins, workStyles } from '../templates/works';
@@ -112,5 +112,26 @@ describe('clean pages (LaTeX-like)', () => {
   it('keeps the old layout when what follows fits', () => {
     const { spacers } = computeSpacers([block(0, 0, 400), block(10, 400, 30, true), block(20, 430, 100)], layout);
     expect(spacers).toEqual([]);
+  });
+});
+
+describe('the AI check', () => {
+  const chunkOf = (text: string) => {
+    const ed = new Editor({ extensions: letterExtensions('body'), content: { type: 'doc', content: [p(text)] } });
+    return aiChunks(ed.state.doc)[0];
+  };
+  const text = "Pour bien comprendre l'origine de cette problématique, j'ai identifié les 5 causes  principales qui seront analysées dans les prochains paragraphes.";
+  it('keeps a real correction, on whole words', () => {
+    const f = aiFindings("les employés a été informer ⟶ les employés ont été informés", chunkOf('Dans ce cas, les employés a été informer trop tard de tous les changements prévus.'), 0);
+    expect(f).toHaveLength(1);
+    expect(f[0].edits?.[0].insert).toBe('ont été informés');
+  });
+  it('drops a rewrite of the sentence', () => {
+    const f = aiFindings("les 5 causes  principales qui seront analysées ⟶ les 5 causes. Pour comprendre l'origine de cette problématique, nous avons identifié cinq causes principales qui contribuent à la situation actuelle", chunkOf(text), 0);
+    expect(f).toHaveLength(0);
+  });
+  it('smallFix: a few words yes, new words no', () => {
+    expect(smallFix('les 5 causes  principales', 'les 5 causes principales')).toBe(true);
+    expect(smallFix('qui seront analysées dans les prochains paragraphes', 'que nous verrons plus loin dans ce travail')).toBe(false);
   });
 });

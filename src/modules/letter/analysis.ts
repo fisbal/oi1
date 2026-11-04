@@ -421,6 +421,20 @@ export function aiPrompt(lang: string): string {
     : 'You are a proofreader. Fix only spelling, grammar, agreement, verb and punctuation mistakes. Do not rephrase or change the style or words. Reply only with lines in this format:\nexact words from the text ⟶ corrected words\nEach exact part has 2 to 10 words copied as they are from the text. One line per mistake. Nothing else. If there is no mistake, reply NONE.';
 }
 
+const WORD = /[\p{L}\p{M}\d'’-]/u;
+
+/** A real correction changes a few words; anything bigger is the AI rewriting the sentence (seen on Martin's work
+ *  2026-11-04: "causes principales qui seront analysées" became a new sentence, applied as a garbled mix). */
+export function smallFix(a: string, z: string): boolean {
+  const wa = a.toLowerCase().split(/\s+/).filter(Boolean), wz = z.toLowerCase().split(/\s+/).filter(Boolean);
+  if (Math.abs(wa.length - wz.length) > 2 || z.length > a.length * 1.4 + 8) return false;
+  const left = new Map<string, number>();
+  for (const w of wa) left.set(w, (left.get(w) ?? 0) + 1);
+  let kept = 0;
+  for (const w of wz) { const n = left.get(w) ?? 0; if (n) { kept++; left.set(w, n - 1); } }
+  return wa.length - kept <= Math.max(2, Math.ceil(wa.length / 2));
+}
+
 /** The AI's lines as tracked-change fixes on the exact words it quoted (anything it made up is dropped). */
 export function aiFindings(answer: string, chunk: { blocks: Block[] }, startId: number): Finding[] {
   const out: Finding[] = [];
@@ -428,15 +442,17 @@ export function aiFindings(answer: string, chunk: { blocks: Block[] }, startId: 
     const m = /^\s*[-•*\d.)]*\s*[«"“]?(.+?)[»"”]?\s*(?:⟶|→|->|=>)\s*[«"“]?(.+?)[»"”]?\s*$/.exec(line);
     if (!m) continue;
     const [, a, z] = m;
-    if (!a.trim() || a === z || a.length > 140) continue;
+    if (!a.trim() || a === z || a.length > 140 || !smallFix(a, z)) continue;
     for (const b of chunk.blocks) {
       const i = b.text.indexOf(a);
       if (i < 0) continue;
-      // Only the letters that change become the tracked change.
+      // Only the words that change become the tracked change (whole words: never half a word kept and half replaced).
       let p = 0;
       while (p < a.length && p < z.length && a[p] === z[p]) p++;
+      while (p > 0 && WORD.test(a[p - 1])) p--;
       let s = 0;
       while (s < a.length - p && s < z.length - p && a[a.length - 1 - s] === z[z.length - 1 - s]) s++;
+      while (s > 0 && WORD.test(a[a.length - s])) s--;
       out.push({ id: `ai${startId + out.length}`, group: 'language', key: 'ana.ai', vars: { wrong: a, right: z }, excerpt: `${a} → ${z}`, at: b.map[i], edits: [range(b, i + p, i + a.length - s, z.slice(p, z.length - s))] });
       break;
     }
