@@ -432,7 +432,27 @@ export default function App() {
             )}
           </div>
         )}
-        <In1Voice open={id => { setLauncher(false); void openModule(id); }} />
+        <In1Voice host={{
+          open: id => { setLauncher(false); void openModule(id); },
+          // "Va dans Class": its open tab (the last one used), else a new one.
+          go: id => {
+            setLauncher(false);
+            const cur = tabsRef.current.find(x => x.tabId === activeId);
+            if (cur?.moduleId === id) return;
+            const have = [...tabsRef.current].reverse().find(x => x.moduleId === id);
+            if (have) setActiveId(have.tabId); else void openModule(id);
+          },
+          // "Ferme Letter": the Letter on screen, else the last Letter; "ferme tout": every tab (asks first, as by hand).
+          close: (id, all) => {
+            const list = tabsRef.current;
+            const cur = list.find(x => x.tabId === activeId);
+            const ids = all ? list.filter(x => !id || x.moduleId === id).map(x => x.tabId)
+              : id ? [(cur?.moduleId === id ? cur : [...list].reverse().find(x => x.moduleId === id))?.tabId].filter((x): x is string => !!x)
+              : cur ? [cur.tabId] : [];
+            if (ids.length) closeTabs(ids);
+            return ids.length;
+          },
+        }} />
         <button className="theme-btn" aria-label={theme === 'dark' ? t('shell.themeLight') : t('shell.themeDark')}
           title={theme === 'dark' ? t('shell.themeLight') : t('shell.themeDark')} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
           {theme === 'dark'
