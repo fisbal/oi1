@@ -3,7 +3,9 @@
 // The letter is one editor. After each change we measure where every paragraph, table and image lands,
 // and when one would cross the bottom of a page we put a spacer in front of it. A spacer holds the rest
 // of that page, its footer, the gap between pages and the next page's header, so text never runs
-// into a margin. Blocks are never split, so a table taller than a page runs past its page's bottom.
+// into a margin. A paragraph that does not fit is cut between two lines, like Word: the spacer then sits inside
+// the paragraph, on a line of its own, and at least two lines stay on each page (no orphan, no widow). Tables and
+// pictures are never cut, so a table taller than a page runs past its page's bottom.
 //
 // Footnotes sit at the bottom of the page where they are referred to: their height is kept free on that
 // page, and the spacer that ends the page draws them above its bottom margin (the last page's notes are
@@ -41,6 +43,8 @@ export interface Spacer {
   foot: number;
   /** Number (from 1) of the page that this spacer ends. */
   page: number;
+  /** Inside a paragraph cut between two pages (at the start of the first line of the next page). */
+  inline?: boolean;
 }
 
 /** `notes` are the last page's footnotes. */
@@ -75,8 +79,9 @@ function cloneHf(html: string, kind: 'header' | 'footer', page: number, pages: n
 }
 
 function spacerDom(s: Spacer, layout: PageLayout, pages: number): HTMLElement {
-  const root = document.createElement('div');
-  root.className = 'pg-spacer';
+  // Inside a paragraph the spacer is a span on a line of its own (the line above it stays justified).
+  const root = document.createElement(s.inline ? 'span' : 'div');
+  root.className = s.inline ? 'pg-spacer pg-inline' : 'pg-spacer';
   root.contentEditable = 'false';
   const foot = document.createElement('div');
   foot.className = 'pg-foot';
@@ -117,7 +122,16 @@ export interface Block {
   keepNext?: boolean;
   /** Footnotes referred to in this block, with the height each takes at the page bottom. */
   notes?: (PageNote & { h: number })[];
+  /** A paragraph's lines (natural top and bottom of the letters), so it can be cut between two of them. */
+  lines?: { top: number; bottom: number }[];
+  /** Where line `i` starts in the document. */
+  linePos?: (i: number) => number | null;
 }
+
+/** Lines that stay together at the bottom and at the top of a page (Word's widow and orphan control). */
+const KEEP_LINES = 2;
+/** Top of line `k`'s box: halfway between the letters of the line above and its own. */
+const lineTop = (lines: { top: number; bottom: number }[], k: number) => (lines[k - 1].bottom + lines[k].top) / 2;
 
 export function computeSpacers(blocks: Block[], layout: PageLayout): { spacers: Spacer[]; result: LayoutResult } {
   const pageStep = layout.pageHeight + layout.gap;
@@ -142,18 +156,43 @@ export function computeSpacers(blocks: Block[], layout: PageLayout): { spacers: 
       let j = i;
       while (blocks[j]?.keepNext && blocks[j + 1]) j++;
       const next = blocks[j];
-      if (next && next !== b && !next.isBreak && next.height < contentHeight / 2) bottom = Math.max(bottom, next.top + shift + Math.min(next.height, 3 * 24));
+      const nl = next?.lines;
+      if (next && next !== b && !next.isBreak && nl && nl.length > KEEP_LINES && next.linePos) bottom = Math.max(bottom, nl[KEEP_LINES - 1].bottom + shift);
+      else if (next && next !== b && !next.isBreak && next.height < contentHeight / 2) bottom = Math.max(bottom, next.top + shift + Math.min(next.height, 3 * 24));
     }
     const own = (b.notes ?? []).reduce((h, n) => h + n.h, 0);
     // The block's own notes must fit on its page too, with the line above them.
     const reserve = notesHeight + own > 0 ? notesHeight + own + NOTE_RULE : 0;
-    if (forced || (bottom + reserve > contentBottom(page) + 0.5 && !firstOnPage)) {
+    // A long paragraph is cut where the page ends, when two lines or more fit (and two or more go on).
+    const lines = b.linePos ? b.lines : undefined;
+    const n = lines?.length ?? 0;
+    const fit = lines ? lines.filter(l => l.bottom + shift + reserve <= contentBottom(page) + 0.5).length : 0;
+    const cut = !forced && !b.keepNext && n >= 2 * KEEP_LINES && fit >= KEEP_LINES && start > contentTop(page) - 1;
+    if (forced || (bottom + reserve > contentBottom(page) + 0.5 && !firstOnPage && !cut)) {
       const height = contentTop(page + 1) - start;
       spacers.push({ pos: b.pos, foot: contentBottom(page) + layout.marginBottom - start, page: page + 1, notes });
       notes = [];
       notesHeight = 0;
       shift += height;
       page += 1;
+    }
+    // Cut the paragraph as many times as it needs (a paragraph longer than a page goes over several).
+    let from = 0;
+    while (lines && n >= 2 && b.top + shift + b.height + (from ? 0 : reserve) > contentBottom(page) + 0.5) {
+      let k = lines.findIndex((l, i) => i > from && l.bottom + shift + (from ? 0 : reserve) > contentBottom(page) + 0.5);
+      if (k < 0) break;
+      const atTop = lines[from].top + shift <= contentTop(page) + 48;
+      if (n - k < KEEP_LINES && n >= 2 * KEEP_LINES) k = Math.max(n - KEEP_LINES, from + 1); // no widow
+      if (k - from < KEEP_LINES && !atTop) break; // no orphan: the spacer above already moved it
+      const pos = b.linePos!(k);
+      if (pos == null || k <= from) break;
+      const y = lineTop(lines, k) + shift;
+      spacers.push({ pos, foot: contentBottom(page) + layout.marginBottom - y, page: page + 1, notes, inline: true });
+      notes = [];
+      notesHeight = 0;
+      shift += contentTop(page + 1) - y;
+      page += 1;
+      from = k;
     }
     const newBottom = b.top + shift + b.height;
     while (newBottom > contentBottom(page) + 0.5) page += 1; // a block taller than a page runs on, and its notes go to its last page
@@ -187,20 +226,63 @@ function noteHeights(view: EditorView, notes: PageNote[]): number[] {
   return heights;
 }
 
+/** The lines of a paragraph (from its letters, not counting the spacers drawn in it) and where each starts. */
+function linesOf(view: EditorView, dom: HTMLElement, y: (r: { top: number }) => number, natural: (at: number) => number, scale: number): Pick<Block, 'lines' | 'linePos'> {
+  const lines: { top: number; bottom: number; node: Text; first: boolean; ft: number }[] = [];
+  const walker = document.createTreeWalker(dom, NodeFilter.SHOW_TEXT, {
+    acceptNode: n => (n.parentElement?.closest('.pg-spacer, [contenteditable="false"]') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+  });
+  const range = document.createRange();
+  for (let t = walker.nextNode() as Text | null; t; t = walker.nextNode() as Text | null) {
+    if (!t.data.length) continue;
+    range.selectNodeContents(t);
+    let first = true;
+    for (const r of range.getClientRects()) {
+      if (r.height < 2) continue;
+      const top = natural(y(r));
+      const bottom = top + r.height / scale;
+      const last = lines[lines.length - 1];
+      if (last && top < last.bottom - 2) { last.top = Math.min(last.top, top); last.bottom = Math.max(last.bottom, bottom); }
+      else lines.push({ top, bottom, node: t, first, ft: r.top });
+      first = false;
+    }
+  }
+  if (lines.length < 2) return {};
+  const linePos = (i: number): number | null => {
+    const l = lines[i];
+    if (!l) return null;
+    let off = 0;
+    if (!l.first) {
+      // The first letter of this line inside its text: the first whose box is on this line.
+      let lo = 0, hi = l.node.data.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        range.setStart(l.node, mid);
+        range.setEnd(l.node, mid + 1);
+        const r = [...range.getClientRects()].pop();
+        if (r && r.top >= l.ft - 1) hi = mid; else lo = mid + 1;
+      }
+      off = lo;
+    }
+    try { return view.posAtDOM(l.node, off); } catch { return null; }
+  };
+  return { lines: lines.map(({ top, bottom }) => ({ top, bottom })), linePos };
+}
+
 function measure(view: EditorView): Block[] {
   const blocks: Block[] = [];
   const allNotes: PageNote[] = [];
   const notesOf = new Map<number, PageNote[]>();
-  const spacerHeights = [...view.dom.querySelectorAll<HTMLElement>(':scope > .pg-spacer')].map(el => el.offsetHeight);
+  const root = view.dom;
+  const rootRect = root.getBoundingClientRect();
+  const scale = root.offsetHeight ? rootRect.height / root.offsetHeight || 1 : 1;
+  const y = (r: { top: number }) => (r.top - rootRect.top) / scale; // from the top of the text, without zoom
+  // Every spacer on screen (between blocks, or inside a cut paragraph), with where it starts and how tall it is.
+  const drawn = [...root.querySelectorAll<HTMLElement>('.pg-spacer')].map(el => ({ el, top: y(el.getBoundingClientRect()), h: el.offsetHeight }));
   // Natural position = measured position minus the spacers above it.
-  let removed = 0;
-  let spacerIndex = 0;
-  const spacers = paginationKey.getState(view.state)?.spacers ?? [];
+  const natural = (at: number) => at - drawn.reduce((sum, d) => sum + (d.top < at - 0.5 ? d.h : 0), 0);
+  const inside = (el: HTMLElement) => drawn.filter(d => el.contains(d.el)).reduce((sum, d) => sum + d.h, 0);
   view.state.doc.forEach((node, offset) => {
-    while (spacerIndex < spacers.length && spacers[spacerIndex].pos <= offset) {
-      removed += spacerHeights[spacerIndex] ?? 0;
-      spacerIndex++;
-    }
     const dom = view.nodeDOM(offset) as HTMLElement | null;
     if (!dom || !(dom instanceof HTMLElement)) return;
     const cs = getComputedStyle(dom);
@@ -211,16 +293,20 @@ function measure(view: EditorView): Block[] {
     });
     allNotes.push(...mine);
     if (mine.length) notesOf.set(blocks.length, mine);
-    blocks.push({
+    const top = natural(y(dom.getBoundingClientRect()));
+    const block: Block = {
       pos: offset,
-      top: dom.offsetTop - removed,
-      height: dom.offsetHeight,
+      top,
+      height: dom.offsetHeight - inside(dom),
       marginTop: parseFloat(cs.marginTop) || 0,
       marginBottom: parseFloat(cs.marginBottom) || 0,
       isBreak: node.type.name === 'pageBreak',
       keepNext: node.type.name === 'heading' && !!node.textContent.trim()
         || node.type.name === 'paragraph' && /^(?:tableau|table|figure|graphique|fig\.)\s+\d+/i.test(node.textContent.trim()) && node.textContent.length < 200,
-    });
+    };
+    // A paragraph of four lines or more can be cut between two pages: find its lines.
+    if (node.type.name === 'paragraph' && block.height > 3.5 * (parseFloat(cs.lineHeight) || 20)) Object.assign(block, linesOf(view, dom, y, natural, scale));
+    blocks.push(block);
   });
   const heights = noteHeights(view, allNotes);
   for (const [i, notes] of notesOf) blocks[i].notes = notes.map(n => ({ ...n, h: heights[n.n - 1] ?? 0 }));
@@ -228,7 +314,7 @@ function measure(view: EditorView): Block[] {
 }
 
 function same(a: Spacer[], b: Spacer[]): boolean {
-  return a.length === b.length && a.every((s, i) => s.pos === b[i].pos && s.page === b[i].page && Math.abs(s.foot - b[i].foot) < 0.5
+  return a.length === b.length && a.every((s, i) => s.pos === b[i].pos && s.page === b[i].page && !!s.inline === !!b[i].inline && Math.abs(s.foot - b[i].foot) < 0.5
     && notesKey(s.notes) === notesKey(b[i].notes));
 }
 
@@ -274,7 +360,7 @@ export const Pagination = Extension.create<object, PaginationStorage>({
               side: -1,
               ignoreSelection: true,
               stopEvent: () => true,
-              key: `pg:${sp.page}:${Math.round(sp.foot * 10)}:${pages}:${layout.version}:${notesKey(sp.notes)}`,
+              key: `pg:${sp.inline ? 'i' : 'b'}:${sp.page}:${Math.round(sp.foot * 10)}:${pages}:${layout.version}:${notesKey(sp.notes)}`,
             })));
         },
       },
