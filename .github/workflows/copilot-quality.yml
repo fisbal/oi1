@@ -16,5 +16,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm i --no-save --ignore-scripts=false @huggingface/transformers@3.8.1
-      - run: node scripts/copilot-quality.mjs
+      - name: Model file sizes
+        run: |
+          for f in model_q4.onnx model_q4f16.onnx model_quantized.onnx model_fp16.onnx; do
+            for m in Qwen2.5-0.5B-Instruct Qwen2.5-1.5B-Instruct; do
+              s=$(curl -sIL "https://huggingface.co/onnx-community/$m/resolve/main/onnx/$f" | grep -i '^content-length' | tail -1 | tr -d '\r' | awk '{print $2}')
+              echo "$m $f $((s/1048576)) MB"
+            done
+          done
+      - if: false
+        run: npm i --no-save --ignore-scripts=false @huggingface/transformers@3.8.1
+      - if: false
+        run: node scripts/copilot-quality.mjs
