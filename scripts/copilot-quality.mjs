@@ -6,7 +6,7 @@
 import { pipeline } from '@huggingface/transformers';
 import { appendFileSync } from 'node:fs';
 
-const MODELS = (process.env.MODELS || 'onnx-community/Qwen2.5-0.5B-Instruct:q8,onnx-community/Qwen2.5-1.5B-Instruct:q4,onnx-community/Qwen3-1.7B-ONNX:q4,onnx-community/gemma-3-1b-it-ONNX:q4').split(',');
+const MODELS = (process.env.MODELS || 'onnx-community/Qwen2.5-0.5B-Instruct:q4,onnx-community/Qwen2.5-0.5B-Instruct:q4f16,onnx-community/Qwen2.5-0.5B-Instruct:fp16,onnx-community/Qwen2.5-1.5B-Instruct:q4f16').split(',');
 const SYSTEM = (app, role) => [
   `You are the copilot built into ${app}, an app of the Office In 1 suite (Letter for documents, Class for spreadsheets, Stage for presentations, Code+ for code, ProDFos for PDFs).`,
   role,
