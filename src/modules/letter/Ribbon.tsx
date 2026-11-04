@@ -11,6 +11,7 @@ import { getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { BULLET_CHARS, BULLET_STYLES, NUMBER_STYLES, numberLabel, type BorderSide, type Borders } from './extensions';
 import { FONT_GROUPS, FONT_SIZES, STYLE_IDS, cssFont, previewStyle, type DocStyles, type StyleId } from './model';
 import { WORK_LAYOUTS } from './templates/works';
+import { OFFICIAL_EXAMPLES } from './templates/models';
 import { workText } from './templates/worksI18n';
 import { LINE_NUMBERS, MARGIN_PRESETS, PAGE_SIZES, PX_PER_IN, WATERMARKS, isDark, pageInches, type MarginPresetId, type PageSettings, type PageSizeId } from './page';
 import type { AppInfo, TabInfo } from '../../shell/contract';
@@ -94,6 +95,10 @@ export interface RibbonActions {
   deleteComment: () => void;
   comment: (dir: 1 | -1) => void;
   toggleComments: () => void;
+  /** Analyse et correction: the pane with every remark on the work and its fix. */
+  analysis: () => void;
+  /** Opens the exemplary work of a norm in a new letter. */
+  workModel: (id: string) => void;
   track: () => void;
   markup: () => void;
   accept: (all: boolean) => void;
@@ -140,6 +145,7 @@ export interface SuiteState {
   tracking: boolean;
   markup: boolean;
   commentsOpen: boolean;
+  analysisOpen: boolean;
   commentHere: boolean;
   changeHere: boolean;
   changes: number;
@@ -594,6 +600,7 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
               </div>}
             </Drop>
             <WorkDrop actions={actions} />
+            <Btn big icon="check" title="ana.open" onClick={actions.analysis} active={suite.analysisOpen} />
             <Drop big icon="orientation" title="letter.orientation">
               {close => (['portrait', 'landscape'] as const).map(o => (
                 <MenuItem key={o} active={page.orientation === o} label={t(`letter.orientation.${o}` as MessageKey)}
@@ -706,6 +713,9 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
         </>}
 
         {shownTab === 'review' && <>
+          <Group label="ana.g.check">
+            <Btn big icon="check" title="ana.open" onClick={actions.analysis} active={suite.analysisOpen} />
+          </Group>
           <Group label="letter.group.comments">
             <Btn big icon="commentnew" title="letter.commentNew" onClick={actions.newComment} disabled={!isBody} />
             <div className="stack">
@@ -973,9 +983,16 @@ function WorkDrop({ actions }: { actions: RibbonActions }) {
       {close => <div className="work-gallery" role="menu">
         <p className="work-lead">{t('letter.works.lead')}</p>
         {WORK_LAYOUTS.map(w => (
-          <button key={w.id} type="button" role="menuitem" className="work-item" data-work={w.id} onClick={() => { actions.workLayout(w.id); close(); }}>
-            <b>{workText(w.name.fr, w.name.en, lang)}</b><span>{workText(w.hint.fr, w.hint.en, lang)}</span>
-          </button>
+          <div key={w.id} className="work-row">
+            <button type="button" role="menuitem" className="work-item" data-work={w.id} onClick={() => { actions.workLayout(w.id); close(); }}>
+              <b>{workText(w.name.fr, w.name.en, lang)}</b><span>{workText(w.hint.fr, w.hint.en, lang)}</span>
+            </button>
+            {/* The exemplary work of the norm (Martin, 2026-11-03), and the official example where there is one. */}
+            <span className="work-more">
+              <button type="button" className="work-model" data-model={w.id} title={t('ana.modelHint')} onClick={() => { actions.workModel(w.id); close(); }}>{t('ana.model')}</button>
+              {(OFFICIAL_EXAMPLES as Record<string, string>)[w.id] && <a className="work-model" href={(OFFICIAL_EXAMPLES as Record<string, string>)[w.id]} target="_blank" rel="noreferrer noopener">{t('ana.example')}</a>}
+            </span>
+          </div>
         ))}
       </div>}
     </Drop>
