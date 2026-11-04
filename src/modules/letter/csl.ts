@@ -119,7 +119,9 @@ export async function makeEngine(styleXml: string, localeXml: string, sources: S
 /** Turns citeproc's HTML (<i>, <b>, entities) into our pieces of text. */
 export function htmlSegs(html: string): Seg[] {
   const out: Seg[] = [];
-  const decode = (s: string) => s.replace(/&#38;|&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;|&#34;/g, '"').replace(/&#39;|&apos;/g, '\'').replace(/&nbsp;|&#160;/g, ' ').replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n)));
+  // One pass, so "&amp;lt;" stays "&lt;" (never decoded twice).
+  const NAMED: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: '\'', nbsp: '\u00a0' };
+  const decode = (s: string) => s.replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, (m, e: string) => (e[0] === '#' ? String.fromCodePoint(e[1] === 'x' || e[1] === 'X' ? Number.parseInt(e.slice(2), 16) : Number(e.slice(1))) : NAMED[e.toLowerCase()] ?? m));
   let italic = 0, bold = 0;
   for (const part of html.replace(/<\/?(div|span)[^>]*>/g, '').split(/(<\/?(?:i|em|b|strong)>)/)) {
     if (/^<(i|em)>$/.test(part)) italic++;
