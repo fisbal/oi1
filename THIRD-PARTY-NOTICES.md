@@ -157,6 +157,7 @@ Generated with `npx license-checker-rseidelsohn --production`. Run it again afte
 | acorn@8.19.0 | MIT | https://github.com/acornjs/acorn |
 | any-promise@1.3.0 | MIT | https://github.com/kevinbeaty/any-promise |
 | bessel@1.0.2 | Apache-2.0 | https://github.com/SheetJS/bessel |
+| citeproc@2.4.63 (citeproc-js, © 2009-2019 Frank Bennett) | CPAL-1.0 OR AGPL-3.0 (used under CPAL-1.0, unmodified) | https://github.com/Juris-M/citeproc-js |
 | codemirror@6.0.2 | MIT | https://github.com/codemirror/basic-setup |
 | commander@4.1.1 | MIT | https://github.com/tj/commander.js |
 | core-util-is@1.0.3 | MIT | https://github.com/isaacs/core-util-is |
@@ -240,3 +241,9 @@ Generated with `npx license-checker-rseidelsohn --production`. Run it again afte
 | w3c-keyname@2.2.8 | MIT | https://github.com/marijnh/w3c-keyname |
 | y-indexeddb@9.0.12 | MIT | https://github.com/yjs/y-indexeddb |
 | yjs@13.6.33 | MIT | https://github.com/yjs/yjs |
+
+
+## Data files fetched when used
+
+- Citation Style Language styles and locales (citationstyles.org, github.com/citation-style-language/styles and /locales): CC BY-SA 3.0. Downloaded when a person picks a CSL style in In 1 Letter, kept on their device, not changed.
+- Crossref, Open Library and Google Books answer DOI and ISBN look-ups (only the identifier is sent).

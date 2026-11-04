@@ -109,6 +109,9 @@ export interface RibbonActions {
   nextFootnote: () => void;
   citeStyle: CitationStyle;
   setCiteStyle: (st: CitationStyle) => void;
+  /** A CSL style in use (instead of the built-in ones), and the window to pick one. */
+  cslName: string | null;
+  moreStyles: () => void;
   newCitation: (ai: boolean) => void;
   refModels: () => void;
   refCheck: () => void;
@@ -665,11 +668,15 @@ export function Ribbon({ editor, body, styles, page, setPage, lang, setLang, vie
           <Group label="letter.group.citations">
             <Btn big icon="cite" title="letter.citeInsert" onClick={() => actions.newCitation(false)} disabled={!isBody} />
             <div className="stack">
-              <Drop icon="cite" title="letter.citeStyle" text label={<span className="rb-label">{CITATION_STYLES[actions.citeStyle].label}</span>}>
-                {close => CITATION_STYLE_IDS.map(id => (
-                  <MenuItem key={id} active={actions.citeStyle === id} label={CITATION_STYLES[id].label}
-                    onClick={() => { actions.setCiteStyle(id); close(); }} />
-                ))}
+              <Drop icon="cite" title="letter.citeStyle" text label={<span className="rb-label">{actions.cslName ?? CITATION_STYLES[actions.citeStyle].label}</span>}>
+                {close => [
+                  ...CITATION_STYLE_IDS.map(id => (
+                    <MenuItem key={id} active={!actions.cslName && actions.citeStyle === id} label={CITATION_STYLES[id].label}
+                      onClick={() => { actions.setCiteStyle(id); close(); }} />
+                  )),
+                  <MenuItem key="csl" active={!!actions.cslName} label={actions.cslName ? `${t('letter.csl.more')} · ${actions.cslName}` : t('letter.csl.more')}
+                    onClick={() => { actions.moreStyles(); close(); }} />,
+                ]}
               </Drop>
               <Drop icon="next" title="letter.citeAgain" text>
                 {close => {
