@@ -105,6 +105,9 @@
 /* Spacers between pages (made by pagination.ts). */
 .pg-spacer { margin: 0 calc(-1 * var(--mr)) 0 calc(-1 * var(--ml)); width: var(--pw); user-select: none; pointer-events: none; }
 .pg-foot, .pg-head { position: relative; }
+/* In a paragraph cut between two pages: a line of its own, whatever the paragraph's indent, size or spacing. */
+.pg-spacer.pg-inline { display: inline-block; vertical-align: top; text-indent: 0; white-space: normal; }
+.pg-inline > div { display: block; }
 .pg-gap { height: var(--pg-gap); }
 .hf-clone { position: absolute; left: var(--ml); right: var(--mr); opacity: .55; }
 .pg-foot .hf-clone { bottom: var(--fd); }
@@ -164,6 +167,7 @@
   .letter .sheet { transform: none !important; box-shadow: none !important; --pg-gap: 0px !important; --pg-slack: 2px; }
   .letter .page-frame { box-shadow: none; }
   .letter .pg-head { break-before: page; }
+  .letter .pg-spacer.pg-inline { display: block; } /* a printed page can only break between blocks */
   .letter .hf-clone, .letter .hf .doc-text { opacity: 1 !important; }
   .letter .hf { outline: none !important; }
   .letter .hf::before, .letter .is-empty::before, .letter .page-break::after { content: none !important; }

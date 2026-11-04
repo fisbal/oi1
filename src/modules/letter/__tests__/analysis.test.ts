@@ -99,6 +99,16 @@ describe('clean pages (LaTeX-like)', () => {
     const { spacers } = computeSpacers([block(0, 0, 740), block(10, 740, 30, true), block(20, 770, 100)], layout);
     expect(spacers.map(s => s.pos)).toEqual([10]);
   });
+  it('cuts a long paragraph between two lines, two lines at least on each side, like Word', () => {
+    // 30 lines of 25px from 650: lines up to 800 fit (6 lines), the rest goes to page 2.
+    const lines = Array.from({ length: 30 }, (_, i) => ({ top: 650 + i * 25 + 5, bottom: 650 + i * 25 + 20 }));
+    const { spacers } = computeSpacers([block(0, 0, 650), { ...block(10, 650, 750), lines, linePos: i => 100 + i }], layout);
+    expect(spacers.map(s => [s.pos, !!s.inline])).toEqual([[106, true]]);
+    // A paragraph whose last line alone would go over: two lines go to the next page (no widow).
+    const short = Array.from({ length: 7 }, (_, i) => ({ top: 640 + i * 25 + 5, bottom: 640 + i * 25 + 20 }));
+    const r = computeSpacers([block(0, 0, 640), { ...block(10, 640, 175), lines: short, linePos: i => 200 + i }], layout);
+    expect(r.spacers.map(s => s.pos)).toEqual([205]);
+  });
   it('keeps the old layout when what follows fits', () => {
     const { spacers } = computeSpacers([block(0, 0, 400), block(10, 400, 30, true), block(20, 430, 100)], layout);
     expect(spacers).toEqual([]);
