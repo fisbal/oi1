@@ -105,6 +105,8 @@
 /* Spacers between pages (made by pagination.ts). */
 .pg-spacer { margin: 0 calc(-1 * var(--mr)) 0 calc(-1 * var(--ml)); width: var(--pw); user-select: none; pointer-events: none; }
 .pg-foot, .pg-head { position: relative; }
+/* A tab stop with Word's dot leader (a table of contents' "Introduction ........ 3"). */
+.tab-x.tab-dots { background: radial-gradient(circle, currentColor 0.055em, transparent 0.075em) 0 calc(100% - 0.28em) / 0.36em 0.2em repeat-x; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 /* In a paragraph cut between two pages: a line of its own, whatever the paragraph's indent, size or spacing. */
 .pg-spacer.pg-inline { display: inline-block; vertical-align: top; text-indent: 0; white-space: normal; }
 .pg-inline > div { display: block; }

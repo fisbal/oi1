@@ -8,7 +8,7 @@
 
 import type { JSONContent } from '@tiptap/core';
 import type { DocStyles, StyleDef } from '../model';
-import { applyTitles, isTitleLine, makeLists } from './structure';
+import { applyTitles, isTitleLine, isTocLine, makeLists } from './structure';
 import { FIELD_COLOR } from './markup';
 import { workText, type WorkLang } from './worksI18n';
 
@@ -371,6 +371,7 @@ export function lookOnly(current: JSONContent[]): JSONContent[] {
   const out: JSONContent[] = [];
   for (const n of current) {
     if (isEmpty(n) && out.length && isEmpty(out[out.length - 1])) continue;
+    if (isTocLine(n)) { out.push(n); continue; } // In 1's table of contents keeps its own look
     const c = cleanLook(n);
     // A centered line (a title, a name on a cover) was centered on purpose: it stays centered.
     out.push(n.attrs?.textAlign === 'center' ? { ...c, attrs: { ...c.attrs, textAlign: 'center', indentFirst: 0 } } : c);

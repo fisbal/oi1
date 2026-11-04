@@ -276,6 +276,8 @@ export function modelDoc(w: WorkLayout, lang: WorkLang, date: string): JSONConte
     const head = textOf(n);
     const p = plain(head).replace(/^(?:[ivx]+|\d+(?:\.\d+)*)[.)]?\s+/, '');
     out.push(n);
+    // The table of contents is filled in from the titles when the work opens: no text under its title.
+    if (base[i + 1] && textOf(base[i + 1]) === TOC_MARK) continue;
     if (/^(references|bibliographie|bibliography|ouvrages cites|works cited|referencias|referencias bibliograficas|literaturverzeichnis|bibliografia|quellen)/.test(p) || /^(r[eé]f[eé]rences)/.test(p)) { out.push({ type: 'paragraph', attrs: { indentFirst: 0 }, content: [{ type: 'text', text: '⟦REFS⟧' }] }); continue; }
     if (/^(introduction|introduccion|einleitung|introducao)/.test(p)) out.push(...T.intro.map(x => para(x)));
     else if (/^(conclusion|conclusao|fazit|schluss)/.test(p)) out.push(...T.conclusion.map(x => para(x)));

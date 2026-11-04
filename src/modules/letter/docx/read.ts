@@ -83,7 +83,7 @@ function readTabs(pPr: Element | null): string | undefined {
     const pos = twipsToPt(attr(t, 'pos'));
     if (pos === undefined || v === 'clear' || v === 'bar' || v === 'num') return '';
     const k = v === 'center' ? 'c' : v === 'right' || v === 'end' ? 'r' : v === 'decimal' ? 'd' : 'l';
-    return `${k}${pos}`;
+    return `${k}${pos}${attr(t, 'leader') === 'dot' ? '*' : ''}`;
   }).filter(Boolean);
   return out.length ? out.join(',') : undefined;
 }

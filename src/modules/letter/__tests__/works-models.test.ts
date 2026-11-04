@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { Editor, type JSONContent } from '@tiptap/core';
 import { letterExtensions } from '../setup';
 import { analyze } from '../analysis';
-import { WORK_LAYOUTS, workMargins, workStyles } from '../templates/works';
+import { TOC_MARK, WORK_LAYOUTS, workMargins, workStyles } from '../templates/works';
+import { parseStops } from '../tabStops';
 import { applyNormContent, normCheck } from '../normCheck';
 import { defaultStyles } from '../model';
 import { defaultPage } from '../page';
@@ -36,5 +37,27 @@ describe('the exemplary work of every norm', () => {
       expect(WORK_LAYOUTS.some(w => w.id === id)).toBe(true);
       expect(url).toMatch(/^https:\/\//);
     }
+  });
+});
+
+describe('the table of contents of the exemplary works', () => {
+  it('comes right under its title, with no text in between', () => {
+    for (const w of WORK_LAYOUTS) for (const lang of ['fr', 'en'] as const) {
+      const doc = modelDoc(w, lang, '4 novembre 2026');
+      const text = (n: JSONContent): string => n.text ?? (n.content ?? []).map(text).join('');
+      const at = doc.findIndex(n => text(n) === TOC_MARK);
+      if (at >= 0) expect(doc[at - 1].type, `${w.id} ${lang}`).toBe('heading');
+    }
+  });
+});
+
+describe('tab stops with dot leaders', () => {
+  it('reads "r468*" as a right stop with dots, and keeps it through .docx', async () => {
+    expect(parseStops('l36,r468*')).toEqual([{ kind: 'l', pos: 36 }, { kind: 'r', pos: 468, dots: true }]);
+    const { letterToDocx } = await import('../docx/write');
+    const { readDocx } = await import('../docx/read');
+    const body = { type: 'doc', content: [{ type: 'paragraph', attrs: { tabStops: 'r468*' }, content: [{ type: 'text', text: 'Introduction\t3' }] }] };
+    const back = await readDocx(await letterToDocx({ body, header: null, footer: null, page: defaultPage(), styles: defaultStyles() } as never, 'Toc'));
+    expect(JSON.stringify(back.body)).toContain('r468*');
   });
 });

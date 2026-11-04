@@ -7,6 +7,9 @@
 import type { JSONContent } from '@tiptap/core';
 
 export const nodeText = (n: JSONContent): string => (n.text ?? '') + (n.content ?? []).map(nodeText).join('');
+/** A line of the table of contents In 1 made (its page number after a tab with dots): never a title, never "typed by hand". */
+export const isTocLine = (n: JSONContent | null | undefined): boolean =>
+  !!n && n.type === 'paragraph' && /\*$/.test(String(n.attrs?.tabStops ?? '')) && nodeText(n).includes('\t');
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const allBold = (n: JSONContent) => !!n.content?.length && n.content.some(c => c.type === 'text' && c.text?.trim())
   && n.content.every(c => c.type !== 'text' || !c.text?.trim() || c.marks?.some(m => m.type === 'bold'));
@@ -88,6 +91,7 @@ export function findTitles(nodes: JSONContent[], lang: string, known?: (t: strin
   const coverEnd = brk > 0 && brk < 40 && nodes.slice(0, brk).every(x => x.type === 'paragraph' && nodeText(x).length <= 160) ? brk : 0;
   for (let i = coverEnd; i < nodes.length; i++) {
     const n = nodes[i];
+    if (isTocLine(n)) continue;
     const g = guess(n, lang, known);
     if (!g) continue;
     // The bold, centered title of a cover page is not a part of the work.

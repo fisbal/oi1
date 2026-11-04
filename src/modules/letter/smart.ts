@@ -238,21 +238,21 @@ export function tocJson(editor: Editor, pageOf: (pos: number) => number | null, 
     return node.type.name !== 'table';
   });
   if (!rows.length) return null;
-  const pageCol = 56;
+  // Like Word's table of contents: one line per title, its page number at the right margin after a row of dots,
+  // sub-parts indented. Plain paragraphs (no table, no borders), whatever the norm's indent, alignment or spacing.
+  const right = Math.floor(contentWidth * 0.75) - 1; // pt, from the left margin
   return [
     ...(withTitle ? [{ type: 'paragraph', attrs: { styleId: 'title' }, content: [{ type: 'text', text: t('letter.toc.title') }] }] : []),
-    {
-      type: 'table',
-      attrs: { borders: 'none' },
-      content: rows.map(r => ({
-        type: 'tableRow',
-        content: [
-          { type: 'tableCell', attrs: { colwidth: [Math.round(contentWidth - pageCol)] }, content: [{ type: 'paragraph', attrs: { indentLeft: (r.level - 1) * 14 || null, spaceAfter: 2 }, content: [{ type: 'text', text: r.text, ...(r.level === 1 ? { marks: [{ type: 'bold' }] } : {}) }] }] },
-          { type: 'tableCell', attrs: { colwidth: [pageCol] }, content: [{ type: 'paragraph', attrs: { textAlign: 'right', spaceAfter: 2 }, content: r.page ? [{ type: 'text', text: String(r.page) }] : [] }] },
-        ],
-      })),
-    },
-    { type: 'paragraph' },
+    ...rows.map(r => ({
+      type: 'paragraph',
+      attrs: { indentLeft: (r.level - 1) * 18 || null, indentFirst: 0, indentRight: null, textAlign: 'left', spaceBefore: r.level === 1 ? 4 : 0, spaceAfter: 0, tabStops: `r${right}*`, keepNext: null },
+      content: [
+        { type: 'text', text: r.text, ...(r.level === 1 ? { marks: [{ type: 'bold' }] } : {}) },
+        { type: 'text', text: `\t${r.page ?? ''}` },
+      ],
+    })),
+    // Inserted on its own, a blank line to go on writing; in a work layout the next page follows.
+    ...(withTitle ? [{ type: 'paragraph' }] : []),
   ];
 }
 
