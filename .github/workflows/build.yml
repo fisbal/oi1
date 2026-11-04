@@ -227,6 +227,9 @@ jobs:
       - name: In 1 Letter Analyse et correction, norm check, Appliquer la norme and the exemplary works, on phone, tablet, PC and Mac (check:analyse)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:analyse
+      - name: In 1 Letter cuts long paragraphs between two pages like Word, no line between pages, same pages in print (check:pages)
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:pages
       - name: Make the promo kit again from this build (demo video, PDF guides, posters, QR, captures)
         # Martin, 2026-11-01: the Facebook / Instagram / TikTok / WhatsApp kit must follow every update.
         # Runs on PRs too, so a broken kit shows before merging. Never blocks publishing the app: if it fails,
