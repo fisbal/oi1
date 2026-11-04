@@ -4,7 +4,8 @@
 // Its slides come back as real slides on the deck's layouts and theme.
 
 import type { AiApi } from '../../shell/contract';
-import { LANGUAGES, t } from '../../shell/i18n';
+import { LANGUAGES, getLanguage, t } from '../../shell/i18n';
+import { keepLanguageNote } from '../../ui/proof/proof';
 import type { CopilotContext, CopilotHost } from '../../ui/Copilot';
 import { THEMES, htmlText, linesToHtml, newId, newSlide, slideTitle, itemText, type Deck, type DeckTheme, type Item, type LayoutId, type Slide } from '../../formats/slides';
 import { DIAGRAMS, diagramItems, type DiagramKind } from './build';
@@ -496,7 +497,7 @@ export function stageCopilot(b: StageBridge): CopilotHost {
           if (!boxes.length) return t('ai.letter.nothing');
           const texts = boxes.map(it => htmlText(it.html));
           const answer = await ai.ask({
-            system: 'You are a meticulous proofreader. Fix spelling, grammar, agreement and punctuation in each text, in its own language, keeping the meaning, wording, line breaks and length. Return the same number of texts in the same order.',
+            system: 'You are a meticulous proofreader. Fix spelling, grammar, agreement and punctuation in each text, in its own language, keeping the meaning, wording, line breaks and length. Return the same number of texts in the same order.' + keepLanguageNote(texts.join(' '), getLanguage()),
             messages: [{ role: 'user', content: JSON.stringify({ texts }) }],
             schema: CORRECT_SCHEMA,
             effort: 'low',

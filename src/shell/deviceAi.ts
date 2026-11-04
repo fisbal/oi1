@@ -95,7 +95,8 @@ export async function askDevice(req: AiRequest, model?: string): Promise<string>
   const text = await new Promise<string>((resolve, reject) => {
     pending.set(id, { onText: req.onText, resolve, reject });
     req.signal?.addEventListener('abort', () => { w.postMessage({ type: 'stop' }); }, { once: true });
-    w.postMessage({ type: 'ask', id, messages, max: json ? 1024 : 700 });
+    // A JSON answer copies the user's text (corrections): no penalty on repeating it, or the model rewords.
+    w.postMessage({ type: 'ask', id, messages, max: json ? 1024 : 700, rep: json ? 1.0 : 1.1 });
   });
   if (req.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   return json ? cleanAnswer(text, true) : text.trim();

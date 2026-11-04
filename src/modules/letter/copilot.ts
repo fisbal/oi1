@@ -5,7 +5,8 @@
 import type { Editor } from '@tiptap/core';
 import type { Node as PmNode } from '@tiptap/pm/model';
 import type { AiApi } from '../../shell/contract';
-import { LANGUAGES, t } from '../../shell/i18n';
+import { LANGUAGES, getLanguage, t } from '../../shell/i18n';
+import { keepLanguageNote } from '../../ui/proof/proof';
 import type { CopilotContext, CopilotHost } from '../../ui/Copilot';
 import { wordCount } from '../../ui/Copilot';
 import { markdownToHtml } from '../../ui/markdown';
@@ -62,7 +63,7 @@ async function correct(body: Editor, ai: AiApi, where: Where, signal: AbortSigna
   if (!blocks.length) return t('ai.letter.nothing');
   const texts = blocks.map(b => b.node.textBetween(0, b.node.content.size, undefined, LEAF));
   const answer = await ai.ask({
-    system: 'You are a meticulous proofreader inside In 1 Letter, a word processor. You fix spelling, grammar, agreement, punctuation and typography mistakes in the language each paragraph is written in. You never change the meaning, the tone, the wording that is already correct, names, numbers or the language. Keep every ￼ character exactly where it is: it stands for a picture or a field. Return the same number of paragraphs, in the same order.',
+    system: `You are a meticulous proofreader inside In 1 Letter, a word processor. You fix spelling, grammar, agreement, punctuation and typography mistakes in the language each paragraph is written in. You never change the meaning, the tone, the wording that is already correct, names, numbers or the language. Keep every ￼ character exactly where it is: it stands for a picture or a field. Return the same number of paragraphs, in the same order.${keepLanguageNote(texts.join(' '), getLanguage())}`,
     messages: [{ role: 'user', content: `Correct these ${texts.length} paragraphs. Return them all, corrected, as JSON.\n\n${JSON.stringify({ paragraphs: texts })}` }],
     schema: CORRECT_SCHEMA,
     effort: 'low',

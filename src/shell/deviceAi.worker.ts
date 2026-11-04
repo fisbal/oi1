@@ -65,7 +65,7 @@ let stop: { interrupt(): void; reset(): void } | null = null;
 self.onmessage = async (ev: MessageEvent) => {
   // A dedicated worker only hears the page that created it (origin is empty); refuse anything else.
   if (ev.origin && ev.origin !== self.location.origin) return;
-  const m = ev.data as { type: string; id?: number; messages?: Msg[]; max?: number; model?: string };
+  const m = ev.data as { type: string; id?: number; messages?: Msg[]; max?: number; rep?: number; model?: string };
   if (m.type === 'load') {
     try { await load(m.model); post({ type: 'ready' }); }
     catch (e) { post({ type: 'load-error', error: String((e as Error)?.message ?? e) }); }
@@ -82,7 +82,7 @@ self.onmessage = async (ev: MessageEvent) => {
         skip_prompt: true, skip_special_tokens: true,
         callback_function: (part: string) => { text += part; post({ type: 'part', id: m.id, text }); },
       });
-      const out = await run(m.messages, { max_new_tokens: m.max ?? 512, do_sample: false, repetition_penalty: 1.1, streamer, stopping_criteria: stop });
+      const out = await run(m.messages, { max_new_tokens: m.max ?? 512, do_sample: false, repetition_penalty: m.rep ?? 1.1, streamer, stopping_criteria: stop });
       const g = out[0]?.generated_text;
       const last = Array.isArray(g) ? g[g.length - 1]?.content ?? text : text;
       post({ type: 'text', id: m.id, text: last });
