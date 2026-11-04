@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { WebAnswer } from '../ui/WebAnswer';
 import { WantBar } from '../ui/want/WantBar';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
@@ -20,7 +21,8 @@ import { In1Voice } from './voice/In1Voice';
 import { guardFile } from './shield/guard';
 import { ShieldButton, ShieldHost } from './shield/Shield';
 import { installScrollArrows, schedule as scheduleScrollArrows } from '../ui/scrollArrows';
-import { autoSaveOn, forgetTab, onSaveStatus, registerSaver, saveStatus, setAutoSave, trackedSave } from './saveStatus';
+import { autoSaveOn, forgetTab, markSaved, onSaveStatus, registerSaver, saveStatus, setAutoSave, trackedSave } from './saveStatus';
+import type { FileRef } from './contract';
 import { setTheme, useTheme } from './theme';
 import { useLanguage } from './useLanguage';
 
@@ -165,8 +167,8 @@ export default function App() {
       onBlur={commitRename} />
   );
 
-  const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
-  const notify = useCallback((text: string) => setToast(cur => ({ text, n: (cur?.n ?? 0) + 1 })), []);
+  const [toast, setToast] = useState<{ text: string; n: number; ms?: number } | null>(null);
+  const notify = useCallback((text: string, ms = 3200) => setToast(cur => ({ text, ms, n: (cur?.n ?? 0) + 1 })), []);
 
   // Changing the language with a document open: the interface, the document, or both (remembered when asked).
   const [langAsk, setLangAsk] = useState<LanguageCode | null>(null);
@@ -216,7 +218,7 @@ export default function App() {
   }, [openAnyFile, notify]);
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), 3200);
+    const timer = window.setTimeout(() => setToast(null), toast.ms ?? 3200);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
@@ -256,6 +258,8 @@ export default function App() {
       }
       const saved = await saveFile(name, content, mimeType, options);
       if (saved) void addRecent(moduleId, saved.ref.name, saved.ref.handle, saved.ref.handle ? undefined : saved.blob);
+      // Say where it went (Martin, 2026-11-04: saving did not show the place), in the bar and in a note.
+      if (saved && !options?.quiet) { markSaved(tabId, saved.ref); notify(savedWhere(saved.ref), 6000); }
       return saved?.ref ?? null;
     },
     storage: {
@@ -650,10 +654,20 @@ function UpdateBanner() {
   );
 }
 
+/** "Enregistré : travail.docx, dans Documents" — where a file went, in the person's words. */
+function savedWhere(ref: Pick<FileRef, 'name' | 'where' | 'cloud'>): string {
+  if (ref.cloud) return t('save.cloud', { where: 'GitHub' });
+  if (ref.where === 'downloads') return t('save.inDownloads', { name: ref.name });
+  if (ref.where === 'android') return t('save.done', { name: ref.name });
+  if (ref.where) return t('save.inFolder', { name: ref.name, folder: ref.where === '/' ? t('save.phoneStorage') : ref.where });
+  return t('save.done', { name: ref.name });
+}
+
 /** "Saved" in the app bar, and the AutoSave switch (Martin: "enregistrement auto"). */
 function SaveBadge({ tabId, onOpen }: { tabId: string; onOpen: (f: OpenedFile) => void }) {
   const cloud = useCloud();
   const [panel, setPanel] = useState(false);
+  const [info, setInfo] = useState<{ top: number; right: number } | null>(null);
   const [, redraw] = useState(0);
   useEffect(() => onSaveStatus(id => { if (id === tabId || id === '*') redraw(n => n + 1); }), [tabId]);
   // "Saved 2 min ago" stays true while the tab is open.
@@ -667,7 +681,13 @@ function SaveBadge({ tabId, onOpen }: { tabId: string; onOpen: (f: OpenedFile) =
   const hint = s.where === 'cloud' ? t('save.cloudHint', { name: s.name ?? '' }) : s.where === 'file' ? t('save.fileHint') : t('save.deviceHint');
   return (
     <span className="save-area">
-      {text && <span className={`save-badge save-${s.state}`} role="status" title={s.at ? `${hint} (${timeAgo(s.at)})` : hint}>{text}</span>}
+      {text && <button type="button" className={`save-badge save-${s.state}`} role="status" aria-expanded={!!info} title={s.at ? `${hint} (${timeAgo(s.at)})` : hint} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setInfo(o => (o ? null : { top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) })); }}>{text}</button>}
+      {info && text && createPortal(
+        <span className="save-info" role="note" data-save-info style={{ top: info.top, right: info.right, maxWidth: Math.min(360, window.innerWidth - info.right - 8) }} onClick={() => setInfo(null)}>
+          {s.state === 'error' ? `${t('save.errorWhy')}${s.reason ? ` (${s.reason})` : ''}` : s.where === 'device' ? t('save.deviceHint')
+            : `${savedWhere({ name: s.name ?? '', where: s.folder, cloud: s.where === 'cloud' ? s.name : undefined })}${s.at ? ` · ${timeAgo(s.at)}` : ''}`}
+        </span>, document.body, // over everything (the ribbon's scroll arrows are fixed on the page)
+      )}
       <label className="autosave" title={t('save.autoHint')}>
         <input type="checkbox" role="switch" checked={auto} onChange={e => setAutoSave(e.target.checked)} />
         <span className="autosave-track" aria-hidden="true" />

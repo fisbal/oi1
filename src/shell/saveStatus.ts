@@ -5,7 +5,11 @@ import type { FileRef } from './contract';
 import { store } from './storage';
 import { cloudOn } from './cloud';
 
-export interface SaveStatus { state: 'idle' | 'saving' | 'saved' | 'error'; where: 'device' | 'file' | 'cloud'; name?: string; at: number }
+export interface SaveStatus { state: 'idle' | 'saving' | 'saved' | 'error'; where: 'device' | 'file' | 'cloud'; name?: string; at: number;
+  /** The folder it went to, when known ("downloads" = the browser's downloads). */
+  folder?: string;
+  /** Why the last save failed, said when the badge is tapped. */
+  reason?: string }
 type Saver = () => Promise<FileRef | null>;
 
 const statuses = new Map<string, SaveStatus>();
@@ -36,9 +40,9 @@ export async function trackedSave(tabId: string, work: () => Promise<unknown>) {
   try {
     await work();
     // Keep saying where it was last saved (the file) until the file is written again.
-    set(tabId, { state: 'saved', at: Date.now(), where: last.where === 'device' ? 'device' : last.where });
-  } catch {
-    set(tabId, { state: 'error', at: Date.now() });
+    set(tabId, { state: 'saved', at: Date.now(), where: last.where === 'device' ? 'device' : last.where, reason: undefined });
+  } catch (e) {
+    set(tabId, { state: 'error', at: Date.now(), reason: String((e as Error)?.message ?? e) });
     return;
   }
   const saver = savers.get(tabId);
@@ -49,11 +53,16 @@ export async function trackedSave(tabId: string, work: () => Promise<unknown>) {
     set(tabId, { state: 'saving' });
     try {
       const ref = await saver();
-      set(tabId, ref ? { state: 'saved', where: ref.cloud ? 'cloud' : 'file', name: ref.name, at: Date.now() } : { state: 'saved', where: 'device', at: Date.now() });
-    } catch {
-      set(tabId, { state: 'error', at: Date.now() });
+      set(tabId, ref ? { state: 'saved', where: ref.cloud ? 'cloud' : 'file', name: ref.name, folder: ref.where ?? saveStatus(tabId).folder, at: Date.now(), reason: undefined } : { state: 'saved', where: 'device', at: Date.now() });
+    } catch (e) {
+      set(tabId, { state: 'error', at: Date.now(), reason: String((e as Error)?.message ?? e) });
     }
   }, cloudOn() ? 6000 : 2500)); // each cloud save is a commit: wait for a longer pause
+}
+
+/** A save the person asked for (Ctrl+S, Fichier > Enregistrer) went to this file. */
+export function markSaved(tabId: string, ref: FileRef) {
+  set(tabId, { state: 'saved', where: ref.cloud ? 'cloud' : 'file', name: ref.name, folder: ref.where, at: Date.now(), reason: undefined });
 }
 
 export function forgetTab(tabId: string) { statuses.delete(tabId); savers.delete(tabId); window.clearTimeout(timers.get(tabId)); }
