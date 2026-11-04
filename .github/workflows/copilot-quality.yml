@@ -1,0 +1,21 @@
+# Runs the copilot quality comparison (scripts/copilot-quality.mjs) only when this branch is pushed: not part of
+# every PR (it downloads several models). The report is in the run's summary.
+name: Copilot quality
+on:
+  push:
+    branches: [copilot-quality]
+    paths: [scripts/copilot-quality.mjs, src/shell/deviceAi.worker.ts]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm i --no-save --ignore-scripts=false @huggingface/transformers@3.8.1
+      - run: node scripts/copilot-quality.mjs

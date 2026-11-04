@@ -100,7 +100,8 @@ async function run(name, viewport, mobile, portrait) {
   await input.fill('Réponds seulement : bonjour');
   await input.press('Enter');
   const reply = real ? page.locator('.copilot-msg.claude:not(.error)').last() : page.locator('.copilot-msg:has-text("Bonjour, je suis In 1 AI.")').first();
-  const got = real ? await page.waitForFunction(() => { const m = [...document.querySelectorAll('.copilot-msg.claude')].pop(); return m && !m.hasAttribute('aria-live') && /\p{L}{2}/u.test(m.textContent || ''); }, null, { timeout: 600000 }).then(() => true, () => false) : await reply.waitFor({ timeout: 6000 }).then(() => true, () => false);
+  // The real model must answer sense, not just letters (2026-11-04: the 8-bit model wrote "Once at least once…").
+  const got = real ? await page.waitForFunction(() => { const m = [...document.querySelectorAll('.copilot-msg.claude')].pop(); return m && !m.hasAttribute('aria-live') && /bonjour/i.test(m.textContent || ''); }, null, { timeout: 600000 }).then(() => true, () => false) : await reply.waitFor({ timeout: 6000 }).then(() => true, () => false);
   check(got, `${name}: In 1 AI answers right in the copilot${real ? ' (real model: ' + JSON.stringify((await reply.innerText().catch(() => '')).slice(0, 60)) + ')' : ''}`);
   check(!(await page.locator('.copilot-msg.error').count()), `${name}: no error from In 1 AI`);
   check((await page.evaluate(() => window.__opened.length)) === 0, `${name}: no website opens with In 1 AI`);
