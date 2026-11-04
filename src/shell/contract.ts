@@ -8,6 +8,8 @@ export interface FileRef {
   handle?: FileSystemFileHandle;
   /** Written to the person's cloud (AutoSave), at this path there. */
   cloud?: string;
+  /** Where it was saved, said to the person ("Download", "C:\\Users\\Martin\\Documents"; "downloads" = the browser's downloads). */
+  where?: string;
 }
 
 export interface OpenedFile extends FileRef {

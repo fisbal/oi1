@@ -87,6 +87,12 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
     await page.locator(BODY).first().click();
     await page.keyboard.press('Control+s');
     const d = await dl;
+    // It says where the file went (Martin, 2026-11-04): a note, and the badge in the app bar tells it again when tapped.
+    const note = await page.locator('.toast').first().innerText({ timeout: 4000 }).catch(() => '');
+    check(/Downloads/.test(note) && /\.docx/.test(note), `${name}: saving says where the file went ("${note}")`);
+    await page.locator('.app-frame:not([hidden]) .save-badge').first().click().catch(() => {});
+    const info = await page.locator('[data-save-info]').first().innerText({ timeout: 3000 }).catch(() => '');
+    check(/Downloads/.test(info), `${name}: tapping "Saved" tells the place again ("${info}")`);
     if (d) {
       const JSZip = (await import('jszip')).default;
       const xml = await (await JSZip.loadAsync(readFileSync(await d.path()))).file('word/document.xml').async('string');

@@ -330,9 +330,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .app-doc { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .app-doc::before { content: '·'; margin-right: 8px; opacity: .6; }
 .save-area { margin-left: auto; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.save-badge { background: none; border: 0; padding: 2px 4px; font: inherit; cursor: pointer; border-radius: 6px; }
+.save-badge:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
 .save-badge { font-size: 12px; color: var(--muted); white-space: nowrap; max-width: 34vw; overflow: hidden; text-overflow: ellipsis; }
 .save-badge.save-saved { color: color-mix(in srgb, #2e9d5b 75%, var(--ink)); }
 .save-badge.save-error { color: #d14343; font-weight: 650; }
+/* Tap the badge: where the document was saved (folder, Downloads), or why it was not. */
+.save-info { position: fixed; z-index: 2000; width: max-content; max-width: min(360px, calc(100vw - 24px));
+  background: var(--panel, #fff); color: var(--ink); border: 1px solid var(--line, #d0d0d0); border-radius: 10px; padding: 8px 12px;
+  font-size: 13px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; box-shadow: 0 8px 24px rgba(0, 0, 0, .18); }
 .autosave { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap; }
 .autosave input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .autosave-track { position: relative; width: 26px; height: 14px; border-radius: 99px; background: rgba(var(--fg-rgb), .2); transition: background .2s; }

@@ -87,7 +87,24 @@ async function saveInApp(name: string, blob: Blob): Promise<FileRef | null> {
   const path = await save({ defaultPath: name, filters: ext ? [{ name: ext.toUpperCase(), extensions: [ext] }] : undefined });
   if (!path) return null;
   await writeFile(path, new Uint8Array(await blob.arrayBuffer()));
-  return { name: decodeURIComponent(path.split(/[\\/]/).pop() || name) };
+  return placeOf(path, name);
+}
+
+/** The file's name and folder from where the app's save dialog put it: a desktop path, or an Android content:// address
+ *  ("…/document/primary%3ADocuments%2Ftravail.docx" is Documents/travail.docx; the downloads provider gives only a number). */
+export function placeOf(path: string, asked: string): { name: string; where: string } {
+  let p = path;
+  try { p = decodeURIComponent(path); } catch { /* keep it as it is */ }
+  if (/^content:\/\//.test(p)) {
+    if (/downloads/.test(p) && !/primary:/.test(p)) return { name: asked, where: 'downloads' };
+    const inside = p.replace(/^.*\/document\//, '').replace(/^[^:]*:/, ''); // "Documents/travail.docx"
+    const parts = inside.split('/').filter(Boolean);
+    const last = parts.pop() ?? '';
+    return { name: /\.[a-z0-9]{2,5}$/i.test(last) ? last : asked, where: parts.join('/') || (/primary:/.test(p) ? '/' : 'android') };
+  }
+  const parts = p.split(/[\\/]/);
+  const last = parts.pop() || asked;
+  return { name: last, where: parts.join(p.includes('\\') ? '\\' : '/') };
 }
 
 export function downloadFile(name: string, content: Blob | string, mimeType: string) {
@@ -140,7 +157,7 @@ export async function saveFile(name: string, content: Blob | string | (() => Pro
       if (isAbort(e)) return null;
       const blob = await toBlob();
       downloadFile(name, blob, mimeType);
-      return { ref: { name }, blob };
+      return { ref: { name, where: 'downloads' }, blob };
     }
     const blob = await toBlob();
     await write(handle, blob);
@@ -152,5 +169,5 @@ export async function saveFile(name: string, content: Blob | string | (() => Pro
     return ref ? { ref, blob } : null;
   }
   downloadFile(name, blob, mimeType);
-  return { ref: { name }, blob };
+  return { ref: { name, where: 'downloads' }, blob };
 }
