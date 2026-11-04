@@ -31,6 +31,8 @@ function blocks(doc: PMNode): Block[] {
     const pos: number[] = [];
     node.forEach((child, off) => {
       const start = at + 1 + off;
+      // Text deleted in tracked changes is not checked: the paragraph is read as it will be once accepted.
+      if (child.isText && child.marks.some(m => m.type.name === 'deletion')) return;
       if (child.isText) { for (let i = 0; i < child.text!.length; i++) pos.push(start + i); text += child.text; }
       else { pos.push(start); text += ' '; }
     });
