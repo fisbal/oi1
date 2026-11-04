@@ -127,7 +127,7 @@ export function htmlSegs(html: string): Seg[] {
     else if (/^<(b|strong)>$/.test(part)) bold++;
     else if (/^<\/(b|strong)>$/.test(part)) bold--;
     else if (part) {
-      const t = decode(part.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ');
+      const t = decode(part.replace(/<[^>]*>/g, '').replace(/[<>]/g, '')).replace(/\s+/g, ' ');
       if (t) out.push({ text: t, ...(italic > 0 ? { italic: true } : {}), ...(bold > 0 ? { bold: true } : {}) });
     }
   }
