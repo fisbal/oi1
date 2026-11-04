@@ -5,6 +5,7 @@ import { t, type MessageKey } from '../../shell/i18n';
 import type { ShellApi as Shell } from '../../shell/contract';
 import { Dialog } from '../../ui/kit';
 import { SOURCE_KINDS, SOURCE_PROMPT, parseSource, type Source, type SourceKind } from './references';
+import { lookupSource } from './lookup';
 
 const FIELDS = ['authors', 'title', 'year', 'date', 'edition', 'container', 'editors', 'volume', 'issue', 'pages', 'publisher', 'place', 'institution', 'url', 'doi', 'accessed'] as const;
 type Field = (typeof FIELDS)[number];
@@ -35,8 +36,17 @@ export function SourceDialog({ shell, onClose, onDone, aiFirst, initial, highlig
   const set = (k: Field, v: string) => setSrc(s => ({ ...s, [k]: v }));
   const fill = async () => {
     if (!query.trim()) return;
-    if (!shell.ai.ready()) { shell.notify(t('letter.pasteNeedsAi')); return; }
     setBusy(true);
+    // A DOI or an ISBN: straight from Crossref, Open Library or Google Books, no AI needed (like Zotero).
+    const found = await lookupSource(query, src.id);
+    if ('source' in found) {
+      setSrc(s => ({ ...found.source, accessed: s.accessed }));
+      shell.notify(t('letter.source.found', { from: found.from === 'crossref' ? 'Crossref' : found.from === 'openlibrary' ? 'Open Library' : 'Google Books' }));
+      setBusy(false);
+      return;
+    }
+    if (found.error !== 'none' && !shell.ai.ready()) { shell.notify(t(found.error === 'offline' ? 'letter.source.offline' : 'letter.source.notFound')); setBusy(false); return; }
+    if (!shell.ai.ready()) { shell.notify(t('letter.pasteNeedsAi')); setBusy(false); return; }
     try {
       const answer = await shell.ai.ask({ system: SOURCE_PROMPT, messages: [{ role: 'user', content: query.trim() }] });
       const found = parseSource(answer, src.id);

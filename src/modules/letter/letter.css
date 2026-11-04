@@ -105,6 +105,8 @@
 /* Spacers between pages (made by pagination.ts). */
 .pg-spacer { margin: 0 calc(-1 * var(--mr)) 0 calc(-1 * var(--ml)); width: var(--pw); user-select: none; pointer-events: none; }
 .pg-foot, .pg-head { position: relative; }
+/* A tab stop with Word's dot leader (a table of contents' "Introduction ........ 3"). */
+.tab-x.tab-dots { background: radial-gradient(circle, currentColor 0.055em, transparent 0.075em) 0 calc(100% - 0.28em) / 0.36em 0.2em repeat-x; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 /* In a paragraph cut between two pages: a line of its own, whatever the paragraph's indent, size or spacing. */
 .pg-spacer.pg-inline { display: inline-block; vertical-align: top; text-indent: 0; white-space: normal; }
 .pg-inline > div { display: block; }
@@ -301,7 +303,12 @@
 .table-styles button i { display: block; border: 1px solid #BFBFBF; border-radius: 1px; }
 .table-styles button.no-lines i { border-color: transparent; }
 .table-styles button:hover { transform: translateY(-2px); border-color: var(--gold); }
-.sheet.hyphenate .doc-text { hyphens: auto; -webkit-hyphens: auto; }
+/* Lines like LaTeX's: the browser weighs the whole paragraph so no word sits alone on its last line, and with
+   Hyphenation on, words are cut by the text language's rules (two letters at least before the cut, three after,
+   as TeX does), so justified lines keep even spaces. */
+.doc-text p, .doc-text li { text-wrap: pretty; }
+.sheet.hyphenate .doc-text { hyphens: auto; -webkit-hyphens: auto; hyphenate-limit-chars: 6 2 3; }
+.doc-text [style*="text-align: justify"] { text-justify: inter-word; }
 /* Layout > Line numbers: a number in the left margin before each paragraph, every 5 or 10 if asked. */
 /* The number hangs from the text column (not the paragraph), so indented paragraphs keep it in the margin. */
 .sheet.ln .body-area .doc-text { counter-reset: ln; position: relative; }

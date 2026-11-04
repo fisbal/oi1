@@ -9,7 +9,7 @@ import type { DocStyles, StyleDef } from './model';
 import type { PageSettings } from './page';
 import { REFS_TITLE, type Finding } from './analysis';
 import { lookOnly, workMargins, workStyles, TOC_MARK, type WorkLayout } from './templates/works';
-import { nodeText } from './templates/structure';
+import { isTocLine, nodeText } from './templates/structure';
 
 const TOC_TITLE = /^(table des mati[eè]res|sommaire|table of contents|contents|[ií]ndice|sum[aá]rio|inhaltsverzeichnis|inhalt)$/i;
 /** Parts a work may leave out: the appendices, the thanks, the lists of tables and figures. */
@@ -72,7 +72,7 @@ function directLook(tops: JSONContent[], from: number, refs: [number, number] | 
     // Inside tables and lists only the words count: a cell keeps its own alignment.
     for (const c of x.content ?? []) walk(c, false, i);
   };
-  tops.forEach((x, i) => { if (i >= from) walk(x, true, i); });
+  tops.forEach((x, i) => { if (i >= from && !isTocLine(x)) walk(x, true, i); });
   return n;
 }
 

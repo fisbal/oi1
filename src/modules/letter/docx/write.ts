@@ -7,7 +7,7 @@ import {
   AlignmentType, BorderStyle, CommentRangeEnd, CommentRangeStart, CommentReference, DeletedTextRun, Document, ExternalHyperlink,
   Footer, FootnoteReferenceRun, Header, HeadingLevel, ImageRun, InsertedTextRun, LevelFormat,
   LineRuleType, Packer, PageBorderDisplay, PageBorderOffsetFrom, PageBreak, PageNumber, PageOrientation, Paragraph,
-  ShadingType, Tab, TabStopType, Table, TableCell, TableRow, TextRun, WidthType,
+  LeaderType, ShadingType, Tab, TabStopType, Table, TableCell, TableRow, TextRun, WidthType,
   type ICommentOptions, type IParagraphOptions, type IRunOptions, type ParagraphChild,
 } from 'docx';
 import JSZip from 'jszip';
@@ -438,8 +438,8 @@ class DocxWriter {
 const TAB_KIND = { l: TabStopType.LEFT, c: TabStopType.CENTER, r: TabStopType.RIGHT, d: TabStopType.DECIMAL } as const;
 function tabStopsOf(v: string | null | undefined) {
   if (!v) return undefined;
-  const stops = v.split(',').map(s => /^([lcrd])(\d+(?:\.\d+)?)$/.exec(s.trim())).filter(Boolean)
-    .map(m => ({ type: TAB_KIND[m![1] as keyof typeof TAB_KIND], position: pt20(Number(m![2])) }));
+  const stops = v.split(',').map(s => /^([lcrd])(\d+(?:\.\d+)?)(\*)?$/.exec(s.trim())).filter(Boolean)
+    .map(m => ({ type: TAB_KIND[m![1] as keyof typeof TAB_KIND], position: pt20(Number(m![2])), ...(m![3] ? { leader: LeaderType.DOT } : {}) }));
   return stops.length ? stops : undefined;
 }
 

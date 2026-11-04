@@ -1,6 +1,7 @@
 // Word tab stops in Letter: a paragraph with stops ("l144,c288,r468", in points) lines its tabs up at them, left,
 // centered, right or on the decimal point, like Word. Each tab character gets a width measured after layout; tabs
-// past the last stop, and paragraphs without stops, keep the default 0.5" grid.
+// past the last stop, and paragraphs without stops, keep the default 0.5" grid. A stop ending with "*" ("r468*") has
+// Word's dot leader: the tab that reaches it is drawn as a row of dots (a table of contents' "Introduction ...... 3").
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
@@ -9,12 +10,12 @@ import type { Node as PmNode } from '@tiptap/pm/model';
 
 const PX_PER_PT = 96 / 72;
 const GRID = 36; // pt
-export interface Stop { kind: 'l' | 'c' | 'r' | 'd'; pos: number }
+export interface Stop { kind: 'l' | 'c' | 'r' | 'd'; pos: number; dots?: boolean }
 
 export function parseStops(v: string | null | undefined): Stop[] {
   if (!v) return [];
-  return v.split(',').map(s => /^([lcrd])(\d+(?:\.\d+)?)$/.exec(s.trim())).filter((m): m is RegExpExecArray => !!m)
-    .map(m => ({ kind: m[1] as Stop['kind'], pos: Number(m[2]) })).sort((a, b) => a.pos - b.pos);
+  return v.split(',').map(s => /^([lcrd])(\d+(?:\.\d+)?)(\*)?$/.exec(s.trim())).filter((m): m is RegExpExecArray => !!m)
+    .map(m => ({ kind: m[1] as Stop['kind'], pos: Number(m[2]), ...(m[3] ? { dots: true } : {}) })).sort((a, b) => a.pos - b.pos);
 }
 
 /** The width (pt) a tab at x needs to reach its stop; seg is the width of the text after it, up to the next tab. */
@@ -33,13 +34,18 @@ function decorate(doc: PmNode, widths: Map<number, number>): DecorationSet {
   doc.descendants((node, pos) => {
     if (!node.isTextblock) return true;
     if (!node.attrs.tabStops) return false;
+    // The last tab of the paragraph reaches the last stop: dots when that stop has a leader.
+    const stops = parseStops(node.attrs.tabStops as string);
+    const dots = !!stops[stops.length - 1]?.dots;
+    let last = -1;
+    if (dots) node.descendants((child, off) => { if (child.isText && child.text?.includes('\t')) last = pos + 1 + off + child.text.lastIndexOf('\t'); });
     node.descendants((child, off) => {
       if (!child.isText || !child.text?.includes('\t')) return;
       for (let i = 0; i < child.text.length; i++) {
         if (child.text[i] !== '\t') continue;
         const at = pos + 1 + off + i;
         const w = widths.get(at);
-        decos.push(Decoration.inline(at, at + 1, { class: 'tab-x', 'data-at': String(at), ...(w !== undefined ? { style: `width: ${w.toFixed(2)}px` } : {}) }));
+        decos.push(Decoration.inline(at, at + 1, { class: at === last ? 'tab-x tab-dots' : 'tab-x', 'data-at': String(at), ...(w !== undefined ? { style: `width: ${w.toFixed(2)}px` } : {}) }));
       }
     });
     return false;

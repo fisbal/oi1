@@ -7,7 +7,7 @@
 // grammar mistakes rules cannot see, always as tracked changes on exact words, never a rewrite.
 import type { Editor, JSONContent } from '@tiptap/core';
 import type { Node as PmNode } from '@tiptap/pm/model';
-import { applyTitles, findTitles, makeLists, nodeText } from './templates/structure';
+import { applyTitles, findTitles, isTocLine, makeLists, nodeText } from './templates/structure';
 import { isTracking, setTracking } from './review';
 
 export type Group = 'layout' | 'method' | 'structure' | 'sources' | 'language';
@@ -243,7 +243,7 @@ export function analyze(doc: PmNode, opts: AnalyzeOptions = {}): Finding[] {
   for (const b of blocks) { const m = /^[ \t\u00a0]{2,}/.exec(b.text); if (m && b.text.trim()) indents.push(range(b, 0, m[0].length, '')); }
   if (indents.length >= 2) add({ group: 'method', key: 'ana.m.indent', vars: { n: indents.length }, at: indents[0].from, edits: indents });
   // A table of contents typed by hand ("Introduction ........ 3"): In 1 makes it and keeps it right.
-  const handToc = blocks.filter(b => /(?:\.{4,}|…{2,}|_{4,}|\t)\s*\d{1,3}\s*$/.test(b.text)).length;
+  const handToc = blocks.filter(b => !isTocLine(b.node.toJSON() as JSONContent) && /(?:\.{4,}|…{2,}|_{4,}|\t)\s*\d{1,3}\s*$/.test(b.text)).length;
   if (handToc >= 2) add({ group: 'method', key: 'ana.m.toc', vars: { n: handToc }, action: 'toc' });
   // Lines cut by hand inside a sentence (Shift+Enter): the text then breaks badly when the page changes.
   let cuts = 0;
