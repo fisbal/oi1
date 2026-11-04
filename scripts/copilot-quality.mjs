@@ -41,7 +41,8 @@ const LANGS = [
 TASKS.length = 0; // this run: the 5 languages only
 for (const [lang, text, write, want] of LANGS) {
   // The exact request In 1 Letter's "Corriger" button sends (src/modules/letter/copilot.ts + deviceMessages).
-  for (const rep of [1.1, 1.0]) TASKS.push({ id: `${lang} : corriger (bouton Letter, pénalité ${rep})`, rep, sys: PROOF, user: `Correct these 1 paragraphs. Return them all, corrected, as JSON.\n\n${JSON.stringify({ paragraphs: [text] })}`, want });
+  const name = { Français: 'French', English: 'English', Español: 'Spanish', Português: 'Portuguese', Deutsch: 'German' }[lang];
+  TASKS.push({ id: `${lang} : corriger (bouton Letter, langue nommée)`, rep: 1.0, sys: PROOF.replace('\n\nAnswer ONLY', ` The paragraphs are in ${name}: return them in ${name}, never translate them.\n\nAnswer ONLY`), user: `Correct these 1 paragraphs. Return them all, corrected, as JSON.\n\n${JSON.stringify({ paragraphs: [text] })}`, want });
 }
 
 const out = ['# In 1 AI: qualité des réponses du copilote', '', `Machine: GitHub runner (WebAssembly/CPU, comme un téléphone sans GPU). ${new Date().toISOString()}`, ''];
