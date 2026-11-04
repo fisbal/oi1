@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<locale xmlns="http://purl.org/net/xbiblio/csl" version="1.0" xml:lang="fr-FR">
+  <style-options punctuation-in-quote="false"/>
+  <date form="text"><date-part name="day" suffix=" "/><date-part name="month" suffix=" "/><date-part name="year"/></date>
+  <date form="numeric"><date-part name="day" form="numeric-leading-zeros" suffix="/"/><date-part name="month" form="numeric-leading-zeros" suffix="/"/><date-part name="year"/></date>
+  <terms>
+    <term name="and">et</term>
+    <term name="et-al">et al.</term>
+    <term name="no date" form="short">s. d.</term>
+    <term name="no date">sans date</term>
+    <term name="open-quote">« </term><term name="close-quote"> »</term>
+    <term name="open-inner-quote">“</term><term name="close-inner-quote">”</term>
+    <term name="page-range-delimiter">-</term>
+  </terms>
+</locale>

@@ -168,6 +168,7 @@
     "@tiptap/react": "^3.32.0",
     "@tiptap/starter-kit": "^3.32.0",
     "acorn": "^8.19.0",
+    "citeproc": "2.4.63",
     "codemirror": "^6.0.2",
     "dictionary-de": "^3.0.0",
     "dictionary-en": "^4.0.0",

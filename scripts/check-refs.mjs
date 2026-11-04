@@ -101,6 +101,48 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   check(got.includes('Dans J.-F. Chanlat (dir.), Le grand livre (p. 10-20). Boréal.'), `${name}: the bibliography entry is French APA (${got})`);
   const css = await entry.evaluate(el => ({ lh: el.style.lineHeight, ti: getComputedStyle(el).textIndent, ml: el.style.marginLeft || getComputedStyle(el).paddingLeft })).catch(() => ({}));
   check(css.lh === '2' && parseFloat(css.ti) < 0, `${name}: double spacing and a hanging indent (${JSON.stringify(css)})`);
+
+  // More styles (CSL): the list of the CSL repository, a search, a style chosen: citations and bibliography follow it.
+  // The repository is answered here with our own small test style (the test does not depend on the Internet).
+  const fs = await import('node:fs');
+  const fx = f => fs.readFileSync(`src/modules/letter/__tests__/fixtures/${f}`, 'utf8');
+  const ids = ['apa', 'modern-language-association', 'chicago-author-date', 'ieee', 'vancouver', 'nature', 'universite-laval-departement-des-sciences-historiques', 'dependent/journal-of-business-venturing'];
+  await page.route('https://api.github.com/repos/citation-style-language/**', r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ tree: ids.map(id => ({ path: `${id}.csl` })) }) }));
+  await page.route('https://raw.githubusercontent.com/citation-style-language/styles/**', r => r.fulfill({ contentType: 'text/xml', body: r.request().url().includes('ieee') ? fx('csl-numeric.csl') : fx('csl-author-date.csl') }));
+  await page.route('https://raw.githubusercontent.com/citation-style-language/locales/**', r => r.fulfill({ contentType: 'text/xml', body: fx('csl-locale-fr.xml') }));
+  await tab('Références');
+  await page.locator(`${H} [data-help="letter.citeStyle"]`).first().click();
+  await page.locator('.drop-panel .menu-item', { hasText: 'Plus de styles (CSL' }).first().click();
+  const cslDlg = page.locator('dialog.oi-dialog[open]');
+  await cslDlg.locator('[data-csl-list]').waitFor({ timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  const count = await cslDlg.locator('.muted').first().innerText().catch(() => '');
+  check(/8 styles/.test(count), `${name}: More styles reads the CSL list (${count.slice(0, 50)})`);
+  await cslDlg.locator('.csl-search').fill('laval');
+  check(await cslDlg.locator('[data-csl]').count() === 1, `${name}: the search finds a university style by one word`);
+  await cslDlg.locator('.csl-search').fill('ieee');
+  await cslDlg.locator('[data-csl="ieee"]').click();
+  await page.waitForTimeout(1200);
+  text = await page.locator(BODY).first().innerText();
+  check(/\[1\]/.test(text) && !text.includes('(Roy, 2022)'), `${name}: a numbered CSL style rewrites the citations ([1]) (${text.trim().slice(0, 40)})`);
+  const label = await page.locator(`${H} [data-help="letter.citeStyle"]`).first().innerText().catch(() => '');
+  check(/IEEE/.test(label), `${name}: the style box shows the CSL style (${label.trim()})`);
+  await page.locator(`${H} .status`).first().click().catch(() => {});
+  await page.locator(BODY).first().click();
+  await page.keyboard.press('Control+End');
+  await tab('Références');
+  await btn('Bibliographie').click();
+  await page.locator('button.menu-item').filter({ hasText: /^Références$/ }).first().click();
+  await page.waitForTimeout(1200);
+  text = await page.locator(BODY).first().innerText();
+  check(/\[1\]Roy/.test(text.replace(/\s+/g, '')) || /\[1\]\s*A\. Roy/.test(text), `${name}: the bibliography follows the CSL style (${text.trim().slice(-60)})`);
+  // Back to a built-in style.
+  await tab('Références');
+  await page.locator(`${H} [data-help="letter.citeStyle"]`).first().click();
+  await page.locator('.drop-panel .menu-item', { hasText: 'APA 7 (français)' }).first().click();
+  await page.waitForTimeout(500);
+  text = await page.locator(BODY).first().innerText();
+  check(text.includes('(Roy, 2022)'), `${name}: a built-in style takes the citations back`);
   await ctx.close();
 }
 

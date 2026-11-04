@@ -385,12 +385,17 @@ export function citedSources(doc: PmNode): Source[] {
 
 /** Rewrites every citation in a new style (and renumbers numeric ones). Returns how many changed. */
 export function restyleCitations(editor: Editor, style: CitationStyle): number {
+  return restyleCitationsBy(editor, (src, n) => inTextCitation(src, style, n) || `[${n}]`);
+}
+
+/** Rewrites every citation with the text a style gives it (a CSL style, run by citeproc). */
+export function restyleCitationsBy(editor: Editor, textOf: (src: Source, n: number) => string): number {
   const order = citedSources(editor.state.doc).map(s => s.id);
   const ops: { from: number; to: number; text: string; marks: PmNode['marks'] }[] = [];
   editor.state.doc.descendants((node, pos) => {
     const m = node.marks.find(x => x.type.name === 'citation');
     if (!node.isText || !m?.attrs.src) return true;
-    const text = inTextCitation(m.attrs.src as Source, style, order.indexOf(m.attrs.src.id) + 1) || `[${order.indexOf(m.attrs.src.id) + 1}]`;
+    const text = textOf(m.attrs.src as Source, order.indexOf(m.attrs.src.id) + 1);
     if (text !== node.text) ops.push({ from: pos, to: pos + node.nodeSize, text, marks: node.marks });
     return true;
   });
@@ -416,7 +421,7 @@ export function updateSource(editor: Editor, src: Source, style: CitationStyle):
   return n;
 }
 
-const segJson = (segs: Seg[]): JSONContent[] => segs.map(s => ({
+export const segJson = (segs: Seg[]): JSONContent[] => segs.map(s => ({
   type: 'text', text: s.text,
   ...(s.italic || s.bold ? { marks: [...(s.italic ? [{ type: 'italic' }] : []), ...(s.bold ? [{ type: 'bold' }] : [])] } : {}),
 }));

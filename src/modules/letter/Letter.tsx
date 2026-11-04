@@ -41,10 +41,12 @@ import { SPACING, THEMES } from './themes';
 import { CV_TEMPLATES } from './templates/cv';
 import { FillDialog, ProfileDialog } from './templates/dialogs';
 import {
-  CITATION_STYLES, bibliographyJson, captionJson, citedSources, indexEntries, indexJson, refTargets, refText, restyleCitations, tableOfFiguresJson, updateSource,
+  CITATION_STYLES, bibliographyJson, captionJson, citedSources, indexEntries, indexJson, refTargets, refText, restyleCitations, restyleCitationsBy, tableOfFiguresJson, updateSource,
   type CaptionLabel, type CitationStyle, type RefForm, type RefTarget, type Source,
 } from './references';
 import { SourceDialog } from './sourceDialog';
+import { CslDialog } from './cslDialog';
+import { cslBibliographyJson, loadLocale, loadStyle, makeEngine, type CslStyle } from './csl';
 import { RefCheckDialog, RefModelsDialog } from './refModels';
 import { LETTERS } from './templates/letters';
 import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, selectNextField } from './templates/markup';
@@ -130,13 +132,15 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   const setView = useCallback((v: Partial<ViewState>) => setViewState(cur => ({ ...cur, ...v })), []);
   const [layout, setLayout] = useState<LayoutResult>({ pages: 1, tail: 96, notes: [] });
   const [workAsk, setWorkAsk] = useState<string | null>(null);
-  const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands' | 'fill' | 'profile' | 'source' | 'sourceAi' | 'refModels' | 'refCheck' | 'signature'>(null);
+  const [panel, setPanel] = useState<null | 'file' | 'find' | 'replace' | 'count' | 'margins' | 'commands' | 'fill' | 'profile' | 'source' | 'sourceAi' | 'refModels' | 'refCheck' | 'signature' | 'csl'>(null);
   // What the source dialog starts from: a type of document (Models) or a source to complete (Check sources).
   const [sourceStart, setSourceStart] = useState<{ initial?: Partial<Source>; highlight?: (keyof Source)[]; update?: boolean } | null>(null);
   const [citeStyle, setCiteStyleState] = useState<CitationStyle>(() => {
     const saved = shell.storage.get('citeStyle') as CitationStyle | null;
     return saved && saved in CITATION_STYLES ? saved : getLanguage() === 'fr' ? 'apaFr' : 'apa';
   });
+  // A CSL style chosen in "More styles" (its id and name), used instead of the built-in style.
+  const [csl, setCsl] = useState<CslStyle | null>(() => { const id = shell.storage.get('cslStyle'); return id ? { id, name: shell.storage.get('cslName') || id } : null; });
   const [copilot, setCopilot] = useState(false);
   const [copilotStart, setCopilotStart] = useState<{ id: string; n: number }>();
   const [docLang, setDocLang] = useState<'fr' | 'en'>(() => (shell.storage.get('docLang') as 'fr' | 'en' | null) || (getLanguage() === 'fr' ? 'fr' : 'en'));
@@ -311,6 +315,35 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
     });
     return () => shell.onRename?.(null);
   }, [shell]);
+
+  // ---------- CSL styles (citeproc) ----------
+  /** citeproc ready for these sources in the chosen CSL style, in the text's language; null when it cannot load. */
+  const cslRun = async (sources: Source[], style: CslStyle | null = csl) => {
+    if (!style) return null;
+    try {
+      const [xml, locale] = await Promise.all([loadStyle(style.id), loadLocale(lang || docLang)]);
+      return await makeEngine(xml, locale, sources);
+    } catch {
+      shell.notify(t('letter.csl.failed'));
+      return null;
+    }
+  };
+  const cslRestyle = async (style: CslStyle) => {
+    if (!body) return true;
+    const sources = citedSources(body.state.doc);
+    const run = await cslRun(sources, style);
+    if (!run) return false;
+    const n = restyleCitationsBy(body, src => run.cite(src.id) || `(${src.title})`);
+    if (n) shell.notify(t('letter.citeRestyled', { n }));
+    return true;
+  };
+  const pickCsl = async (style: CslStyle) => {
+    if (!(await cslRestyle(style))) return false;
+    setCsl(style);
+    shell.storage.set('cslStyle', style.id);
+    shell.storage.set('cslName', style.name);
+    return true;
+  };
 
   // ---------- page geometry and pagination ----------
   const inches = pageInches(page);
@@ -900,8 +933,12 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       else body.chain().focus().command(({ tr }) => { tr.setNodeAttribute(at.pos, 'text', text.trim()); return true; }).run();
     },
     citeStyle,
+    cslName: csl?.name ?? null,
+    moreStyles: () => setPanel('csl'),
     setCiteStyle: (st: CitationStyle) => {
       setCiteStyleState(st);
+      setCsl(null);
+      shell.storage.set('cslStyle', '');
       shell.storage.set('citeStyle', st);
       if (body) { const n = restyleCitations(body, st); if (n) shell.notify(t('letter.citeRestyled', { n })); }
     },
@@ -915,13 +952,25 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       if (!body || !citedSources(body.state.doc).length) { shell.notify(t('letter.citeNone')); return; }
       setPanel('refCheck');
     },
-    cite: (src: Source) => body?.chain().focus().insertCitation(src, citeStyle).run(),
+    cite: (src: Source) => {
+      if (!body) return;
+      if (!csl) { body.chain().focus().insertCitation(src, citeStyle).run(); return; }
+      // A CSL style: citeproc writes the citation (numbered styles count the sources in the order first cited).
+      const known = citedSources(body.state.doc);
+      const sources = known.some(s => s.id === src.id) ? known : [...known, src];
+      void cslRun(sources).then(run => {
+        if (!run) { body.chain().focus().insertCitation(src, citeStyle).run(); return; }
+        if (run.isNote) { body.chain().focus().insertFootnote(run.bibliography().entries[sources.indexOf(src)]?.map(x => x.text).join('') ?? src.title).run(); return; }
+        body.chain().focus().insertContent([{ type: 'text', text: run.cite(src.id) || `(${src.title})`, marks: [{ type: 'citation', attrs: { src } }] }, { type: 'text', text: ' ' }]).run();
+      });
+    },
     citedSources: () => (body ? citedSources(body.state.doc) : []),
     bibliography: (title: string) => {
       if (!body) return;
       const sources = citedSources(body.state.doc);
       if (!sources.length) { shell.notify(t('letter.citeNone')); return; }
-      body.chain().focus().insertContent(bibliographyJson(sources, citeStyle, title)).run();
+      if (!csl) { body.chain().focus().insertContent(bibliographyJson(sources, citeStyle, title)).run(); return; }
+      void cslRun(sources).then(run => body.chain().focus().insertContent(run ? cslBibliographyJson(run, title) : bibliographyJson(sources, citeStyle, title)).run());
     },
     caption: (label: CaptionLabel) => {
       if (!body) return;
@@ -1392,9 +1441,10 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
         initial={sourceStart?.initial} highlight={sourceStart?.highlight}
         onClose={() => { setPanel(null); setSourceStart(null); body.commands.focus(); }}
         onDone={src => {
-          if (sourceStart?.update) { const n = updateSource(body, src, citeStyle); shell.notify(t('letter.refCheck.fixed', { n })); return; }
+          if (sourceStart?.update) { const n = updateSource(body, src, citeStyle); if (csl) void cslRestyle(csl); shell.notify(t('letter.refCheck.fixed', { n })); return; }
           setTimeout(() => actions.cite(src));
         }} />}
+      {panel === 'csl' && <CslDialog current={csl?.id ?? null} onClose={() => { setPanel(null); body.commands.focus(); }} onPick={pickCsl} />}
       {panel === 'refModels' && <RefModelsDialog style={citeStyle} onClose={() => setPanel(null)}
         onStyle={st => { actions.setCiteStyle(st); setPanel(null); }}
         onUse={(kind, st) => {
