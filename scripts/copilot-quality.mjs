@@ -29,16 +29,17 @@ const TASKS = [
 ];
 
 const LANGS = [
+  ['Français', 'Dans cette étude de cas, les changements a été imposés rapidement et les employés n\'ont pas été informer. Cette situation a nourri la résistance au au changement.', 'Écris un courriel court et poli à mon professeur pour demander deux jours de plus pour remettre mon travail.', ['ont été imposés', 'informés', 'résistance au changement']],
   ['English', 'In this case study, the changes was imposed quickly and the employees has not been told why. This situation fed the resistance to to change.', 'Write a short polite email to my teacher asking for two more days to hand in my work.', ['were imposed', 'have not', 'resistance to change']],
   ['Español', 'En este estudio de caso, los cambios fue impuestos rápidamente y los empleados no ha sido informados. Esta situación alimentó la resistencia al al cambio.', 'Escribe un correo corto y cortés a mi profesor para pedir dos días más para entregar mi trabajo.', ['fueron impuestos', 'han sido', 'resistencia al cambio']],
   ['Português', 'Neste estudo de caso, as mudanças foi impostas rapidamente e os funcionários não foi informados. Esta situação alimentou a resistência à à mudança.', 'Escreve um e-mail curto e educado ao meu professor a pedir mais dois dias para entregar o meu trabalho.', ['foram impostas', 'foram informados', 'resistência à mudança']],
   ['Deutsch', 'In dieser Fallstudie wurde die Änderungen schnell eingeführt und die Mitarbeiter wurde nicht informiert. Diese Situation verstärkte den Widerstand gegen gegen die Veränderung.', 'Schreibe eine kurze, höfliche E-Mail an meinen Lehrer und bitte um zwei Tage mehr für die Abgabe meiner Arbeit.', ['wurden die Änderungen', 'wurden nicht', 'gegen die Veränderung']],
 ];
-if (process.env.LANGS_ONLY) TASKS.length = 0;
+TASKS.length = 0; // this run: the 5 languages only
 for (const [lang, text, write, want] of LANGS) {
-  TASKS.push({ id: `${lang} : corriger`, sys: LETTER.replace('French', lang), user: `${ctx(text)}\n\nCorrect the spelling and grammar of the context. Reply with only the corrected text.`, want });
-  TASKS.push({ id: `${lang} : résumer`, sys: LETTER.replace('French', lang), user: `${ctx(text)}\n\nSummarize the context in a few bullet points, in the language of the context.` });
-  TASKS.push({ id: `${lang} : écrire`, sys: LETTER.replace('French', lang), user: write });
+  TASKS.push({ id: `${lang} : corriger`, sys: LETTER.split('French').join(lang), user: `${ctx(text)}\n\nCorrect the spelling and grammar of the context. Reply with only the corrected text.`, want });
+  TASKS.push({ id: `${lang} : résumer`, sys: LETTER.split('French').join(lang), user: `${ctx(text)}\n\nSummarize the context in a few bullet points, in the language of the context.` });
+  TASKS.push({ id: `${lang} : écrire`, sys: LETTER.split('French').join(lang), user: write });
 }
 
 const out = ['# In 1 AI: qualité des réponses du copilote', '', `Machine: GitHub runner (WebAssembly/CPU, comme un téléphone sans GPU). ${new Date().toISOString()}`, ''];
