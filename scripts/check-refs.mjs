@@ -101,6 +101,44 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   check(got.includes('Dans J.-F. Chanlat (dir.), Le grand livre (p. 10-20). Boréal.'), `${name}: the bibliography entry is French APA (${got})`);
   const css = await entry.evaluate(el => ({ lh: el.style.lineHeight, ti: getComputedStyle(el).textIndent, ml: el.style.marginLeft || getComputedStyle(el).paddingLeft })).catch(() => ({}));
   check(css.lh === '2' && parseFloat(css.ti) < 0, `${name}: double spacing and a hanging indent (${JSON.stringify(css)})`);
+
+  // A DOI pasted in the source window: filled from Crossref with no AI (like Zotero's "Add by identifier").
+  // Crossref and Open Library are answered here as they answer (the test does not depend on the Internet).
+  await page.route('https://api.crossref.org/**', r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'ok', message: {
+    DOI: '10.1016/j.jbusvent.2009.06.002', type: 'journal-article', title: ['The role of entrepreneurs in firm-level innovation'],
+    author: [{ given: 'Robert A.', family: 'Baron' }, { given: 'Jintong', family: 'Tang' }], 'container-title': ['Journal of Business Venturing'],
+    volume: '26', issue: '1', page: '49-60', issued: { 'date-parts': [[2011, 1]] } } }) }));
+  await page.route('https://openlibrary.org/**', r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ 'ISBN:9780262033848': {
+    title: 'Introduction to Algorithms', authors: [{ name: 'Thomas H. Cormen' }], publishers: [{ name: 'MIT Press' }], publish_date: '2009' } }) }));
+  await page.locator(`${H} .status`).first().click().catch(() => {}); // a folded ribbon (phone) closes
+  await page.locator(BODY).first().click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('Comme le montrent ');
+  await tab('Références');
+  await btn('Insérer une citation').click();
+  const doiDlg = page.locator('dialog.oi-dialog[open]');
+  await doiDlg.waitFor({ timeout: 3000 }).catch(() => {});
+  await doiDlg.locator('.source-ai input').fill('https://doi.org/10.1016/j.jbusvent.2009.06.002');
+  await doiDlg.locator('.source-ai button').click();
+  await page.waitForTimeout(800);
+  const val = async label => doiDlg.locator('label:has(input)', { hasText: label }).first().locator('input').inputValue().catch(() => '');
+  check(await doiDlg.locator('select').first().inputValue() === 'article' && (await val('Auteurs')) === 'Baron, Robert A.; Tang, Jintong' && (await val('Année')) === '2011',
+    `${name}: a DOI fills the source from Crossref, no AI (${await val('Auteurs')} ${await val('Année')})`);
+  await doiDlg.locator('button[type=submit]').click();
+  await page.waitForTimeout(400);
+  text = await page.locator(BODY).first().innerText();
+  check(text.includes('(Baron et Tang, 2011)') || text.includes('(Baron & Tang, 2011)'), `${name}: the DOI's source is cited (${text.trim().slice(-40)})`);
+  // An ISBN: from Open Library.
+  await tab('Références');
+  await btn('Insérer une citation').click();
+  const isbnDlg = page.locator('dialog.oi-dialog[open]');
+  await isbnDlg.locator('.source-ai input').fill('ISBN 978-0-262-03384-8');
+  await isbnDlg.locator('.source-ai button').click();
+  await page.waitForTimeout(800);
+  const t2 = await isbnDlg.locator('label:has(input)', { hasText: 'Titre' }).first().locator('input').inputValue().catch(() => '');
+  check(t2 === 'Introduction to Algorithms', `${name}: an ISBN fills the book from Open Library (${t2})`);
+  await isbnDlg.locator('button[type=submit]').click();
   await ctx.close();
 }
 
