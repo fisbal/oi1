@@ -94,7 +94,7 @@ export function aiFor(app?: string): AiApi {
         }
       }
       if (p.kind === 'device') {
-        try { return await askDevice(req); } catch (err) { if (req.signal?.aborted) throw err; throw new AiError('other', `${p.name}: ${String((err as Error)?.message ?? err)}`); }
+        try { return await askDevice(req, p.id); } catch (err) { if (req.signal?.aborted) throw err; throw new AiError('other', `${p.name}: ${String((err as Error)?.message ?? err)}`); }
       }
       if (p.kind === 'browser') {
         try { return await askBrowser(req); } catch (err) { if (req.signal?.aborted) throw err; throw new AiError('other', `${p.name}: ${String((err as Error)?.message ?? err)}`); }

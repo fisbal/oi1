@@ -82,6 +82,7 @@ export const PROVIDERS: Provider[] = [
   ...FREE.map(([id, name, model], i): Provider => ({ id: `free-${id}`, name, kind: 'puter', base: '', model, keyUrl: 'https://puter.com', top: i < 7 })),
   ...WEB.map(([id, name, url, top, noAccount]): Provider => ({ id: `web-${id}`, name, kind: 'web', base: '', model: '', keyUrl: url.replace(/[?&][^?&]*\{q\}.*$/, ''), web: url, top, noAccount })),
   { id: 'device', name: 'In 1 AI', kind: 'device', base: '', model: 'Qwen2.5 0.5B', keyUrl: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct', local: true, top: true },
+  { id: 'device-plus', name: 'In 1 AI+', kind: 'device', base: '', model: 'Qwen2.5 1.5B', keyUrl: 'https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct', local: true, top: true },
   { id: 'browser', name: 'Browser AI (Chrome, Edge)', kind: 'browser', base: '', model: '', keyUrl: 'https://developer.chrome.com/docs/ai/built-in', local: true },
   { id: 'claude', name: 'Claude (Anthropic)', kind: 'anthropic', base: 'https://api.anthropic.com', model: 'claude-opus-5-5', keyUrl: 'https://console.anthropic.com/settings/keys', top: true, keyHint: 'sk-ant-…' },
   { id: 'openai', name: 'ChatGPT (OpenAI)', kind: 'openai', base: 'https://api.openai.com/v1', model: 'gpt-4o-mini', keyUrl: 'https://platform.openai.com/api-keys', top: true, keyHint: 'sk-…' },
@@ -134,8 +135,9 @@ export interface AiChoice {
 // copilot opens it shows the choices (see `chosen`). Someone who already gave a Claude key keeps it.
 const hadClaudeKey = () => { try { return !!localStorage.getItem('oi1:ai:key'); } catch { return false; } };
 const deviceReady = () => { try { return !!localStorage.getItem('oi1.ai.device.ready'); } catch { return false; } };
+const devicePlusReady = () => { try { return !!localStorage.getItem('oi1.ai.devicePlus.ready'); } catch { return false; } };
 const EMPTY: AiChoice = { main: 'web-chatgpt', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' } };
-const noAccountDefault = () => (browserAiHere() ? 'browser' : deviceReady() ? 'device' : 'web-chatgpt');
+const noAccountDefault = () => (browserAiHere() ? 'browser' : devicePlusReady() ? 'device-plus' : deviceReady() ? 'device' : 'web-chatgpt');
 /** v2: Puter was the default before 2026-10-31. v3: Claude.ai was the default before 2026-11-02 (needs an account). */
 const VERSION = 3;
 let picked = false;

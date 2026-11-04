@@ -107,6 +107,22 @@ async function run(name, viewport, mobile, portrait) {
   check((await page.evaluate(() => window.__opened.length)) === 0, `${name}: no website opens with In 1 AI`);
   check(await page.evaluate(() => localStorage.getItem('oi1.ai.device.ready') === '1'), `${name}: In 1 AI is remembered as downloaded`);
 
+  // In 1 AI+ (Martin, 2026-11-04): the bigger model on this device, picked in the same place, says its size and why.
+  await page.locator('.copilot-head button[aria-label="Settings"]').click();
+  await page.locator('.copilot-modes button').nth(0).click();
+  const deviceOptions = await page.locator('.copilot-provider option').allInnerTexts();
+  check(deviceOptions.some(o => o.startsWith('In 1 AI+')) && deviceOptions.some(o => o.startsWith('In 1 AI') && !o.startsWith('In 1 AI+')), `${name}: In 1 AI and In 1 AI+ are both offered on this device (${deviceOptions.join(' | ')})`);
+  await page.locator('.copilot-provider').selectOption('device-plus');
+  check(await page.locator('.copilot-device').innerText().then(t => /In 1 AI\+/.test(t) && /1200 MB/.test(t) && /5 languages/.test(t)).catch(() => false), `${name}: In 1 AI+ says its size (about 1200 MB) and that it writes the 5 languages better`);
+  await page.locator('.copilot-setup button[type=submit]').click();
+  check(await page.locator('.copilot-name:has-text("In 1 AI+")').isVisible().catch(() => false), `${name}: the copilot now uses In 1 AI+`);
+  if (!real) {
+    await input.fill('Réponds seulement : bonjour');
+    await input.press('Enter');
+    check(await page.locator('.copilot-msg:has-text("Bonjour, je suis In 1 AI.")').nth(1).waitFor({ timeout: 6000 }).then(() => true, () => false), `${name}: In 1 AI+ answers right in the copilot`);
+    check(await page.evaluate(() => localStorage.getItem('oi1.ai.devicePlus.ready') === '1'), `${name}: In 1 AI+ is remembered as downloaded`);
+  }
+
   // Puter stays for those who have an account: the answer is written right in the copilot.
   await page.locator('.copilot-head button[aria-label="Settings"]').click();
   await page.locator('.copilot-modes button').nth(2).click();
