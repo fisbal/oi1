@@ -28,7 +28,9 @@ export function findIsbn(text: string): string | null {
 }
 
 type Json = Record<string, unknown>;
-const str = (v: unknown): string => (typeof v === 'string' ? v : Array.isArray(v) && typeof v[0] === 'string' ? v[0] : typeof v === 'number' ? String(v) : '').replace(/<[^>]*>/g, '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim(); // Crossref titles carry JATS tags (<i>, <sub>): plain text only
+// Crossref titles carry JATS tags (<i>, <sub>): keep only the text outside tags, and no < or > at all.
+const plain = (s: string): string => s.split('<').map((p, i) => (i === 0 ? p : p.slice(p.indexOf('>') + 1 || p.length))).join('').split('>').join('');
+const str = (v: unknown): string => plain((typeof v === 'string' ? v : Array.isArray(v) && typeof v[0] === 'string' ? v[0] : typeof v === 'number' ? String(v) : '')).replace(/\s+/g, ' ').trim();
 const year = (v: unknown): string => {
   const parts = (v as { 'date-parts'?: unknown[][] } | undefined)?.['date-parts']?.[0];
   if (parts?.[0]) return String(parts[0]);
