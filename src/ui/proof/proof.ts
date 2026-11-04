@@ -65,6 +65,15 @@ export function detectLang(text: string, fallback: ProofLang): ProofLang {
   return top >= 2 && top > second ? best : fallback;
 }
 
+const LANG_NAMES: Record<ProofLang, string> = { en: 'English', fr: 'French', es: 'Spanish', pt: 'Portuguese', de: 'German' };
+
+/** For a correction request: names the text's language, because small on-device models otherwise translate it into
+ *  English (copilot-quality runs, 2026-11-04). `ui` is the interface language, used when the text is too short. */
+export function keepLanguageNote(text: string, ui: string): string {
+  const name = LANG_NAMES[detectLang(text, baseLang(ui) ?? 'en')];
+  return ` The texts are in ${name}: return them in ${name}, never translate them.`;
+}
+
 // ---------- words ----------
 
 /** The words of `text` worth checking, with where they are. Numbers, codes, links, e-mails and initials are skipped. */

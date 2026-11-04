@@ -9,7 +9,7 @@ import type { AiApi } from '../shell/contract';
 import { AI_MODELS, AiError, aiSettings, type AiModel } from '../shell/ai';
 import { modules } from '../shell/modules';
 import { PROVIDERS, aiChoice, provider, providerKey, setProviderKey, type Provider } from '../shell/providers';
-import { deviceAi, DEVICE_AI_MB } from '../shell/deviceAi';
+import { deviceAi, DEVICE_MODELS, type DeviceModel } from '../shell/deviceAi';
 import { browserAiHere, browserAiState, loadPuter, onWebWait, puterSignIn, puterSignOut, puterUser, webWait } from '../shell/webAi';
 import { getLanguage, LANGUAGES, t, type MessageKey } from '../shell/i18n';
 import { useLanguage } from '../shell/useLanguage';
@@ -113,10 +113,10 @@ const modeOf = (p: Provider): Mode => (p.kind === 'puter' ? 'free' : p.kind === 
 const inMode = (m: Mode) => PROVIDERS.filter(x => modeOf(x) === m && (x.kind !== 'browser' || browserAiHere()));
 
 /** Follows In 1 AI's download, for the progress line. */
-function useDeviceAi() {
+function useDeviceAi(id?: string) {
   const [, setTick] = useState(0);
   useEffect(() => deviceAi.onProgress(() => setTick(n => n + 1)), []);
-  return { state: deviceAi.state(), pct: deviceAi.progress() };
+  return { state: deviceAi.state(id), pct: deviceAi.progress() };
 }
 
 /**
@@ -137,7 +137,8 @@ function Setup({ onDone, canCancel, appName, first }: { onDone: () => void; canC
   const [onlyHere, setOnlyHere] = useState(() => !!(appId && choice.byApp[appId]));
   const [browserState, setBrowserState] = useState<'none' | 'download' | 'ready' | '?'>('?');
   useEffect(() => { if (p.kind === 'browser') void browserAiState().then(setBrowserState); }, [p.kind]);
-  const device = useDeviceAi();
+  const device = useDeviceAi(p.id);
+  const deviceMb = String(DEVICE_MODELS[(p.id in DEVICE_MODELS ? p.id : 'device') as DeviceModel].mb);
   // Free: who is signed in to Puter (loading its script now also lets the first question open its sign-in at once).
   const [puter, setPuter] = useState<{ state: 'loading' | 'out' | 'in' | 'offline'; user?: string }>({ state: 'loading' });
   useEffect(() => { if (mode === 'free') void puterUser().then(u => setPuter(u ? { state: 'in', user: u } : { state: 'out' }), () => setPuter({ state: 'offline' })); }, [mode]);
@@ -169,7 +170,7 @@ function Setup({ onDone, canCancel, appName, first }: { onDone: () => void; canC
     else { if (appId) delete byApp[appId]; aiChoice.set({ main: pid }); }
     aiChoice.set({ byApp });
     // In 1 AI downloads once, right away, so it is ready (or nearly) by the first question.
-    if (p.kind === 'device' && deviceAi.state() === 'download') void deviceAi.prepare().catch(() => {});
+    if (p.kind === 'device' && deviceAi.state(p.id) === 'download') void deviceAi.prepare(p.id).catch(() => {});
     onDone();
   };
   const groups: { label: MessageKey; list: Provider[] }[] = mode === 'browser'
@@ -205,7 +206,7 @@ function Setup({ onDone, canCancel, appName, first }: { onDone: () => void; canC
       )}
       {p.kind === 'browser' && <p className="copilot-fine">{t(browserState === 'ready' ? 'ai.browserReady' : browserState === 'download' ? 'ai.browserDownload' : browserState === 'none' ? 'ai.browserNone' : 'ai.browserCheck')}</p>}
       {p.kind === 'device' && <>
-        <p className="copilot-fine copilot-device">{device.state === 'ready' ? t('ai.deviceReady') : device.state === 'loading' ? t('ai.deviceLoading', { pct: String(device.pct ?? 0) }) : t('ai.deviceDownload', { mb: String(DEVICE_AI_MB) })}</p>
+        <p className="copilot-fine copilot-device">{device.state === 'ready' ? t('ai.deviceReady', { name: p.name }) : device.state === 'loading' ? t('ai.deviceLoading', { pct: String(device.pct ?? 0), name: p.name }) : t('ai.deviceDownload', { mb: deviceMb, name: p.name })}{p.id === 'device-plus' ? ` ${t('ai.devicePlusWhy')}` : ''}</p>
         {device.state === 'loading' && <progress className="copilot-progress" max={100} value={device.pct ?? 0} />}
       </>}
       {mode === 'free' && <>
@@ -268,7 +269,7 @@ function Setup({ onDone, canCancel, appName, first }: { onDone: () => void; canC
       )}
       <p className="copilot-fine">{mode === 'browser' || p.local ? t('ai.privacyLocal') : mode === 'free' ? t('ai.privacyFree', { name: short }) : mode === 'web' ? t(p.noAccount ? 'ai.privacyWebFree' : 'ai.privacyWeb', { name: short }) : t('ai.privacyOf', { name: p.name })}</p>
       <div className="copilot-setup-buttons">
-        <button type="submit" className="primary" disabled={!complete}>{mode === 'key' ? t('ai.connect') : p.kind === 'device' && device.state === 'download' ? t('ai.deviceGet', { mb: String(DEVICE_AI_MB) }) : t('ai.use')}</button>
+        <button type="submit" className="primary" disabled={!complete}>{mode === 'key' ? t('ai.connect') : p.kind === 'device' && device.state === 'download' ? t('ai.deviceGet', { mb: deviceMb }) : t('ai.use')}</button>
         {canCancel && <button type="button" onClick={onDone}>{first ? t('ai.later') : t('letter.cancel')}</button>}
       </div>
       {canCancel && mode === 'key' && !p.local && key && (
@@ -295,7 +296,7 @@ export function Copilot({ host, ai, onClose, start }: {
   // The first time, the copilot shows the free choices (no account needed) before anything else.
   const first = !aiChoice.chosen();
   const held = useRef<{ id: string; n: number } | null>(null);
-  const device = useDeviceAi();
+  const device = useDeviceAi(ai.provider?.().id);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState<AbortController | null>(null);
@@ -400,7 +401,7 @@ export function Copilot({ host, ai, onClose, start }: {
         if (a) setTimeout(() => runAction(a), 0);
       }} /> : <>
         {device.state === 'loading' && ai.provider?.().kind === 'device' && (
-          <div className="copilot-device-bar" role="status"><span>{t('ai.deviceLoading', { pct: String(device.pct ?? 0) })}</span><progress max={100} value={device.pct ?? 0} /></div>
+          <div className="copilot-device-bar" role="status"><span>{t('ai.deviceLoading', { pct: String(device.pct ?? 0), name: ai.provider?.().name ?? 'In 1 AI' })}</span><progress max={100} value={device.pct ?? 0} /></div>
         )}
         <div className="copilot-list" ref={list}>
           {!msgs.length && (

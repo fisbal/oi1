@@ -5,7 +5,8 @@
 // transformers.js comes from the CDN on first use (pinned version), like dictation: see dictation.worker.ts.
 export {}; // a module: its names stay its own (dictation.worker.ts has the same ones)
 const LIB = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js';
-const MODEL = 'onnx-community/Qwen2.5-0.5B-Instruct';
+/** In 1 AI by default; In 1 AI+ (Qwen2.5 1.5B Instruct, Apache 2.0, about 1.2 GB) when the page asks for it. */
+const MODELS = ['onnx-community/Qwen2.5-0.5B-Instruct', 'onnx-community/Qwen2.5-1.5B-Instruct'];
 
 interface Msg { role: 'system' | 'user' | 'assistant'; content: string }
 type Generator = ((messages: Msg[], opts: Record<string, unknown>) => Promise<{ generated_text: Msg[] | string }[]>) & { tokenizer: unknown };
@@ -29,12 +30,18 @@ async function hasWebGpu(): Promise<boolean> {
 }
 
 let gen: Promise<Generator> | null = null;
-function load(): Promise<Generator> {
-  if (gen) return gen;
+let genModel = MODELS[0];
+function load(model = genModel): Promise<Generator> {
+  if (!MODELS.includes(model)) model = MODELS[0];
+  if (gen && model === genModel) return gen;
+  // Another model: let the one in memory go first (a phone cannot hold both).
+  if (gen) { const old = gen; void old.then(g => (g as unknown as { dispose?: () => unknown }).dispose?.(), () => {}); }
+  genModel = model;
+  files.clear();
   gen = (async () => {
     const { pipeline } = await getLib();
     const gpu = await hasWebGpu();
-    return pipeline('text-generation', MODEL, {
+    return pipeline('text-generation', model, {
       device: gpu ? 'webgpu' : 'wasm',
       // q4f16 on both (460 MB). The 8-bit file (model_quantized) answers nonsense ("Once at least once…", code) on
       // every French task: measured 2026-11-04 by scripts/copilot-quality.mjs, while q4f16 corrects, sums up and
@@ -58,9 +65,9 @@ let stop: { interrupt(): void; reset(): void } | null = null;
 self.onmessage = async (ev: MessageEvent) => {
   // A dedicated worker only hears the page that created it (origin is empty); refuse anything else.
   if (ev.origin && ev.origin !== self.location.origin) return;
-  const m = ev.data as { type: string; id?: number; messages?: Msg[]; max?: number };
+  const m = ev.data as { type: string; id?: number; messages?: Msg[]; max?: number; rep?: number; model?: string };
   if (m.type === 'load') {
-    try { await load(); post({ type: 'ready' }); }
+    try { await load(m.model); post({ type: 'ready' }); }
     catch (e) { post({ type: 'load-error', error: String((e as Error)?.message ?? e) }); }
   } else if (m.type === 'stop') {
     stop?.interrupt();
@@ -75,7 +82,7 @@ self.onmessage = async (ev: MessageEvent) => {
         skip_prompt: true, skip_special_tokens: true,
         callback_function: (part: string) => { text += part; post({ type: 'part', id: m.id, text }); },
       });
-      const out = await run(m.messages, { max_new_tokens: m.max ?? 512, do_sample: false, repetition_penalty: 1.1, streamer, stopping_criteria: stop });
+      const out = await run(m.messages, { max_new_tokens: m.max ?? 512, do_sample: false, repetition_penalty: m.rep ?? 1.1, streamer, stopping_criteria: stop });
       const g = out[0]?.generated_text;
       const last = Array.isArray(g) ? g[g.length - 1]?.content ?? text : text;
       post({ type: 'text', id: m.id, text: last });
