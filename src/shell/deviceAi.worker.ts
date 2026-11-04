@@ -36,7 +36,10 @@ function load(): Promise<Generator> {
     const gpu = await hasWebGpu();
     return pipeline('text-generation', MODEL, {
       device: gpu ? 'webgpu' : 'wasm',
-      dtype: gpu ? 'q4f16' : 'q8',
+      // q4f16 on both (460 MB). The 8-bit file (model_quantized) answers nonsense ("Once at least once…", code) on
+      // every French task: measured 2026-11-04 by scripts/copilot-quality.mjs, while q4f16 corrects, sums up and
+      // translates. Phones and computers without WebGPU used the 8-bit file until then.
+      dtype: 'q4f16',
       progress_callback: (p: { status: string; file?: string; loaded?: number; total?: number }) => {
         if (p.status !== 'progress' || !p.file || !p.total) return;
         files.set(p.file, { loaded: p.loaded ?? 0, total: p.total });
