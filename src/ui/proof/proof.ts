@@ -171,6 +171,9 @@ export function grammar(text: string, lang: ProofLang, tag?: string): Promise<Is
         const { matches } = await r.json() as { matches: LtMatch[] };
         return matches
           .filter(m => m.rule.issueType !== 'misspelling' && !/^(MORFOLOGIK|HUNSPELL|.*SPELLER)/.test(m.rule.id))
+          // Paragraphs are checked one by one: a list item or a line that goes on from the one above ("entre autres,"
+          // then "• de réduire…") rightly starts in lowercase, so the "capital at the start of a sentence" rule is off there.
+          .filter(m => !(m.offset === 0 && /UPPERCASE_SENTENCE_START/.test(m.rule.id)))
           .map((m): Issue => ({
             from: m.offset, to: m.offset + m.length, word: text.slice(m.offset, m.offset + m.length), message: m.message,
             replacements: m.replacements.slice(0, 6).map(x => x.value), rule: m.rule.id,
