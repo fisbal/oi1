@@ -41,7 +41,7 @@ const LANGS = [
 TASKS.length = 0; // this run: the 5 languages only
 for (const [lang, text, write, want] of LANGS) {
   // The exact request In 1 Letter's "Corriger" button sends (src/modules/letter/copilot.ts + deviceMessages).
-  TASKS.push({ id: `${lang} : corriger (bouton Letter)`, sys: PROOF, user: `Correct these 1 paragraphs. Return them all, corrected, as JSON.\n\n${JSON.stringify({ paragraphs: [text] })}`, want });
+  for (const rep of [1.1, 1.0]) TASKS.push({ id: `${lang} : corriger (bouton Letter, pénalité ${rep})`, rep, sys: PROOF, user: `Correct these 1 paragraphs. Return them all, corrected, as JSON.\n\n${JSON.stringify({ paragraphs: [text] })}`, want });
 }
 
 const out = ['# In 1 AI: qualité des réponses du copilote', '', `Machine: GitHub runner (WebAssembly/CPU, comme un téléphone sans GPU). ${new Date().toISOString()}`, ''];
@@ -57,7 +57,7 @@ for (const spec of MODELS) {
     const t1 = Date.now();
     let text = '';
     try {
-      const r = await gen([{ role: 'system', content: task.sys }, { role: 'user', content: task.user }], { max_new_tokens: 400, do_sample: false, repetition_penalty: 1.1 });
+      const r = await gen([{ role: 'system', content: task.sys }, { role: 'user', content: task.user }], { max_new_tokens: 400, do_sample: false, repetition_penalty: task.rep ?? 1.1 });
       const g = r[0].generated_text;
       text = (Array.isArray(g) ? g[g.length - 1].content : String(g)).replace(/<think>[\s\S]*?<\/think>\s*/g, '').trim();
     } catch (e) { text = `ERREUR ${e.message ?? e}`; }
