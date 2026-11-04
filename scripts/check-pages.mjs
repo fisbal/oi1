@@ -34,7 +34,8 @@ const S = 'Cette phrase explique une partie du cas avec assez de mots pour rempl
 const para = n => Array.from({ length: n }, () => S).join(' ');
 // A short opening, a paragraph longer than a page, short ones, then paragraphs that reach the bottom of pages.
 const HTML = [
-  '<p>Introduction</p>', `<p>${para(4)}</p>`, `<p>${para(60)}</p>`, '<p>Étape 2 :</p>',
+  '<p>Introduction</p>', `<p>${para(4)}</p>`, `<p>${para(30)} <ins data-id="1">mot ajouté</ins> ${para(30)}</p>`, '<p>Étape 2 :</p>',
+  '<p>Offrir une formation permettrait entre autres,</p><ul><li><p>de réduire les préjugés<ins data-id="2"> </ins>;</p></li><li><p>de limiter les erreurs</p></li></ul>',
   ...Array.from({ length: 10 }, (_, i) => `<p>Partie ${i + 1}</p><p>${para(9 + (i % 4) * 3)}</p>`),
   '<p>FIN-DU-TRAVAIL</p>',
 ].join('');
@@ -110,6 +111,26 @@ for (const d of DEVICES) {
     r = await scan(page);
     check(r.off.length === 0, `${n}: after typing at the top, still no line out of its page (${r.off.slice(0, 3).join(' | ')})`);
     check(r.cuts.every(c => c.before >= 2 && c.after >= 2), `${n}: after typing, two lines or more on each side of every cut`);
+    // A changed paragraph cut between two pages (Martin, 2026-11-04): its bar in the margin stops at the end of the page
+    // and starts again on the next (a hole where the spacer is); a changed list gets one bar in the margin, none after
+    // each bullet.
+    const bar = await page.evaluate(b => {
+      const body = document.querySelector(b);
+      const p = [...body.querySelectorAll(':scope > p')].find(x => x.querySelector('ins') && x.querySelector('.pg-inline'));
+      if (!p) return { found: false };
+      const sheet = body.closest('.sheet');
+      const scale = sheet.getBoundingClientRect().width / sheet.offsetWidth;
+      const sp = p.querySelector('.pg-inline').getBoundingClientRect(), pr = p.getBoundingClientRect();
+      const bg = getComputedStyle(p, '::before').backgroundImage;
+      const hole = /rgba\(0, 0, 0, 0\) ([\d.]+)px, rgba\(0, 0, 0, 0\) ([\d.]+)px/.exec(bg) ?? /transparent ([\d.]+)px,? (?:transparent )?([\d.]+)px/.exec(bg);
+      const li = body.querySelector('li p');
+      return { found: true, shadow: getComputedStyle(p).boxShadow, hole: hole ? [Number(hole[1]), Number(hole[2])] : null,
+        spacer: [(sp.top - pr.top) / scale, (sp.bottom - pr.top) / scale], li: li ? getComputedStyle(li).boxShadow + '|' + getComputedStyle(li.parentElement).boxShadow : '',
+        ul: getComputedStyle(body.querySelector('ul')).boxShadow };
+    }, BODY);
+    check(bar.found && bar.shadow === 'none' && bar.hole && Math.abs(bar.hole[0] - bar.spacer[0]) < 3 && Math.abs(bar.hole[1] - bar.spacer[1]) < 3,
+      `${n}: a changed paragraph cut between pages: its margin bar has a hole between the pages (${JSON.stringify(bar)})`);
+    check(bar.li === 'none|none' && bar.ul !== 'none', `${n}: a changed list: one bar in the margin, none after the bullets (${bar.li} / ${bar.ul})`);
     if (d.pdf) {
       const pages = Number((await page.locator(`${P} .status`).first().innerText()).match(/sur (\d+)/)?.[1]);
       await page.emulateMedia({ media: 'print' });

@@ -18106,6 +18106,6 @@ export function onLanguageChange(fn: () => void): () => void {
 export function t(key: MessageKey, vars?: Record<string, string | number>): string {
   const lang = LANGUAGES.find(l => l.code === current) ?? LANGUAGES[0];
   let text: string = lang.messages[key] ?? en[key];
-  if (vars) for (const [k, v] of Object.entries(vars)) text = text.replace(`{${k}}`, String(v));
+  if (vars) for (const [k, v] of Object.entries(vars)) text = text.split(`{${k}}`).join(String(v)); // every place the name appears ("({who}, 1943)" too)
   return text;
 }

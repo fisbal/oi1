@@ -335,10 +335,15 @@
 .doc-text [data-type="modification"] { border-bottom: 2px dotted var(--rev, #6B46C1); }
 .doc-text [data-node-deletion] { text-decoration: line-through; }
 /* A changed paragraph gets Word's bar in the margin. */
-.doc-text :is(p, h1, h2, h3, h4, h5, h6, li):has(ins, del, [data-type="modification"]) { box-shadow: -14px 0 0 -12px var(--rev-bar, #8A8A8A); }
+/* Only top-level blocks, so it stays in the margin (a list gets one bar, not one after each bullet). */
+.doc-text > :is(p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, table):has(ins, del, [data-type="modification"]) { box-shadow: -14px 0 0 -12px var(--rev-bar, #8A8A8A); }
+/* A paragraph cut between two pages: the bar stops at the end of the page and starts again on the next. */
+.doc-text > p[style*="--pg-bar"]:has(ins, del, [data-type="modification"]) { box-shadow: none; position: relative; }
+.doc-text > p[style*="--pg-bar"]:has(ins, del, [data-type="modification"])::before { content: ''; position: absolute; left: -2px; top: 0; bottom: 0; width: 2px; background: var(--pg-bar); pointer-events: none; }
 .no-markup .doc-text del, .no-markup .doc-text [data-node-deletion] { display: none; }
 .no-markup .doc-text ins, .no-markup .doc-text [data-type="modification"] { color: inherit; text-decoration: none; border: 0; }
-.no-markup .doc-text :is(p, h1, h2, h3, h4, h5, h6, li) { box-shadow: none; }
+.no-markup .doc-text > :is(p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, table):has(ins, del, [data-type="modification"]) { box-shadow: none; }
+.no-markup .doc-text > p[style*="--pg-bar"]::before { display: none; }
 .status-track { color: var(--gold-light); font-weight: 600; }
 .status-btn .oi-icon, .status-btn svg { vertical-align: -3px; }
 

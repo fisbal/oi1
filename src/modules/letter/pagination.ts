@@ -16,6 +16,7 @@
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
+import type { Node as PMNode } from '@tiptap/pm/model';
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
 import { safeHtml } from '../../shell/safeHtml';
 
@@ -45,6 +46,11 @@ export interface Spacer {
   page: number;
   /** Inside a paragraph cut between two pages (at the start of the first line of the next page). */
   inline?: boolean;
+  /** For a cut paragraph: where the paragraph starts, and the part of it the spacer takes (from its top, in px),
+   *  so its change bar stops at the end of the page and starts again on the next one. */
+  block?: number;
+  gapFrom?: number;
+  gapTo?: number;
 }
 
 /** `notes` are the last page's footnotes. */
@@ -178,6 +184,7 @@ export function computeSpacers(blocks: Block[], layout: PageLayout): { spacers: 
     }
     // Cut the paragraph as many times as it needs (a paragraph longer than a page goes over several).
     let from = 0;
+    const blockTop = b.top + shift; // the paragraph's top once drawn
     while (lines && n >= 2 && b.top + shift + b.height + (from ? 0 : reserve) > contentBottom(page) + 0.5) {
       let k = lines.findIndex((l, i) => i > from && l.bottom + shift + (from ? 0 : reserve) > contentBottom(page) + 0.5);
       if (k < 0) break;
@@ -187,7 +194,8 @@ export function computeSpacers(blocks: Block[], layout: PageLayout): { spacers: 
       const pos = b.linePos!(k);
       if (pos == null || k <= from) break;
       const y = lineTop(lines, k) + shift;
-      spacers.push({ pos, foot: contentBottom(page) + layout.marginBottom - y, page: page + 1, notes, inline: true });
+      spacers.push({ pos, foot: contentBottom(page) + layout.marginBottom - y, page: page + 1, notes, inline: true,
+        block: b.pos, gapFrom: y - blockTop, gapTo: contentTop(page + 1) - blockTop });
       notes = [];
       notesHeight = 0;
       shift += contentTop(page + 1) - y;
@@ -313,8 +321,23 @@ function measure(view: EditorView): Block[] {
   return blocks;
 }
 
+/** A cut paragraph's change bar (Word's line in the margin) has a hole where the page ends and the next begins. */
+function cutBars(doc: PMNode, spacers: Spacer[]): Decoration[] {
+  const holes = new Map<number, [number, number][]>();
+  for (const sp of spacers) if (sp.block != null && sp.gapTo != null) holes.set(sp.block, [...(holes.get(sp.block) ?? []), [sp.gapFrom ?? 0, sp.gapTo]]);
+  const out: Decoration[] = [];
+  for (const [pos, list] of holes) {
+    const node = pos < doc.content.size ? doc.nodeAt(pos) : null;
+    if (!node) continue;
+    const bar = 'var(--rev-bar, #8A8A8A)';
+    const stops = list.map(([a, z]) => `${bar} ${a.toFixed(1)}px, transparent ${a.toFixed(1)}px ${z.toFixed(1)}px, ${bar} ${z.toFixed(1)}px`).join(', ');
+    out.push(Decoration.node(pos, pos + node.nodeSize, { style: `--pg-bar: linear-gradient(${bar} 0, ${stops})` }));
+  }
+  return out;
+}
+
 function same(a: Spacer[], b: Spacer[]): boolean {
-  return a.length === b.length && a.every((s, i) => s.pos === b[i].pos && s.page === b[i].page && !!s.inline === !!b[i].inline && Math.abs(s.foot - b[i].foot) < 0.5
+  return a.length === b.length && a.every((s, i) => s.pos === b[i].pos && s.page === b[i].page && Math.abs((s.gapFrom ?? 0) - (b[i].gapFrom ?? 0)) < 0.5 && !!s.inline === !!b[i].inline && Math.abs(s.foot - b[i].foot) < 0.5
     && notesKey(s.notes) === notesKey(b[i].notes));
 }
 
@@ -354,14 +377,14 @@ export const Pagination = Extension.create<object, PaginationStorage>({
           const s = paginationKey.getState(state);
           const layout = storage.layout;
           if (!layout.enabled || !s?.spacers.length) return null;
-          return DecorationSet.create(state.doc, s.spacers
+          return DecorationSet.create(state.doc, [...cutBars(state.doc, s.spacers), ...s.spacers
             .filter(sp => sp.pos <= state.doc.content.size)
             .map(sp => Decoration.widget(sp.pos, () => spacerDom(sp, layout, pages), {
               side: -1,
               ignoreSelection: true,
               stopEvent: () => true,
               key: `pg:${sp.inline ? 'i' : 'b'}:${sp.page}:${Math.round(sp.foot * 10)}:${pages}:${layout.version}:${notesKey(sp.notes)}`,
-            })));
+            }))]);
         },
       },
       view(view) {

@@ -27,11 +27,19 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   await page.addInitScript(() => { delete window.showOpenFilePicker; delete window.showSaveFilePicker; });
   await page.goto(url);
   await page.locator('.slab:has-text("In 1 Letter")').first().click();
-  await page.waitForTimeout(1500);
-  await page.locator(BODY).first().click();
-  const chooser = page.waitForEvent('filechooser');
-  await page.keyboard.press('Control+o');
-  await (await chooser).setFiles(FILE);
+  // The app loads in its own part: wait for the page to be there, then ask for Open (again if the app was not yet
+  // listening to the keyboard on a busy machine).
+  await page.locator(BODY).first().waitFor({ timeout: 20000 });
+  await page.waitForTimeout(800);
+  let chosen = null;
+  for (let i = 0; i < 3 && !chosen; i++) {
+    await page.locator(BODY).first().click();
+    const chooser = page.waitForEvent('filechooser', { timeout: 8000 }).catch(() => null);
+    await page.keyboard.press('Control+o');
+    chosen = await chooser;
+  }
+  if (!chosen) throw new Error(`${name}: Ctrl+O never opened the file picker`);
+  await chosen.setFiles(FILE);
   await page.waitForFunction(b => document.querySelector(b)?.textContent.includes('END-OF-DOCUMENT'), BODY, { timeout: 10000 }).catch(() => {});
   await page.waitForTimeout(800);
 
