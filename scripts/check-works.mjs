@@ -124,7 +124,9 @@ for (const d of DEVICES) {
     check(/\[Prénom Nom\]|\[TITRE DU TRAVAIL\]/.test(look.text), `${n}: APA-Provost: the title page has yellow fields to fill`);
     check(/Travail présenté à/.test(look.text) && /Table des matières/.test(look.text) && !/Paper presented|Your text|First Last/.test(look.text), `${n}: APA-Provost: the text is in French like the app, even with the letters set to English`);
     check(!look.text.includes('⟦TOC⟧') && (await body.locator('p:has-text("Introduction")').count()) >= 1, `${n}: APA-Provost: the table of contents is filled in`);
-    const tocRows = await body.locator('table').first().locator('tr td:first-child').allInnerTexts();
+    // Like Word: one line per title, a row of dots, the page number at the right margin; no table.
+    const tocRows = await body.locator('p:has(.tab-dots)').allInnerTexts();
+    check(tocRows.length >= 3 && tocRows.every(r => /\t?\s*\d+\s*$/.test(r)), `${n}: APA-Provost: the table of contents has dotted lines up to each page number (${tocRows.length} lines)`);
     check(!look.text.includes('Sommaire') && !tocRows.some(r => /Table des matières/.test(r)) && tocRows.some(r => /Introduction/.test(r)), `${n}: APA-Provost: one title for the table of contents, and it does not list itself (${tocRows.slice(0, 2).join(' | ')})`);
     const pages = await page.locator(`${P} .status`).first().innerText();
     check(/sur\s*[3-9]|sur\s*\d\d/.test(pages) || /of\s*[3-9]/.test(pages), `${n}: APA-Provost: each part starts on its own page (${pages.split('\n')[0]})`);
