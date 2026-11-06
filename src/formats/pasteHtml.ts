@@ -49,7 +49,9 @@ export function parseDecls(text: string): Decls {
 /** The rules of a <style> block for td, th and classes. */
 function parseSheet(css: string): { tag: Record<string, Decls>; cls: Record<string, Decls> } {
   const tag: Record<string, Decls> = {}, cls: Record<string, Decls> = {};
-  const clean = css.replace(/<!--|-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  // Excel wraps its rules in an HTML comment: the angle brackets and dashes around them are dropped. This text is
+  // only read for colours and formats, never put on the page.
+  const clean = css.replace(/[<>]/g, ' ').replace(/!?--/g, ' ').replace(/\/\*[\s\S]*?\*\//g, '');
   for (const m of clean.matchAll(/([^{}@]+)\{([^{}]*)\}/g)) {
     const decls = parseDecls(m[2]);
     for (const sel of m[1].split(',').map(x => x.trim().toLowerCase())) {
