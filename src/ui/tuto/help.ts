@@ -55,6 +55,7 @@ export const HELP: Record<string, HelpText> = {
   'class.alignBottom': ['Puts the content at the bottom of the cells, like Excel does by default.', 'Place le contenu en bas des cellules, comme Excel par défaut.'],
   'class.wrap': ['Shows long text on several lines inside its cell instead of running over the next cells.', 'Affiche un texte long sur plusieurs lignes dans sa cellule au lieu de déborder.'],
   'class.mergeCenter': ['Joins the selected cells into one big cell and centres the text, for a title over a table.', 'Fusionne les cellules choisies en une seule et centre le texte, pour un titre au-dessus d’un tableau.'],
+  'class.currencyPick': ['Picks the money of the selected cells, in any language: dollar, euro, pound, franc, yen and 40 more. You can also set the workbook’s default currency.', 'Choisit la monnaie des cellules choisies, quelle que soit la langue : dollar, euro, livre, franc, yen et 40 autres. Tu peux aussi fixer la monnaie par défaut du classeur.'],
   'class.mergeOptions': ['Other ways to merge: merge across (row by row), merge without centring, or unmerge.', 'Autres façons de fusionner : par ligne, sans centrer, ou annuler la fusion.'],
   'class.indentMore': ['Moves the cell’s text a step to the right, to show sub-items under a heading.', 'Décale le texte d’un cran vers la droite, pour montrer des sous-éléments.'],
   'class.indentLess': ['Moves the cell’s text a step back to the left.', 'Ramène le texte d’un cran vers la gauche.'],

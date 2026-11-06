@@ -2,6 +2,7 @@
 // In 1 Class edits it; formats/xlsx.ts and formats/csv.ts read and write it; Letter reads tables from it.
 
 import { cellName, dateSerial, evaluate, isError, serialToDate, type Scalar } from './formula';
+import { MONEY_SIGN, currencyOfSymbol, currencySign } from './currency';
 
 export type NumberFormat = 'general' | 'number' | 'integer' | 'currency' | 'accounting' | 'percent' | 'date' | 'longDate' | 'time' | 'dateTime' | 'scientific' | 'fraction' | 'text';
 
@@ -29,6 +30,10 @@ export interface CellStyle {
   decimals?: number;
   /** Show 1,234 thousands separators with the number format. */
   thousands?: boolean;
+  /** The money of a currency or accounting cell, like 'USD'; the workbook's (from the language) when not set. */
+  currency?: string;
+  /** Where the money sign goes: before the number ($9.99) or after (9,99 €); the language's way when not set. */
+  signFirst?: boolean;
   borders?: { top?: BorderLine; right?: BorderLine; bottom?: BorderLine; left?: BorderLine };
 }
 
@@ -189,14 +194,14 @@ export function literal(input: string): Scalar {
  * Reads what the user typed the way a spreadsheet does: "12,5" or "1 200" is a number, "15%" a percentage,
  * "€9.99" or "$9.99" money, "2026-10-25" a date. `decimalComma` is true where 1,5 means one and a half. Returns the text to store and the format it suggests.
  */
-export function readEntry(text: string, decimalComma = false): { input: string; format?: NumberFormat } {
+export function readEntry(text: string, decimalComma = false): { input: string; format?: NumberFormat; currency?: string; signFirst?: boolean } {
   const s = text.trim();
   if (s.startsWith('=') || s === '') return { input: text };
   const plain = s.replace(/[\s  ]/g, '');
   let m = plain.match(/^([-+]?\d+(?:[.,]\d+)?)%$/);
   if (m) return { input: String(Number(m[1].replace(',', '.')) / 100), format: 'percent' };
-  m = plain.match(/^(?:[$€£¥]([-+]?\d+(?:[.,]\d+)?)|([-+]?\d+(?:[.,]\d+)?)[$€£¥])$/);
-  if (m) return { input: (m[1] ?? m[2]).replace(',', '.'), format: 'currency' };
+  const money = readMoney(s, decimalComma);
+  if (money) return money;
   m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (m) return { input: String(dateSerial(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])))), format: 'date' };
   // 25/10/2026 (day first where 1,5 is written with a comma) or 10/25/2026 (English).
@@ -218,6 +223,27 @@ export function readEntry(text: string, decimalComma = false): { input: string; 
   if (!decimalComma && /^[-+]?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) return { input: s.replace(/,/g, '') };
   if (decimalComma && /^[-+]?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) return { input: s.replace(/\./g, '').replace(',', '.') };
   return { input: text };
+}
+
+/** Money as typed or pasted: "$9.99", "9,99 €", "-1 234,50 $", "CHF 12", "(1,200.00) USD". The sign says which currency. */
+function readMoney(s: string, decimalComma: boolean): { input: string; format: NumberFormat; currency: string; signFirst: boolean } | null {
+  let body = s, neg = false;
+  if (body.startsWith('(') && body.endsWith(')')) { neg = true; body = body.slice(1, -1).trim(); }
+  if (body.startsWith('-')) { neg = !neg; body = body.slice(1).trim(); }
+  const lead = body.match(/^([^\d\s.,()-]+)\s*/), trail = body.match(/\s*([^\d\s.,()-]+)$/);
+  if (!lead === !trail) return null;
+  const sign = (lead ?? trail)![1];
+  const code = MONEY_SIGN.test(sign) ? currencyOfSymbol(sign) : undefined;
+  if (!code) return null;
+  body = lead ? body.slice(lead[0].length) : body.slice(0, body.length - trail![0].length);
+  body = body.trim();
+  if (body.startsWith('(') && body.endsWith(')')) { neg = !neg; body = body.slice(1, -1).trim(); }
+  if (body.startsWith('-')) { neg = !neg; body = body.slice(1); }
+  if (!/^\d/.test(body)) return null;
+  const n = readEntry(body, decimalComma);
+  if (n.format || !/^\d+(\.\d+)?$/.test(n.input.replace(',', '.'))) return null;
+  const v = n.input.replace(',', '.');
+  return { input: neg ? `-${v}` : v, format: 'currency', currency: code, signFirst: !!lead };
 }
 
 /** Works out every cell of every sheet; formulas can read other sheets (Sheet2!A1). Formulas that depend on themselves show #CYCLE!. */
@@ -295,12 +321,19 @@ export function display(v: Scalar, style: CellStyle | undefined, lang: string, c
   if (typeof v === 'string') return v;
   const f = style?.format ?? 'general';
   const d = style?.decimals ?? defaultDecimals(f);
+  const money = style?.currency ?? currency;
   const grouping = style?.thousands ?? (f !== 'number' || undefined);
   try {
     if (f === 'number') return new Intl.NumberFormat(lang, { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: style?.thousands ?? true }).format(v);
     if (f === 'integer') return new Intl.NumberFormat(lang, { maximumFractionDigits: 0, useGrouping: grouping }).format(v);
-    if (f === 'currency') return new Intl.NumberFormat(lang, { style: 'currency', currency, minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
-    if (f === 'accounting') return new Intl.NumberFormat(lang, { style: 'currency', currency, currencySign: 'accounting', minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
+    if (f === 'currency' && style?.signFirst !== undefined) {
+      // The sign where the person (or Excel) put it, whatever the language's habit.
+      const n = new Intl.NumberFormat(lang, { minimumFractionDigits: d, maximumFractionDigits: d }).format(Math.abs(v));
+      const sign = currencySign(money, lang), gap = /\p{L}$/u.test(sign) || !style.signFirst ? '\u00a0' : '';
+      return `${v < 0 ? '-' : ''}${style.signFirst ? `${sign}${gap}${n}` : `${n}${gap}${sign}`}`;
+    }
+    if (f === 'currency') return new Intl.NumberFormat(lang, { style: 'currency', currency: money, currencyDisplay: 'narrowSymbol', minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
+    if (f === 'accounting') return new Intl.NumberFormat(lang, { style: 'currency', currency: money, currencyDisplay: 'narrowSymbol', currencySign: 'accounting', minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
     if (f === 'percent') return new Intl.NumberFormat(lang, { style: 'percent', minimumFractionDigits: style?.decimals ?? 0, maximumFractionDigits: style?.decimals ?? 2 }).format(v);
     if (f === 'scientific') return v.toExponential(d).replace('e', 'E');
     if (f === 'fraction') return fraction(v);

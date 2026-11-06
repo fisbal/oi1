@@ -44,7 +44,15 @@ describe('formulas', () => {
 describe('typing into cells', () => {
   it('understands money, percentages, dates and thousands', () => {
     expect(readEntry('15%')).toEqual({ input: '0.15', format: 'percent' });
-    expect(readEntry('€9,99')).toEqual({ input: '9.99', format: 'currency' });
+    expect(readEntry('€9,99')).toEqual({ input: '9.99', format: 'currency', currency: 'EUR' , signFirst: true });
+    expect(readEntry('$9.99')).toEqual({ input: '9.99', format: 'currency', currency: 'USD' , signFirst: true });
+    expect(readEntry('1 234,50 €', true)).toEqual({ input: '1234.50', format: 'currency', currency: 'EUR' , signFirst: false });
+    expect(readEntry('-12,5 $', true)).toEqual({ input: '-12.5', format: 'currency', currency: 'USD' , signFirst: false });
+    expect(readEntry('CHF 1,200.00')).toEqual({ input: '1200.00', format: 'currency', currency: 'CHF' , signFirst: true });
+    expect(readEntry('(1,200.00) USD')).toEqual({ input: '-1200.00', format: 'currency', currency: 'USD' , signFirst: false });
+    expect(readEntry('CA$ 15')).toEqual({ input: '15', format: 'currency', currency: 'CAD' , signFirst: true });
+    expect(readEntry('Rue 12')).toEqual({ input: 'Rue 12' });
+    expect(readEntry('ABC 12')).toEqual({ input: 'ABC 12' });
     expect(readEntry('1,200.50')).toEqual({ input: '1200.50' });
     expect(readEntry('1.200,50', true)).toEqual({ input: '1200.50' });
     expect(readEntry('2026-10-25').format).toBe('date');
@@ -88,7 +96,7 @@ describe('xlsx', () => {
     expect(back.sheets.map(s => s.name)).toEqual(['Budget 2026', 'Notes']);
     const s = back.sheets[0];
     expect(s.widths[0]).toBe(180);
-    expect(s.cells[key(1, 3)]).toEqual({ input: '=SUM(B2:B3)', style: { format: 'currency', bold: true } });
+    expect(s.cells[key(1, 3)]).toMatchObject({ input: '=SUM(B2:B3)', style: { format: 'currency', bold: true } });
     expect(s.cells[key(0, 0)].style).toEqual({ bold: true, fill: '#D4A843' });
     expect(s.cells[key(1, 0)].style).toEqual({ bold: true, align: 'right' });
     expect(s.cells[key(2, 3)]).toEqual({ input: '007', style: { format: 'text' } });

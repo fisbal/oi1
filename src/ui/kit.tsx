@@ -315,7 +315,8 @@ export function Drop({ icon, label, title, children, active, swatch, big, text, 
     const el = panel.current;
     if (!open || !el) return;
     el.style.marginLeft = '';
-    const vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    // On phones and tablets innerHeight can be the zoomed-out layout height: the screen is the smallest of these.
+    const vw = document.documentElement.clientWidth, vh = Math.min(window.innerHeight, document.documentElement.clientHeight || Infinity, window.visualViewport?.height ?? Infinity);
     // Its own width first: past the screen's edge the browser would squeeze it, then widen it once moved back.
     el.style.maxWidth = `${vw - 16}px`;
     el.style.width = 'max-content';
@@ -335,7 +336,7 @@ export function Drop({ icon, label, title, children, active, swatch, big, text, 
         {label ?? (text || big ? <span className="rb-label">{name}</span> : null)}
         <span className="rb-caret"><Icon name="caret" size={10} /></span>
       </button>
-      {open && <div ref={panel} className={`drop-panel${wide ? ' wide' : ''}`} role="menu" onMouseDown={e => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault(); }}>{children(close)}</div>}
+      {open && <div ref={panel} className={`drop-panel${wide ? ' wide' : ''}`} role="menu" onMouseDown={e => { if (!(e.target as HTMLElement).closest('input, select, textarea')) e.preventDefault(); }}>{children(close)}</div>}
     </div>
   );
 }
