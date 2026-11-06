@@ -273,7 +273,16 @@ export function usedRange(sheet: SheetData): { cols: number; rows: number } {
 }
 
 const DEFAULT_CURRENCY: Record<string, string> = { en: 'USD', fr: 'EUR', es: 'EUR', pt: 'EUR', de: 'EUR' };
-export const currencyFor = (lang: string, book?: WorkbookData) => book?.currency ?? DEFAULT_CURRENCY[lang.slice(0, 2)] ?? 'USD';
+/** A device set to a Canadian region (fr-CA, en-CA) counts in Canadian dollars. */
+const regionCurrency = (): string | undefined => {
+  try {
+    const tags = typeof navigator === 'undefined' ? [] : [...(navigator.languages ?? []), navigator.language];
+    return tags.some(t => /-CA\b/i.test(t ?? '')) ? 'CAD' : undefined;
+  } catch { return undefined; }
+};
+export const currencyFor = (lang: string, book?: WorkbookData) => book?.currency ?? regionCurrency() ?? DEFAULT_CURRENCY[lang.slice(0, 2)] ?? 'USD';
+/** "1 227,00 $" in French rather than "1 227,00 $CA": the plain $ sign for Canadian dollars. */
+const symbolDisplay = (currency: string) => (currency === 'CAD' ? { currencyDisplay: 'narrowSymbol' as const } : {});
 
 /** The digits a format shows after the decimal point when the user did not choose. */
 export const defaultDecimals = (f: NumberFormat) => (f === 'number' || f === 'currency' || f === 'accounting' || f === 'scientific' ? 2 : 0);
@@ -299,8 +308,8 @@ export function display(v: Scalar, style: CellStyle | undefined, lang: string, c
   try {
     if (f === 'number') return new Intl.NumberFormat(lang, { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: style?.thousands ?? true }).format(v);
     if (f === 'integer') return new Intl.NumberFormat(lang, { maximumFractionDigits: 0, useGrouping: grouping }).format(v);
-    if (f === 'currency') return new Intl.NumberFormat(lang, { style: 'currency', currency, minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
-    if (f === 'accounting') return new Intl.NumberFormat(lang, { style: 'currency', currency, currencySign: 'accounting', minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
+    if (f === 'currency') return new Intl.NumberFormat(lang, { style: 'currency', currency, ...symbolDisplay(currency), minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
+    if (f === 'accounting') return new Intl.NumberFormat(lang, { style: 'currency', currency, ...symbolDisplay(currency), currencySign: 'accounting', minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
     if (f === 'percent') return new Intl.NumberFormat(lang, { style: 'percent', minimumFractionDigits: style?.decimals ?? 0, maximumFractionDigits: style?.decimals ?? 2 }).format(v);
     if (f === 'scientific') return v.toExponential(d).replace('e', 'E');
     if (f === 'fraction') return fraction(v);
