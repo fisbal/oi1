@@ -76,6 +76,19 @@ function covered(strip: HTMLElement, x: number, top: number, size: number): bool
   return false;
 }
 
+/** Is the strip itself what a person sees at this point? Any panel, popover or window on top hides the arrow there
+ *  (Martin's phone, 2026-11-06: arrows floated over the apps window and the cloud window). Our own arrows are skipped. */
+function stripOnTop(strip: HTMLElement, x: number, y: number): boolean {
+  if (typeof document.elementsFromPoint !== 'function') return true;
+  // The strip, or something of its own bar (a button at the end of the ribbon's tab row): not a window above it.
+  const bar = strip.parentElement ?? strip;
+  for (const el of document.elementsFromPoint(x, y)) {
+    if (el.closest('.scroll-arrow')) continue;
+    return bar.contains(el);
+  }
+  return false;
+}
+
 function place() {
   frame = 0;
   for (const strip of document.querySelectorAll<HTMLElement>(STRIPS)) attach(strip);
@@ -94,7 +107,7 @@ function place() {
     const top = r.top + (r.height - size) / 2;
     const set = (b: HTMLButtonElement, show: boolean, x: number) => {
       // Only where the strip itself is on top: never over an open menu, the File page, a panel or a dialog.
-      if (show) show = !covered(strip, x, top, size);
+      if (show) show = !covered(strip, x, top, size) && stripOnTop(strip, x + size / 2, top + size / 2);
       b.hidden = !show;
       if (!show) return;
       b.style.cssText = `top:${top}px;left:${x}px;width:${size}px;height:${size}px`;
