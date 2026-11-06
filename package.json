@@ -56,6 +56,8 @@
     "check:pages": "node scripts/check-pages.mjs",
     "check:confidential": "node scripts/check-confidential.mjs",
     "check:cellmenu": "node scripts/check-cellmenu.mjs",
+    "check:paste": "node scripts/check-paste.mjs",
+    "check:interop": "vitest run --config interop/vitest.config.ts",
     "check:textmenu": "node scripts/check-textmenu.mjs",
     "check:objmenu": "node scripts/check-objmenu.mjs",
     "check:appmenu": "node scripts/check-appmenu.mjs",

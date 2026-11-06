@@ -147,6 +147,14 @@ jobs:
       - name: Class right-click menu (copy/paste, paste options, insert, sort, search) on PC, Mac, tablet, phone, both ways
         if: env.FULL_CHECKS == 'true'
         run: npm run check:cellmenu
+      - name: Class paste from Excel and any currency (PC, tablet, phone, both ways)
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:paste
+      - name: Files go both ways with Excel, Word, PowerPoint, mail, calendar and contacts apps (openpyxl, python-docx, python-pptx, LibreOffice when there)
+        if: env.FULL_CHECKS == 'true'
+        run: |
+          pip install --quiet openpyxl python-docx python-pptx icalendar vobject
+          npm run check:interop
       - name: Text right-click menu in Letter, Notes and Mail (copy/paste, plain text, bold, table, copilot, spelling) on every screen
         if: env.FULL_CHECKS == 'true'
         run: npm run check:textmenu

@@ -27,76 +27,8 @@ const clean = (s: string) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]
 const rgb = (hex: string) => `FF${hex.slice(1).toUpperCase()}`;
 const XML_HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
 
-// ---------- number format codes ----------
-
-const CURRENCY_SYMBOL: Record<string, string> = { USD: '"$"', EUR: '"€"', GBP: '"£"', JPY: '"¥"', CHF: '"CHF"' };
-const SYMBOL_AFTER = new Set(['EUR', 'CHF']);
-const BUILTIN_CODES: Record<number, string> = {
-  1: '0', 2: '0.00', 3: '#,##0', 4: '#,##0.00', 9: '0%', 10: '0.00%', 11: '0.00E+00', 12: '# ?/?', 13: '# ??/??',
-  14: 'm/d/yyyy', 20: 'h:mm', 22: 'm/d/yyyy h:mm', 49: '@',
-};
-
-/** The Excel format code for a cell's number format, or '' for General. */
-export function formatCode(st: CellStyle, currency: string): string {
-  const f = st.format ?? 'general';
-  const digits = (d: number) => (d > 0 ? `.${'0'.repeat(d)}` : '');
-  const dflt = f === 'number' || f === 'currency' || f === 'accounting' || f === 'scientific' ? 2 : 0;
-  const d = st.decimals ?? dflt;
-  const sym = CURRENCY_SYMBOL[currency] ?? `"${currency}"`;
-  const after = SYMBOL_AFTER.has(currency);
-  switch (f) {
-    case 'general': return st.decimals !== undefined ? `${st.thousands ? '#,##0' : '0'}${digits(d)}` : '';
-    case 'integer': return st.thousands === false ? '0' : '#,##0';
-    case 'number': return `${st.thousands === false ? '0' : '#,##0'}${digits(d)}`;
-    case 'percent': return `0${digits(st.decimals ?? 0)}%`;
-    case 'currency': return after ? `#,##0${digits(d)}\\ ${sym}` : `${sym}#,##0${digits(d)}`;
-    case 'accounting': {
-      const n = `#,##0${digits(d)}`;
-      return after ? `_-* ${n}\\ ${sym}_-;\\-* ${n}\\ ${sym}_-;_-* "-"??\\ ${sym}_-;_-@_-` : `_(${sym}* ${n}_);_(${sym}* \\(${n}\\);_(${sym}* "-"??_);_(@_)`;
-    }
-    case 'scientific': return `0${digits(d)}E+00`;
-    case 'fraction': return '# ??/??';
-    case 'date': return 'm/d/yyyy';
-    case 'longDate': return '[$-F800]dddd\\,\\ mmmm\\ dd\\,\\ yyyy';
-    case 'time': return 'h:mm';
-    case 'dateTime': return 'm/d/yyyy h:mm';
-    case 'text': return '@';
-  }
-}
-
-/** OI1's number format for an Excel format code. */
-export function styleFromCode(id: number, code: string | undefined): Pick<CellStyle, 'format' | 'decimals' | 'thousands'> {
-  if (id === 0) return {};
-  if (id === 49) return { format: 'text' };
-  if (id >= 5 && id <= 8) return { format: 'currency' };
-  if ((id >= 14 && id <= 17) || id === 30) return { format: 'date' };
-  if (id >= 18 && id <= 21 || (id >= 45 && id <= 47)) return { format: 'time' };
-  if (id === 22) return { format: 'dateTime' };
-  const src = code ?? BUILTIN_CODES[id];
-  if (!src) return {};
-  const first = src.split(';')[0];
-  if (first === '@') return { format: 'text' };
-  if (/F800|dddd|mmmm/i.test(first)) return { format: 'longDate' };
-  const bare = first.replace(/"[^"]*"|\[[^\]]*\]|\\./g, m => (/[$€£¥]|CHF/.test(m) ? '$' : '')).replace(/_.|\*./g, '');
-  const decimals = (bare.match(/\.(0+)/)?.[1].length) ?? 0;
-  const thousands = bare.includes(',');
-  if (/[dy]/i.test(bare) && /h/i.test(bare)) return { format: 'dateTime' };
-  if (/h/i.test(bare) && /m/i.test(bare) && !/[dy]/i.test(bare)) return { format: 'time' };
-  if (/[dmy]/i.test(bare) && !/0/.test(bare)) return { format: 'date' };
-  if (bare.includes('%')) return decimals ? { format: 'percent', decimals } : { format: 'percent' };
-  if (/E\+/i.test(bare)) return decimals === 2 ? { format: 'scientific' } : { format: 'scientific', decimals };
-  if (/\?\/\?/.test(bare)) return { format: 'fraction' };
-  if (/_\(|_-/.test(src) && /[$€£¥]|\[\$/.test(src)) return decimals === 2 ? { format: 'accounting' } : { format: 'accounting', decimals };
-  if (/[$€£¥]/.test(bare) || /\[\$[^\]]*\]/.test(src) || /CHF/.test(src)) return decimals === 2 ? { format: 'currency' } : { format: 'currency', decimals };
-  if (/[#0]/.test(bare)) {
-    if (!decimals) return thousands ? { format: 'integer' } : { format: 'integer', thousands: false };
-    const st: Pick<CellStyle, 'format' | 'decimals' | 'thousands'> = { format: 'number' };
-    if (decimals !== 2) st.decimals = decimals;
-    if (!thousands) st.thousands = false;
-    return st;
-  }
-  return {};
-}
+export { formatCode, styleFromCode } from './numfmt';
+import { BUILTIN_CODES, formatCode, styleFromCode } from './numfmt';
 
 // ---------- writing ----------
 
@@ -514,12 +446,11 @@ export async function readXlsx(data: ArrayBuffer): Promise<WorkbookData> {
     color: argb(kid(kid(d, 'font'), 'color')),
     fill: argb(kid(kid(kid(d, 'fill'), 'patternFill'), 'bgColor')) ?? argb(kid(kid(kid(d, 'fill'), 'patternFill'), 'fgColor')),
   }));
-  let currency: string | undefined;
-  for (const code of codes.values()) {
-    if (code.includes('€')) currency = 'EUR';
-    else if (code.includes('£')) currency = 'GBP';
-    else if (/"\$"|\[\$\$/.test(code)) currency = 'USD';
-  }
+  // The workbook's money: the one its cells use most; cells in another money keep their own.
+  const used = new Map<string, number>();
+  for (const st of xfStyles) if (st?.currency) used.set(st.currency, (used.get(st.currency) ?? 0) + 1);
+  const currency = [...used].sort((a, b) => b[1] - a[1])[0]?.[0];
+  for (const st of xfStyles) if (st?.currency && st.currency === currency) delete st.currency;
 
   const book: WorkbookData = { sheets: [], currency };
   const chartsToRead: { sheet: SheetData; doc: Document; anchor: Element; path: string }[] = [];

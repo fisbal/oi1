@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readXlsx, styleFromCode, formatCode, xlsxBytes } from '../xlsx';
+import { CURRENCIES } from '../currency';
 import { key, type WorkbookData } from '../sheet';
 
 export const richBook = (): WorkbookData => ({
@@ -61,8 +62,21 @@ describe('xlsx for Class v1', () => {
     for (const st of [{ format: 'number' as const }, { format: 'number' as const, decimals: 3, thousands: false }, { format: 'integer' as const },
       { format: 'currency' as const }, { format: 'accounting' as const, decimals: 0 }, { format: 'scientific' as const }, { format: 'fraction' as const },
       { format: 'time' as const }, { format: 'longDate' as const }, { format: 'percent' as const, decimals: 2 }]) {
-      expect(styleFromCode(200, formatCode(st, 'EUR'))).toEqual(st);
-      expect(styleFromCode(200, formatCode(st, 'USD'))).toEqual(st);
+      const { currency: eur, signFirst: _e, ...e } = styleFromCode(200, formatCode(st, 'EUR'));
+      const { currency: usd, signFirst: _u, ...u } = styleFromCode(200, formatCode(st, 'USD'));
+      expect(e).toEqual(st);
+      expect(u).toEqual(st);
+      if (st.format === 'currency' || st.format === 'accounting') { expect(eur).toBe('EUR'); expect(usd).toBe('USD'); }
     }
+    // Every currency the picker offers comes back the same from its format code.
+    for (const code of CURRENCIES) expect(styleFromCode(200, formatCode({ format: 'currency', currency: code }, 'EUR')).currency).toBe(code);
+    // Excel's own codes.
+    expect(styleFromCode(200, '#,##0.00\\ [$€-40C]').currency).toBe('EUR');
+    expect(styleFromCode(200, '[$$-1009]#,##0.00').currency).toBe('CAD');
+    expect(styleFromCode(200, '"$"#,##0.00').currency).toBe('USD');
+    expect(styleFromCode(200, '[$£-809]#,##0.00').currency).toBe('GBP');
+    expect(styleFromCode(200, '"$"#,##0.00').signFirst).toBe(true);
+    expect(styleFromCode(200, '#,##0.00\\ [$€-40C]').signFirst).toBe(false);
+    expect(formatCode({ format: 'currency', currency: 'USD', signFirst: false }, 'EUR')).toBe('#,##0.00\\ "$"');
   });
 });

@@ -21,12 +21,15 @@ import {
   computeBook, currencyFor, defaultDecimals, display, emptySheet, key, naturalAlign, readEntry, unkey, usedRange,
   type BorderLine, type Cell, type CellStyle, type Chart, type CondRule, type Merge, type NumberFormat, type SheetData, type SheetPic, type WorkbookData,
 } from '../../formats/sheet';
-import { sheetToTable, tableFromHtml, tableFromText, tableToCells, tableToHtml, tableToText, type Range } from '../../formats/table';
+import { CURRENCIES, currencyName, currencySign } from '../../formats/currency';
+import { canonicalFormula } from '../../formats/fnNames';
+import { cellsFromHtml, cellsFromText, type PastedBlock } from '../../formats/pasteHtml';
+import { sheetToTable, tableToCells, tableToHtml, tableToText, type Range } from '../../formats/table';
 import { FileMenu } from '../../ui/FileMenu';
 import { SignatureDialog } from '../../ui/signature/SignatureDialog';
 import { SignatureMenu, type SignaturePlace } from '../../ui/signature/SignatureMenu';
 import { todayText, type Signature } from '../../ui/signature/store';
-import { Btn, ColorGrid, Combo, Drop, Group, Icon, MenuItem, RibbonToggle, type ComboGroup } from '../../ui/kit';
+import { Btn, ColorGrid, Combo, Dialog, Drop, Group, Icon, MenuItem, RibbonToggle, type ComboGroup } from '../../ui/kit';
 import { AppKeys, appColor } from '../../ui/AppKeys';
 import { TutoTab } from '../../ui/tuto/Tuto';
 import { FONT_GROUPS, FONT_SIZES, cssFont } from '../letter/model';
@@ -73,6 +76,7 @@ type Tab = 'home' | 'insert' | 'formulas' | 'metiers' | 'data' | 'layout' | 'vie
 const boxOf = (s: Sel): Range => ({ c1: Math.min(s.a.c, s.f.c), r1: Math.min(s.a.r, s.f.r), c2: Math.max(s.a.c, s.f.c), r2: Math.max(s.a.r, s.f.r) });
 const newId = (p: string) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const decimalComma = (lang: string) => new Intl.NumberFormat(lang).format(1.5).includes(',');
+type PasteMode = 'all' | 'values' | 'formulas' | 'formats' | 'transpose' | 'text';
 const overlaps = (a: Merge, b: Merge) => a.c1 <= b.c2 && b.c1 <= a.c2 && a.r1 <= b.r2 && b.r1 <= a.r2;
 const isLight = (hex?: string) => {
   if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return false;
@@ -263,8 +267,13 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const setEntry = (cells: Record<string, Cell>, c: number, r: number, text: string) => {
     const k = key(c, r);
     const old = cells[k];
-    const { input, format } = old?.style?.format === 'text' ? { input: text, format: undefined } : readEntry(text, decimalComma(lang));
-    const style = format && !old?.style?.format ? { ...old?.style, format } : old?.style;
+    // Formulas in the person's words (=SOMME(A1;A2), =SUMA…) are kept the way Excel stores them.
+    const e = old?.style?.format === 'text' ? { input: text } as ReturnType<typeof readEntry> : readEntry(text.startsWith('=') ? canonicalFormula(text) : text, decimalComma(lang));
+    const { input, format, currency: money } = e;
+    const sign = e.signFirst !== undefined ? { signFirst: e.signFirst } : {};
+    // A typed sign picks the money ("$9.99" stays dollars in French), like Excel.
+    const style = format && !old?.style?.format ? { ...old?.style, format, ...(money && money !== currency ? { currency: money, ...sign } : {}) }
+      : money && (old?.style?.format === 'currency' || old?.style?.format === 'accounting') && money !== (old.style.currency ?? currency) ? { ...old.style, currency: money, ...sign } : old?.style;
     if (!input && !style) delete cells[k];
     else cells[k] = { input, ...(style ? { style } : {}) };
   };
@@ -324,6 +333,11 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const activeStyle = activeCell?.style ?? {};
   const toggle = (prop: 'bold' | 'italic' | 'underline' | 'strike' | 'wrap') => styleRange(st => ({ ...st, [prop]: !activeStyle[prop] }));
   const setFormat = (format: NumberFormat) => styleRange(st => ({ ...st, format: format === 'general' ? undefined : format, decimals: undefined }));
+  /** Money for the selected cells, whatever the language (a dollar sheet in French, euros in English…). */
+  const setCurrency = (code: string) => {
+    styleRange(st => ({ ...st, format: st.format === 'accounting' ? 'accounting' : 'currency', currency: code, signFirst: undefined, decimals: st.format === 'currency' || st.format === 'accounting' ? st.decimals : undefined }));
+    shell.notify(t('class.currencySet', { v: `${currencySign(code, lang)} ${currencyName(code, lang)}` }));
+  };
   const clearRange = () => changeSheet(s => forRange((c, r) => {
     const k = key(c, r);
     if (s.cells[k]?.style) s.cells[k] = { input: '', style: s.cells[k].style };
@@ -614,6 +628,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
 
   // ---------- clipboard ----------
   /** What was copied in this sheet: the cells (formulas follow, like Excel's relative references) and their values. */
+  const [pasteBox, setPasteBox] = useState<PasteMode | null>(null);
   const clip = useRef<{ text: string; cells: Record<string, Cell>; vals: Record<string, Scalar>; origin: Pos } | null>(null);
   const keepCopy = (text: string) => {
     const cells: Record<string, Cell> = {}, vals: Record<string, Scalar> = {};
@@ -647,14 +662,51 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     } catch { try { await navigator.clipboard.writeText(text); } catch { /* the copy inside Office In 1 still works */ } }
     if (cut) clearRange();
   };
-  const pasteTable = (table: TableData) => changeSheet(s => {
-    for (const [k, cell] of Object.entries(tableToCells(table, range.c1, range.r1))) {
-      const old = s.cells[k];
-      s.cells[k] = old?.style ? { ...cell, style: { ...old.style, ...cell.style } } : cell;
+  /** Cells from another program (Excel, Google Sheets, Word, a web page…) with their look, the way the person chose. */
+  const pasteBlock = (block: PastedBlock, mode: PasteMode) => changeSheet(s => {
+    const at = (c: number, r: number) => (mode === 'transpose' ? key(range.c1 + r, range.r1 + c) : key(range.c1 + c, range.r1 + r));
+    const w = mode === 'transpose' ? block.rows : block.cols, h = mode === 'transpose' ? block.cols : block.rows;
+    const area = { c1: range.c1, r1: range.r1, c2: range.c1 + w - 1, r2: range.r1 + h - 1 };
+    for (let r = 0; r < block.rows; r++) for (let c = 0; c < block.cols; c++) {
+      const src = block.cells[key(c, r)], k = at(c, r), old = s.cells[k];
+      if (mode === 'formats') {
+        if (src?.style) s.cells[k] = { input: old?.input ?? '', style: src.style };
+        else if (old) { if (old.input) s.cells[k] = { input: old.input }; else delete s.cells[k]; }
+      } else if (mode === 'values' || mode === 'text' || mode === 'formulas') {
+        const input = src?.input ?? '';
+        if (input) s.cells[k] = { input, ...(old?.style ? { style: old.style } : src?.style?.format ? { style: { format: src.style.format, currency: src.style.currency, signFirst: src.style.signFirst } } : {}) };
+        else delete s.cells[k];
+      } else if (src) s.cells[k] = src;
+      else delete s.cells[k];
     }
-    // Clear cells the table covers but leaves empty.
-    table.rows.forEach((row, r) => row.forEach((cell, c) => { if (!cell.text && !cell.formula) delete s.cells[key(range.c1 + c, range.r1 + r)]; }));
+    if (mode === 'all' || mode === 'formats' || mode === 'transpose') {
+      const moved = block.merges.map(m => (mode === 'transpose'
+        ? { c1: range.c1 + m.r1, r1: range.r1 + m.c1, c2: range.c1 + m.r2, r2: range.r1 + m.c2 }
+        : { c1: range.c1 + m.c1, r1: range.r1 + m.r1, c2: range.c1 + m.c2, r2: range.r1 + m.r2 }));
+      s.merges = [...(s.merges ?? []).filter(m => !overlaps(m, area)), ...moved];
+    }
+    if (mode === 'all') {
+      // Excel's sizes (11 pt text is 14.7 px there, 13.5 px here): wider columns and taller rows than the defaults come too.
+      for (const [c, px] of Object.entries(block.widths)) {
+        if (px === 64) continue;
+        const want = Math.max(24, Math.round(px * 0.92)), col = range.c1 + Number(c);
+        if (want > (s.widths[col] ?? COL_W)) s.widths = { ...s.widths, [col]: want };
+      }
+      for (const [r, px] of Object.entries(block.heights)) {
+        const want = Math.round(px * 0.92), row = range.r1 + Number(r);
+        if (want > (s.heights?.[row] ?? ROW_H)) s.heights = { ...s.heights, [row]: want };
+      }
+    }
   });
+  /** What another program put on the clipboard: its table with the look (HTML) or its text, read like typed entries. */
+  const pasteForeign = (html: string, text: string, mode: PasteMode) => {
+    const comma = decimalComma(lang);
+    const block = (mode !== 'text' && html ? cellsFromHtml(html, comma) : null) ?? (text ? cellsFromText(text, comma, t2 => parseCsv(t2, t2.includes('\t') ? '\t' : undefined)) : null);
+    if (!block) return false;
+    if (mode === 'formats' && !html) return false;
+    pasteBlock(block, mode);
+    return true;
+  };
   const onPaste = (e: React.ClipboardEvent) => {
     if (edit || fromPanel(e)) return;
     e.preventDefault();
@@ -674,10 +726,8 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       });
       return;
     }
-    const table = (html && tableFromHtml(html)) || (text ? tableFromText(text) : null);
-    if (table) pasteTable(table);
+    pasteForeign(html, text, 'all');
   };
-  type PasteMode = 'all' | 'values' | 'formulas' | 'formats' | 'transpose' | 'text';
   /** Our own copy, pasted the way the person chose (Excel's paste options). */
   const pasteOwn = (mine: NonNullable<typeof clip.current>, mode: PasteMode) => {
     const dc = range.c1 - mine.origin.c, dr = range.r1 - mine.origin.r;
@@ -709,20 +759,19 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const pasteWith = async (mode: PasteMode = 'all') => {
     let text = '', html = '';
     try {
-      for (const it of await navigator.clipboard.read()) {
+      // Unsanitized where the browser allows it: Excel's number formats (money, dates) are only in its <style> block.
+      let items: ClipboardItems;
+      try { items = await (navigator.clipboard.read as (o?: unknown) => Promise<ClipboardItems>)({ unsanitized: ['text/html'] }); } catch { items = await navigator.clipboard.read(); }
+      for (const it of items) {
         if (it.types.includes('text/html')) html = await (await it.getType('text/html')).text();
         if (it.types.includes('text/plain')) text = await (await it.getType('text/plain')).text();
       }
     } catch { try { text = await navigator.clipboard.readText(); } catch { text = ''; } }
     const mine = clip.current;
     if (mine && (!text || text === mine.text)) { pasteOwn(mine, mode); return; }
-    if (!text && !html) { shell.notify(cm('pasteBlocked')); return; }
-    if (mode === 'formats') return; // another program's copy brings no Office In 1 formatting
-    let table = (mode !== 'text' && html && tableFromHtml(html)) || (text ? tableFromText(text) : null);
-    if (!table) return;
-    if (mode === 'transpose') table = { rows: (table.rows[0] ?? []).map((_, c) => table!.rows.map(row => row[c] ?? { text: '' })) };
-    if (mode === 'values' || mode === 'text' || mode === 'formulas') table = { rows: table.rows.map(row => row.map(cell => (mode === 'formulas' && cell.formula ? { text: cell.text, formula: cell.formula } : { text: cell.text }))) };
-    pasteTable(table);
+    // The browser or the phone keeps the clipboard closed to the page: a box the person pastes into themselves.
+    if (!text && !html) { setPasteBox(mode); return; }
+    pasteForeign(html, text, mode);
   };
 
   // ---------- files ----------
@@ -2216,6 +2265,18 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
                 </div>
                 <div className="row">
                   <Btn icon="currency" title="class.format.currency" onClick={() => setFormat('currency')} active={activeStyle.format === 'currency'} />
+                  <Drop title="class.currencyPick" label={<span className="fmt-label">{currencySign(activeStyle.currency ?? currency, lang)}</span>} text>
+                    {close => <>
+                      {CURRENCIES.map(code => (
+                        <MenuItem key={code} active={(activeStyle.format === 'currency' || activeStyle.format === 'accounting') && (activeStyle.currency ?? currency) === code}
+                          label={`${currencySign(code, lang)}  ${currencyName(code, lang)}`} hint={code} onClick={() => { close(); setCurrency(code); }} />
+                      ))}
+                      <span className="kicker">{t('class.currencyBook')}</span>
+                      <select className="cur-book" aria-label={t('class.currencyBook')} value={currency} onChange={e => { close(); commit({ ...bookRef.current, currency: e.target.value }); }}>
+                        {CURRENCIES.map(code => <option key={code} value={code}>{`${code} · ${currencyName(code, lang)}`}</option>)}
+                      </select>
+                    </>}
+                  </Drop>
                   <Btn icon="percent" title="class.format.percent" onClick={() => setFormat('percent')} active={activeStyle.format === 'percent'} />
                   <Btn icon="thousands" title="class.thousands" onClick={() => styleRange(st => ({ ...st, format: 'number', thousands: true }))} active={activeStyle.format === 'number' && activeStyle.thousands !== false} />
                   <Btn icon="decmore" title="class.decimalsMore" onClick={() => stepDecimals(1)} />
@@ -2563,6 +2624,20 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
         )}
       </div>
       {cellMenu && <ContextMenu at={cellMenu} sections={menuSections()} onClose={closeCellMenu} />}
+      {pasteBox && (
+        <Dialog title={t('letter.paste')} onClose={() => { setPasteBox(null); gridRef.current?.focus(); }}>
+          <p className="cl-paste-help">{t('class.pasteHere')}</p>
+          <div className="cl-paste-box" contentEditable suppressContentEditableWarning role="textbox" aria-label={t('class.pasteHere')} tabIndex={0}
+            ref={el => { if (el) setTimeout(() => el.focus(), 50); }}
+            onPaste={e => {
+              e.preventDefault();
+              const mode = pasteBox;
+              setPasteBox(null);
+              if (!pasteForeign(e.clipboardData.getData('text/html'), e.clipboardData.getData('text/plain'), mode)) shell.notify(cm('pasteBlocked'));
+              gridRef.current?.focus();
+            }} />
+        </Dialog>
+      )}
       {copilot && <Copilot host={classCopilot(bridge, decimalComma(lang))} ai={shell.ai} start={copilotStart} onClose={() => { setCopilot(false); gridRef.current?.focus(); }} />}
       </div>
 
