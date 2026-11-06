@@ -147,6 +147,9 @@ jobs:
       - name: Class right-click menu (copy/paste, paste options, insert, sort, search) on PC, Mac, tablet, phone, both ways
         if: env.FULL_CHECKS == 'true'
         run: npm run check:cellmenu
+      - name: Text right-click menu in Letter, Notes and Mail (copy/paste, plain text, bold, table, copilot, spelling) on every screen
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:textmenu
       - name: The I want… search finds the buttons, tips guide to them (PC + phone)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:want

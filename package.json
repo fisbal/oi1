@@ -56,6 +56,7 @@
     "check:pages": "node scripts/check-pages.mjs",
     "check:confidential": "node scripts/check-confidential.mjs",
     "check:cellmenu": "node scripts/check-cellmenu.mjs",
+    "check:textmenu": "node scripts/check-textmenu.mjs",
     "check:mail": "node scripts/check-mail.mjs",
     "check:image": "node scripts/check-image.mjs",
     "check:faults-code": "node scripts/faults-code.mjs",

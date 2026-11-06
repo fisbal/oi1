@@ -25,6 +25,8 @@ import { AppKeys, appColor } from '../../ui/AppKeys';
 import { FileMenu } from '../../ui/FileMenu';
 import { TutoTab } from '../../ui/tuto/Tuto';
 import { Copilot, CopilotButton, useCopilotShortcut, type CopilotHost } from '../../ui/Copilot';
+import { ContextMenu, cm } from '../../ui/ContextMenu';
+import { caretAt, caretPoint, textMenuSections, useTextMenu } from '../../ui/textMenu';
 import { usePinchZoom } from '../../ui/pinch';
 import { closeRibbonPeek } from '../../ui/ribbonMin';
 import { FastScroll } from '../../ui/FastScroll';
@@ -84,6 +86,7 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   const [panel, setPanel] = useState<'file' | null>(null);
   const [copilot, setCopilot] = useState(false);
   const [copilotStart, setCopilotStart] = useState<{ id: string; n: number } | undefined>();
+  const textMenu = useTextMenu();
   const [aiAsk, setAiAsk] = useState<{ text: string; busy: boolean; error: string } | null>(null);
   const [ask, setAsk] = useState<{ title: string; label: string; value: string; ok: (v: string) => void; danger?: boolean } | null>(null);
   const [dlg, setDlg] = useState<'contacts' | 'me' | 'merge' | 'sigs' | null>(null);
@@ -657,7 +660,7 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   ) : null;
   const composer = current && editing ? (
     <Composer key={current.id} mail={current} contacts={box.contacts} edRef={edRef} onChange={(patch, record) => setMail(current.id, patch, record)} onEdit={on => (on ? editStart() : editEnd())}
-      onSend={() => void send()} onDiscard={() => delMail(current.id)} onAttach={() => attachInput.current?.click()} via={via} />
+      onSend={() => void send()} onDiscard={() => delMail(current.id)} onAttach={() => attachInput.current?.click()} via={via} onMenu={(ed, x, y) => textMenu.setMenu({ x, y, ed })} />
   ) : null;
   const empty = !current && <div className="ml-paper ml-hello"><p>{t('mail.helloLead')}</p><div><button type="button" className="primary" onClick={() => compose()}><Icon name="new" size={14} />{t('mail.new')}</button><button type="button" onClick={() => setAiAsk({ text: '', busy: false, error: '' })}>✦ {t('mail.aiWrite')}</button><button type="button" onClick={() => emlInput.current?.click()}><Icon name="download" size={14} />{t('mail.importEml')}</button></div></div>;
 
@@ -679,6 +682,21 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
         )}
         {showMail && <FastScroll target={scroller} />}
         {copilot && <Copilot host={copilotHost} ai={shell.ai} start={copilotStart} onClose={() => { setCopilot(false); rootRef.current?.focus(); }} />}
+        {textMenu.menu && <ContextMenu at={textMenu.menu} onClose={textMenu.close} sections={textMenuSections(textMenu.menu.ed, {
+          notify: m => shell.notify(m),
+          link: () => { const e = textMenu.menu?.ed; setAsk({ title: t('letter.link'), label: t('letter.linkPrompt'), value: String(e?.getAttributes('link').href ?? 'https://'), ok: v => { if (!e) return; const c = e.chain().focus(); (v.trim() && v.trim() !== 'https://' ? c.extendMarkRange('link').setLink({ href: v.trim() }) : c.unsetLink()).run(); } }); },
+          ai: startAi,
+          aiActions: copilotHost.actions.filter(a => a.needsContext),
+          extra: [{ items: [
+            { id: 'insert', icon: 'new', label: cm('insert'), sub: [
+              { id: 'm-table', icon: 'table', label: t('letter.table'), run: () => textMenu.menu?.ed.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
+              { id: 'm-date', icon: 'date', label: t('letter.date'), run: () => textMenu.menu?.ed.chain().focus().insertContent(new Date().toLocaleDateString(lang, { day: 'numeric', month: 'long', year: 'numeric' })).run() },
+              ...(box.signature ? [{ id: 'm-sig', icon: 'signature', label: t('mail.signature'), run: () => textMenu.menu?.ed.chain().focus().insertContent(`<p>--</p>${safeHtml(box.signature)}`).run() }] : []),
+              { id: 'm-attach', icon: 'upload', label: t('mail.attach'), run: () => attachInput.current?.click() },
+            ] },
+            { id: 'send', icon: 'send', label: t('mail.send'), run: () => void send() },
+          ] }],
+        })} />}
       </div>
       <footer className="status">
         <span>{t('mail.status', { n: shown.length, folder: label ? t(`mail.label.${label}` as MessageKey) : t(`mail.folder.${folder}` as MessageKey) })}</span>
@@ -743,10 +761,11 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
 }
 
 // ---------- writing a mail ----------
-function Composer({ mail, contacts, edRef, onChange, onEdit, onSend, onDiscard, onAttach, via }: {
+function Composer({ mail, contacts, edRef, onChange, onEdit, onSend, onDiscard, onAttach, via, onMenu }: {
   mail: Mail; contacts: Contact[]; edRef: React.MutableRefObject<Editor | null>; onChange: (p: Partial<Mail>, record?: boolean) => void; onEdit: (on: boolean) => void;
-  onSend: () => void; onDiscard: () => void; onAttach: () => void; via: Via;
+  onSend: () => void; onDiscard: () => void; onAttach: () => void; via: Via; onMenu: (ed: Editor, x: number, y: number) => void;
 }) {
+  const lastPointer = useRef('mouse');
   const [showCc, setShowCc] = useState(mail.cc.length > 0 || mail.bcc.length > 0);
   const timer = useRef(0);
   const editor = useEditor({
@@ -783,7 +802,9 @@ function Composer({ mail, contacts, edRef, onChange, onEdit, onSend, onDiscard, 
         <datalist id="ml-contacts">{contacts.map(c => <option key={c.id} value={c.name ? `${c.name} <${c.email}>` : c.email} />)}</datalist>
         {bad.length > 0 && <p className="ml-bad" role="alert">{t('mail.badAddress', { a: bad[0] })}</p>}
       </div>
-      <EditorContent editor={editor} className="ml-editor" />
+      <EditorContent editor={editor} className="ml-editor" onPointerDown={e => { lastPointer.current = e.pointerType; }}
+        onContextMenu={e => { if (!editor || e.nativeEvent.defaultPrevented || lastPointer.current === 'touch') return; e.preventDefault(); caretAt(editor, e.clientX, e.clientY); onMenu(editor, e.clientX, e.clientY); }}
+        onKeyDown={e => { if (editor && (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey))) { e.preventDefault(); const p = caretPoint(editor); onMenu(editor, p.x, p.y); } }} />
       {mail.attachments.length > 0 && <Attachments list={mail.attachments} onRemove={i => onChange({ attachments: mail.attachments.filter((_, j) => j !== i) })} />}
       <div className="ml-compose-bar">
         <button type="button" className="ml-send primary" onClick={onSend}><Icon name="send" size={14} />{t('mail.send')} · {t(`mail.via.${via}` as MessageKey)}</button>
