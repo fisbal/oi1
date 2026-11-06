@@ -14,6 +14,7 @@ import { AppKeys, appColor } from '../../ui/AppKeys';
 import { FileMenu } from '../../ui/FileMenu';
 import { TutoTab } from '../../ui/tuto/Tuto';
 import { Copilot, CopilotButton, useCopilotShortcut, type CopilotHost } from '../../ui/Copilot';
+import { ContextMenu, cm, type MenuSection } from '../../ui/ContextMenu';
 import { usePinchZoom } from '../../ui/pinch';
 import { closeRibbonPeek } from '../../ui/ribbonMin';
 import { FastScroll } from '../../ui/FastScroll';
@@ -74,6 +75,7 @@ function PlanEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   const [panel, setPanel] = useState<'file' | null>(null);
   const [copilot, setCopilot] = useState(false);
   const [copilotStart, setCopilotStart] = useState<{ id: string; n: number } | undefined>();
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; task: string | null } | null>(null);
   const [aiAsk, setAiAsk] = useState<{ text: string; busy: boolean; error: string } | null>(null);
   const [ask, setAsk] = useState<{ title: string; label: string; value: string; ok: (v: string) => void; danger?: boolean } | null>(null);
   const [note, setNote] = useState('');
@@ -499,7 +501,7 @@ function PlanEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
               <button type="button" className="pl-add" title={t('plan.newTask')} aria-label={t('plan.newTask')} onClick={() => addTask(b.id)}><Icon name="new" size={14} /></button></header>
             <div className="pl-cards">
               {list.map(x => (
-                <article key={x.id} data-card={x.id} className={`pl-card${sel === x.id ? ' on' : ''}${dragCard?.id === x.id ? ' dragging' : ''}${late(x) ? ' late' : ''}${doneTask(x) ? ' done' : ''}`}
+                <article key={x.id} data-card={x.id} data-task={x.id} className={`pl-card${sel === x.id ? ' on' : ''}${dragCard?.id === x.id ? ' dragging' : ''}${late(x) ? ' late' : ''}${doneTask(x) ? ' done' : ''}`}
                   onClick={() => setSel(x.id)} onDoubleClick={() => setOpen(x.id)}>
                   <span className="pl-grip" title={t('plan.drag')} aria-label={t('plan.drag')} role="button" onPointerDown={e => cardDown(e, x.id)} onPointerMove={cardMove} onPointerUp={cardUp} onPointerCancel={() => setDragCard(null)}>⠿</span>
                   {labelDots(x)}
@@ -529,7 +531,7 @@ function PlanEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
       <thead><tr>{['title', 'bucket', 'start', 'due', 'progress', 'priority', 'who'].map(c => <th key={c}>{t(`plan.col.${c}` as MessageKey)}</th>)}</tr></thead>
       <tbody>
         {shown.map(x => (
-          <tr key={x.id} className={`${sel === x.id ? 'on' : ''}${late(x) ? ' late' : ''}`} onClick={() => setSel(x.id)}>
+          <tr key={x.id} data-task={x.id} className={`${sel === x.id ? 'on' : ''}${late(x) ? ' late' : ''}`} onClick={() => setSel(x.id)}>
             <td><input value={x.title} aria-label={t('plan.col.title')} onChange={e => setTask(x.id, { title: e.target.value })} /></td>
             <td><select value={x.bucket} aria-label={t('plan.col.bucket')} onChange={e => moveTo(x.id, e.target.value)}>{plan.buckets.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></td>
             <td><input type="date" value={x.start} aria-label={t('plan.col.start')} onChange={e => e.target.value && setTask(x.id, { start: e.target.value, due: x.due < e.target.value ? e.target.value : x.due })} /></td>
@@ -571,7 +573,7 @@ function PlanEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     <div className="pl-timeline" style={{ '--dw': `${dw}px` } as CSSProperties}>
       <div className="pl-tl-names">
         <div className="pl-tl-head">{parseDay(tStart).toLocaleDateString(lang, { month: 'long', year: 'numeric' })}</div>
-        {shown.map(x => <button key={x.id} type="button" className={`pl-tl-name${sel === x.id ? ' on' : ''}`} onClick={() => setSel(x.id)} onDoubleClick={() => setOpen(x.id)}>{labelDots(x)}<span>{x.title || t('plan.untitledTask')}</span></button>)}
+        {shown.map(x => <button key={x.id} data-task={x.id} type="button" className={`pl-tl-name${sel === x.id ? ' on' : ''}`} onClick={() => setSel(x.id)} onDoubleClick={() => setOpen(x.id)}>{labelDots(x)}<span>{x.title || t('plan.untitledTask')}</span></button>)}
       </div>
       <div className="pl-tl-chart" style={{ width: nDays * dw }}>
         <div className="pl-tl-head">{ticks.map((d, i) => { const tk = tick(d); return tk.show ? <span key={d} className={tk.strong ? 'strong' : ''} style={{ left: i * dw }}>{tk.text}</span> : null; })}</div>
@@ -584,7 +586,7 @@ function PlanEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
             const b = plan.buckets.find(y => y.id === x.bucket);
             return (
               <div key={x.id} className="pl-tl-row">
-                <div className={`pl-tl-bar${sel === x.id ? ' on' : ''}${critical.has(x.id) ? ' critical' : ''}${late(x) ? ' late' : ''}`} style={{ left, width, '--b': b?.color ?? '#8AB4F8' } as CSSProperties}
+                <div data-task={x.id} className={`pl-tl-bar${sel === x.id ? ' on' : ''}${critical.has(x.id) ? ' critical' : ''}${late(x) ? ' late' : ''}`} style={{ left, width, '--b': b?.color ?? '#8AB4F8' } as CSSProperties}
                   role="button" tabIndex={0} aria-label={`${x.title}: ${x.start} → ${x.due}`} title={`${x.title}\n${x.start} → ${x.due} · ${x.progress} %`}
                   onPointerDown={e => barDown(e, x.id, 'move')} onPointerMove={barMove} onPointerUp={barUp} onPointerCancel={() => setBarDrag(null)} onDoubleClick={() => setOpen(x.id)}>
                   <i className="pl-tl-done" style={{ width: `${x.progress}%` }} />
@@ -619,7 +621,7 @@ function PlanEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
           return (
             <div key={d} className={`pl-cal-day${d.slice(0, 7) !== month ? ' out' : ''}${d === today() ? ' today' : ''}`} onDoubleClick={() => { const tk = newTask(plan.buckets[0].id, t('plan.newTaskTitle', { n: plan.tasks.length + 1 }), d, 1); addTasks([tk]); setOpen(tk.id); }}>
               <small>{parseDay(d).getDate()}</small>
-              {here.slice(0, 3).map(x => <button key={x.id} type="button" className={`pl-cal-task${sel === x.id ? ' on' : ''}`} style={{ '--b': plan.buckets.find(b => b.id === x.bucket)?.color } as CSSProperties} onClick={() => setSel(x.id)} onDoubleClick={e => { e.stopPropagation(); setOpen(x.id); }}>{x.title}</button>)}
+              {here.slice(0, 3).map(x => <button key={x.id} data-task={x.id} type="button" className={`pl-cal-task${sel === x.id ? ' on' : ''}`} style={{ '--b': plan.buckets.find(b => b.id === x.bucket)?.color } as CSSProperties} onClick={() => setSel(x.id)} onDoubleClick={e => { e.stopPropagation(); setOpen(x.id); }}>{x.title}</button>)}
               {here.length > 3 && <span className="pl-cal-more">+{here.length - 3}</span>}
             </div>
           );
@@ -629,12 +631,49 @@ function PlanEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   );
 
   const openTask = plan.tasks.find(x => x.id === open) ?? null;
+  // ---------- right-click menu (a long press on phones: the browser sends the same event) ----------
+  const onPlanMenu = (e: React.MouseEvent) => {
+    const el = e.target as HTMLElement;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable) return;
+    e.preventDefault();
+    const task = el.closest<HTMLElement>('[data-task]')?.dataset.task ?? null;
+    if (task) setSel(task);
+    setCtxMenu({ x: e.clientX, y: e.clientY, task });
+  };
+  const planMenu = (id: string | null): MenuSection[] => {
+    const x = id ? plan.tasks.find(k => k.id === id) : undefined;
+    const views: View[] = ['board', 'grid', 'timeline', 'calendar'];
+    const general: MenuSection = { items: [
+      { id: 'new-task', icon: 'new', label: t('plan.newTask'), run: () => addTask(x?.bucket) },
+      { id: 'new-bucket', icon: 'newfolder', label: t('plan.newBucket'), run: () => addBucket() },
+      { id: 'view', icon: 'web', label: cm('viewAs'), sub: views.map(v => ({ id: `view-${v}`, label: t(`plan.view.${v}`), run: () => setView(v) })) },
+      { id: 'ai', icon: 'sparkle', label: cm('ai'), sub: copilotHost.actions.map(a => ({ id: `ai-${a.id}`, icon: a.icon, label: a.label, run: () => startAi(a.id) })) },
+    ] };
+    if (!x) return [general];
+    return [
+      { items: [
+        { id: 'open', icon: 'open', label: cm('openTask'), keys: 'Enter', run: () => setOpen(x.id) },
+        { id: 'done', icon: 'check', label: t('plan.markDone'), run: markDone },
+        { id: 'duplicate', icon: 'copy', label: t('plan.duplicate'), run: dupTask },
+        { id: 'delete', icon: 'trash', label: t('plan.delete'), danger: true, run: () => delTask(x.id) },
+      ] },
+      { items: [
+        { id: 'bucket', icon: 'folder', label: t('plan.col.bucket'), sub: plan.buckets.map(b => ({ id: `b-${b.id}`, label: `${b.id === x.bucket ? '✓ ' : ''}${bucketName(b.id)}`, run: () => moveTo(x.id, b.id) })) },
+        { id: 'priority', icon: 'target', label: t('plan.col.priority'), sub: PRIORITIES.map(pr => ({ id: `p-${pr}`, label: `${pr === x.priority ? '✓ ' : ''}${prioName(pr)}`, run: () => setTask(x.id, { priority: pr }) })) },
+        { id: 'progress', icon: 'percent', label: t('plan.col.progress'), sub: [0, 25, 50, 75, 100].map(v => ({ id: `pg-${v}`, label: `${v === x.progress ? '✓ ' : ''}${v} %`, run: () => setTask(x.id, v >= 100 ? { progress: 100, bucket: doneBucket()?.id ?? x.bucket } : { progress: v }) })) },
+        { id: 'labels', icon: 'marks', label: t('plan.labels'), sub: LABELS.map(L => ({ id: `l-${L.id}`, label: `${x.labels.includes(L.id) ? '✓ ' : ''}${t(`plan.label.${L.id}` as MessageKey)}`, run: () => toggleLabel(L.id) })) },
+        { id: 'due', icon: 'date', label: t('plan.col.due'), sub: [1, 2, 7, 14, 30].map(d => ({ id: `due-${d}`, label: cm('later', { n: d }), run: () => setTask(x.id, { due: addDays(x.due, d) }) })) },
+      ] },
+      general,
+    ];
+  };
+
   return (
     <div className="plan" ref={rootRef} tabIndex={-1} onKeyDown={onKey}>
       {ribbon}
       <div className="pl-body">
         <div className="pl-main">
-        <div className="pl-scroll" ref={scroller}>
+        <div className="pl-scroll" ref={scroller} onContextMenu={onPlanMenu}>
           <div className="pl-bar-top">
             <input className="pl-name" value={plan.name} aria-label={t('plan.planName')} onChange={e => change(p => ({ ...p, name: e.target.value }))} />
             <span className="pl-find"><Icon name="search" size={13} /><input type="search" value={query} placeholder={t('plan.filterPh')} aria-label={t('plan.filter')} onChange={e => setQuery(e.target.value)} /></span>
@@ -664,6 +703,7 @@ function PlanEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
         {openTask && <TaskPanel task={openTask} plan={plan} prioName={prioName} onChange={patch => setTask(openTask.id, patch)} onMove={b => moveTo(openTask.id, b)}
           onDelete={() => delTask(openTask.id)} onClose={() => setOpen(null)}
           onDeps={deps => { const bad = deps.find(d => makesLoop(planRef.current, openTask.id, d)); if (bad) { setNote(t('plan.loop')); return; } commit(shift({ ...planRef.current, tasks: planRef.current.tasks.map(y => (y.id === openTask.id ? { ...y, deps } : y)) }, openTask.id, 0)); }} />}
+        {ctxMenu && <ContextMenu at={ctxMenu} sections={planMenu(ctxMenu.task)} onClose={() => { setCtxMenu(null); rootRef.current?.focus(); }} />}
         {copilot && <Copilot host={copilotHost} ai={shell.ai} start={copilotStart} onClose={() => { setCopilot(false); rootRef.current?.focus(); }} />}
       </div>
       <footer className="status">

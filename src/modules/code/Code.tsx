@@ -2,7 +2,8 @@
 // keep them on GitHub and publish them on GitHub Pages, all without installing anything.
 
 import { snippet } from '@codemirror/autocomplete';
-import { redo, toggleComment, undo } from '@codemirror/commands';
+import { copyLineDown, deleteLine, indentLess, indentMore, moveLineDown, moveLineUp, redo, selectAll, toggleComment, undo } from '@codemirror/commands';
+import { ContextMenu, cm, type MenuSection } from '../../ui/ContextMenu';
 import { setDiagnostics, type Diagnostic } from '@codemirror/lint';
 import { openSearchPanel, gotoLine } from '@codemirror/search';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
@@ -197,6 +198,8 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   const [qr, setQr] = useState<{ url: string; image: string; kind: 'preview' | 'site'; tooBig?: boolean } | null>(null);
   const editor = useRef<EditorApi>({ view: null });
   const [copilot, setCopilot] = useState(false);
+  const [copilotStart, setCopilotStart] = useState<{ id: string; n: number }>();
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   useCopilotShortcut(() => setCopilot(o => !o), rootRef);
   const upload = useRef<HTMLInputElement>(null);
@@ -823,6 +826,54 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
     view: () => editor.current.view, errors: () => logs.filter(l => l.level === 'error').map(l => `${l.file ?? ''}${l.line ? `:${l.line}` : ''} ${l.text}`),
   });
 
+  // ---------- right-click menu in the code ----------
+  const onCodeMenu = (e: React.MouseEvent) => {
+    const v = editor.current.view;
+    if (!v) return;
+    e.preventDefault();
+    // The caret goes where the click was, unless the click was inside the selection.
+    const at = v.posAtCoords({ x: e.clientX, y: e.clientY });
+    const r = v.state.selection.main;
+    if (at != null && (r.empty || at < r.from || at > r.to)) v.dispatch({ selection: { anchor: at } });
+    setCtxMenu({ x: e.clientX, y: e.clientY });
+  };
+  const codeMenu = (): MenuSection[] => {
+    const v = editor.current.view;
+    const r = v?.state.selection.main;
+    const picked = v && r && !r.empty ? v.state.sliceDoc(r.from, r.to) : '';
+    const put = (text: string) => { if (v) { v.dispatch(v.state.replaceSelection(text)); v.focus(); } };
+    const askAi = (id: string) => { setCopilot(true); setCopilotStart(x => ({ id, n: (x?.n ?? 0) + 1 })); };
+    return [
+      { items: [
+        { id: 'cut', icon: 'cut', label: cm('cut'), keys: 'Ctrl+X', disabled: !picked, run: () => { void navigator.clipboard?.writeText(picked).catch(() => {}); put(''); } },
+        { id: 'copy', icon: 'copy', label: cm('copy'), keys: 'Ctrl+C', disabled: !picked, run: () => { void navigator.clipboard?.writeText(picked).catch(() => {}); v?.focus(); } },
+        { id: 'paste', icon: 'paste', label: cm('paste'), keys: 'Ctrl+V', run: () => { void navigator.clipboard.readText().then(put, () => shell.notify(cm('pasteBlocked'))); } },
+        { id: 'select-all', icon: 'select', label: t('letter.selectAll'), keys: 'Ctrl+A', run: command(selectAll) },
+      ] },
+      { items: [
+        { id: 'comment', icon: 'comment', label: t('code.toggleComment'), keys: 'Ctrl+/', run: command(toggleComment) },
+        { id: 'format', icon: 'clean', label: t('code.format'), run: () => void format() },
+        { id: 'lines', icon: 'lines', label: cm('lines'), sub: [
+          { id: 'dup-line', icon: 'copy', label: cm('dupLine'), keys: 'Shift+Alt+↓', run: command(copyLineDown) },
+          { id: 'line-up', icon: 'up', label: cm('lineUp'), keys: 'Alt+↑', run: command(moveLineUp) },
+          { id: 'line-down', icon: 'down', label: cm('lineDown'), keys: 'Alt+↓', run: command(moveLineDown) },
+          { id: 'indent', icon: 'indent', label: t('letter.indent'), keys: 'Tab', run: command(indentMore) },
+          { id: 'outdent', icon: 'outdent', label: t('letter.outdent'), keys: 'Shift+Tab', run: command(indentLess) },
+          { id: 'del-line', icon: 'trash', label: cm('delLine'), keys: 'Ctrl+Shift+K', danger: true, run: command(deleteLine) },
+        ] },
+        { id: 'find', icon: 'find', label: t('letter.find'), keys: 'Ctrl+F', run: command(openSearchPanel) },
+        { id: 'goto', icon: 'goto', label: t('code.goToLine'), keys: 'Ctrl+G', run: command(gotoLine) },
+      ] },
+      { items: [
+        { id: 'ai', icon: 'sparkle', label: cm('ai'), sub: copilotHost.actions.map(a => ({ id: `ai-${a.id}`, icon: a.icon, label: a.label, run: () => askAi(a.id) })) },
+        { id: 'send', icon: 'send', label: cm('send'), sub: [
+          { id: 'to-letter', icon: 'letter', label: 'In 1 Letter', run: () => void sendToLetter(null) },
+          { id: 'download', icon: 'download', label: t('code.downloadFile'), run: saveThis },
+        ] },
+      ] },
+    ];
+  };
+
   return (
     <div ref={rootRef} className={`code${mobileView === 'preview' ? ' show-preview' : ''}`} onKeyDownCapture={onKey} style={{ '--code-size': `${size}px` } as CSSProperties}>
       <div className="ribbon">
@@ -1065,8 +1116,8 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
             {active && isBinary(content)
               ? <div className="code-media">{/^data:image\//.test(content) ? <img src={content} alt={active} /> : <p className="muted">{t('code.binary', { name: active })}</p>}</div>
               : active
-                ? <CodeEditor path={active} content={content} onChange={writeFile} wrap={wrap} api={editor}
-                    onCursor={(line, col, selected) => setCursor({ line, col, selected })} />
+                ? <div className="code-ed-wrap" style={{ display: 'contents' }} onContextMenu={onCodeMenu}><CodeEditor path={active} content={content} onChange={writeFile} wrap={wrap} api={editor}
+                    onCursor={(line, col, selected) => setCursor({ line, col, selected })} /></div>
                 : <div className="code-media"><p className="muted">{t('code.pickFile')}</p></div>}
             {dock && (
               <div className="code-dock">
@@ -1194,7 +1245,8 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
               )}
             </section>
           )}
-          {copilot && <Copilot host={copilotHost} ai={shell.ai} onClose={() => { setCopilot(false); editor.current.view?.focus(); }} />}
+          {ctxMenu && <ContextMenu at={ctxMenu} sections={codeMenu()} onClose={() => { setCtxMenu(null); editor.current.view?.focus(); }} />}
+          {copilot && <Copilot host={copilotHost} ai={shell.ai} start={copilotStart} onClose={() => { setCopilot(false); editor.current.view?.focus(); }} />}
         </div>
       )}
 
