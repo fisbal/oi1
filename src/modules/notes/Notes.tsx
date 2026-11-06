@@ -31,6 +31,8 @@ import { AppKeys, appColor } from '../../ui/AppKeys';
 import { FileMenu } from '../../ui/FileMenu';
 import { TutoTab } from '../../ui/tuto/Tuto';
 import { Copilot, CopilotButton, useCopilotShortcut, type CopilotHost } from '../../ui/Copilot';
+import { ContextMenu, cm, type MenuItem as CtxItem } from '../../ui/ContextMenu';
+import { caretAt, caretPoint, textMenuSections, useTextMenu } from '../../ui/textMenu';
 import { ReadableHighlight } from '../../ui/highlight';
 import { usePinchZoom } from '../../ui/pinch';
 import { closeRibbonPeek } from '../../ui/ribbonMin';
@@ -102,6 +104,8 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
   const [panel, setPanel] = useState<'file' | null>(null);
   const [copilot, setCopilot] = useState(false);
   const [copilotStart, setCopilotStart] = useState<{ id: string; n: number } | undefined>();
+  const textMenu = useTextMenu();
+  const lastPointer = useRef('mouse');
   const [dialog, setDialog] = useState<'tags' | 'study' | 'sketch' | 'link' | 'listen' | null>(null);
   const [ask, setAsk] = useState<Ask>(null);
   const [note, setNote] = useState('');
@@ -805,11 +809,38 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
             <input className="nt-title" value={page.title} placeholder={title === untitled ? untitled : title} aria-label={t('notes.pageTitle')}
               onChange={e => setPage({ title: e.target.value })} onKeyDown={e => { if (e.key === 'Enter' && ed) { e.preventDefault(); ed.view.focus(); ed.commands.setTextSelection(1); } }} />
             <div className="nt-when">{new Date(page.created).toLocaleString(lang, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-            <EditorContent editor={editor} />
+            <EditorContent editor={editor} onPointerDown={e => { lastPointer.current = e.pointerType; }}
+              onContextMenu={e => { if (!ed || e.nativeEvent.defaultPrevented || lastPointer.current === 'touch') return; e.preventDefault(); caretAt(ed, e.clientX, e.clientY); textMenu.setMenu({ x: e.clientX, y: e.clientY, ed }); }}
+              onKeyDown={e => { if (ed && (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey))) { e.preventDefault(); textMenu.setMenu({ ...caretPoint(ed), ed }); } }} />
           </article>
         </div>
         <FastScroll target={scroller} />
         {copilot && <Copilot host={copilotHost} ai={shell.ai} start={copilotStart} onClose={() => { setCopilot(false); ed?.commands.focus(); }} />}
+        {textMenu.menu && <ContextMenu at={textMenu.menu} onClose={textMenu.close} sections={textMenuSections(textMenu.menu.ed, {
+          notify: m => shell.notify(m),
+          link: () => setDialog('link'),
+          ai: startAi,
+          aiActions: copilotHost.actions.filter(a => a.needsContext),
+          extra: [{ items: [
+            { id: 'checklist', icon: 'check', label: t('notes.checklist'), keys: 'Ctrl+1', run: () => run(c => c.toggleTaskList()) },
+            { id: 'insert', icon: 'new', label: cm('insert'), sub: ([
+              { id: 'n-table', icon: 'table', label: t('notes.table'), run: () => run(c => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true })) },
+              { id: 'n-picture', icon: 'image', label: t('notes.picture'), run: () => imageInput.current?.click() },
+              { id: 'n-sketch', icon: 'pen', label: t('notes.sketch'), run: () => setDialog('sketch') },
+              { id: 'n-link', icon: 'link', label: t('notes.link'), run: () => setDialog('link') },
+              { id: 'n-date', icon: 'date', label: t('notes.date'), run: () => insertDate(false) },
+              { id: 'n-time', icon: 'date', label: t('notes.time'), run: () => insertDate(true) },
+              { id: 'n-hr', icon: 'hr', label: t('notes.divider'), run: () => run(c => c.setHorizontalRule()) },
+              { id: 'n-quote', icon: 'callout', label: t('notes.quote'), run: () => run(c => c.toggleBlockquote()) },
+              { id: 'n-code', icon: 'code', label: t('notes.codeBlock'), run: () => run(c => c.toggleCodeBlock()) },
+            ] as CtxItem[]) },
+            { id: 'send', icon: 'send', label: cm('send'), sub: [
+              { id: 'n-to-letter', icon: 'letter', label: 'In 1 Letter', run: sendToLetter },
+              { id: 'n-to-mail', icon: 'envelope', label: 'In 1 Mail', run: () => { flush.current(); shell.openModule('mail', undefined, { kind: 'html', title, html: ed?.getHTML() ?? page.html }); } },
+              { id: 'n-new-page', icon: 'new', label: t('notes.newPage'), run: () => addPage() },
+            ] },
+          ] }],
+        })} />}
       </div>
       <footer className="status">
         <span>{t('notes.count', { n: sec.pages.length })} · {t('notes.words', { n: textOf(page.html).split(/\s+/).filter(Boolean).length })}</span>

@@ -65,6 +65,8 @@ import { ConvertPanel } from '../../ui/convert/ConvertPanel';
 import { translateJson, type ConvertSource } from '../../shell/convert';
 import { tablesInHtml } from '../../formats/textFormats';
 import { notesDom, type LayoutResult } from './pagination';
+import { ContextMenu, cm, type MenuSection } from '../../ui/ContextMenu';
+import { caretAt, caretPoint, textMenuSections, useTextMenu } from '../../ui/textMenu';
 import {
   addCommentMark, changeAt, commentRanges, commentsAt, footnoteAt, goToChange, isTracking, listChanges, listFootnotes,
   newCommentId, removeCommentMark, resolveChange, setTracking, setUserNameTexts, userName, type LetterComment,
@@ -143,6 +145,8 @@ function LetterEditor({ shell, file, handoff, initial }: { shell: ShellApi; file
   const [csl, setCsl] = useState<CslStyle | null>(() => { const id = shell.storage.get('cslStyle'); return id ? { id, name: shell.storage.get('cslName') || id } : null; });
   const [copilot, setCopilot] = useState(false);
   const [copilotStart, setCopilotStart] = useState<{ id: string; n: number }>();
+  const textMenu = useTextMenu();
+  const lastPointer = useRef('mouse');
   const [docLang, setDocLang] = useState<'fr' | 'en'>(() => (shell.storage.get('docLang') as 'fr' | 'en' | null) || (getLanguage() === 'fr' ? 'fr' : 'en'));
   const [outline, setOutline] = useState(() => window.innerWidth >= 1200 && shell.storage.get('outline') === '1');
   const [focusMode, setFocusMode] = useState(false);
@@ -1307,6 +1311,10 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       if (!isShown()) return;
       if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'q') { e.preventDefault(); setPanel('commands'); return; }
       if (e.key === 'Escape' && focusMode && !document.fullscreenElement) { exitFocus(); return; }
+      if ((e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) && !e.ctrlKey && !e.altKey) {
+        const ed = [body, header, footer].find(x => x?.view.hasFocus());
+        if (ed) { e.preventDefault(); textMenu.setMenu({ ...caretPoint(ed), ed }); return; }
+      }
       const k = e.key.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && e.altKey && (e.code === 'KeyM' || k === 'm')) { e.preventDefault(); review.newComment(); return; }
       if ((e.ctrlKey || e.metaKey) && e.altKey && (e.code === 'KeyF' || k === 'f')) { e.preventDefault(); review.footnote(); return; }
@@ -1352,6 +1360,34 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
   ].join('\n');
   const watermark = page.watermark;
   const commands = buildCommands(actions, body, activeEditor, setView, view, inTable);
+
+  // ---------- right-click menu (text tools of the shared menu + Letter's own: insert, review, send to…) ----------
+  const onSheetMenu = (e: React.MouseEvent) => {
+    // The spelling bubble already answered a right click on an underlined word; phones keep their own text bar.
+    if (e.nativeEvent.defaultPrevented || lastPointer.current === 'touch') return;
+    const target = e.target as HTMLElement;
+    const ed = target.closest('.header-area') ? header : target.closest('.footer-area') ? footer : body;
+    e.preventDefault();
+    caretAt(ed, e.clientX, e.clientY);
+    textMenu.setMenu({ x: e.clientX, y: e.clientY, ed });
+  };
+  const letterMenu = (ed: Editor): MenuSection[] => {
+    const g = (id: string) => commands.find(x => x.id === id);
+    const item = (id: string) => { const x = g(id); return x ? { id: `l-${id}`, icon: x.icon, label: x.label, keys: x.keys, disabled: x.disabled, run: x.run } : null; };
+    const items = (...ids: string[]) => ids.map(item).filter(<T,>(x: T | null): x is T => !!x);
+    return textMenuSections(ed, {
+      notify: m => shell.notify(m),
+      link: actions.link,
+      ai: id => { setCopilot(true); setCopilotStart(x => ({ id, n: (x?.n ?? 0) + 1 })); },
+      extra: [
+        { items: [
+          { id: 'insert', icon: 'new', label: cm('insert'), sub: items('newComment', 'footnote', 'table', 'image', 'link', 'pagebreak', 'date', 'toc', 'note', 'tip', 'warning', 'qr', 'fromClass') },
+          { id: 'review', icon: 'track', label: cm('review'), sub: items('analysis', 'track', 'acceptAll', 'rejectAll', 'nextChange', 'count', 'read', 'dictate', 'find', 'replace') },
+          { id: 'send', icon: 'send', label: cm('send'), sub: items('textToTable', 'tableToText', 'editInClass', 'newSheet', 'makeSlides', 'pdf', 'share') },
+        ] },
+      ],
+    });
+  };
   // Zooming shows the pages: from the web layout it switches to the print layout, where the zoom applies.
   const setZoom = (z: Zoom) => setView({ zoom: typeof z === 'number' ? Math.min(5, Math.max(0.1, z)) : z, ...(isPrint ? {} : { layout: 'print' as const }) });
   const scaleRef = useRef(scale);
@@ -1372,7 +1408,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
       <div className="canvas" ref={canvasRef}>
         {(panel === 'find' || panel === 'replace') && <FindBar editor={body} replace={panel === 'replace'} onClose={() => { setPanel(null); body.commands.focus(); }} />}
         <div className="sizer" style={{ width: isPrint ? pw * scale : undefined, height: isPrint ? sheetHeight * scale : undefined }}>
-          <div ref={sheetRef} className={`sheet ${isPrint ? 'print-layout' : 'web-layout'}${view.marks ? ' show-marks' : ''}${page.hyphenate ? ' hyphenate' : ''}${page.lineNumbers ? ` ln ln-${page.lineNumbers}` : ''}${markup ? '' : ' no-markup'}`} style={sheetVars} dir={page.rtl ? 'rtl' : undefined} lang={lang || textLang || getLanguage()}>
+          <div ref={sheetRef} onContextMenu={onSheetMenu} onPointerDown={e => { lastPointer.current = e.pointerType; }} className={`sheet ${isPrint ? 'print-layout' : 'web-layout'}${view.marks ? ' show-marks' : ''}${page.hyphenate ? ' hyphenate' : ''}${page.lineNumbers ? ` ln ln-${page.lineNumbers}` : ''}${markup ? '' : ' no-markup'}`} style={sheetVars} dir={page.rtl ? 'rtl' : undefined} lang={lang || textLang || getLanguage()}>
             {isPrint && Array.from({ length: layout.pages }, (_, i) => (
               <div key={i} className="page-frame" style={{ top: `calc(${i} * (var(--ph) + var(--pg-gap)))`, background: page.color ?? undefined }}>
                 {page.border && <div className="page-border" style={{ inset: `${page.border.space}pt`, border: `${page.border.w}pt solid ${page.border.color}` }} />}
@@ -1466,6 +1502,7 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
         }} />}
       {panel === 'refCheck' && <RefCheckDialog sources={citedSources(body.state.doc)} style={citeStyle} onClose={() => setPanel(null)}
         onFix={(src, missing) => { setSourceStart({ initial: src, highlight: missing, update: true }); setPanel('source'); }} />}
+      {textMenu.menu && <ContextMenu at={textMenu.menu} sections={letterMenu(textMenu.menu.ed)} onClose={textMenu.close} />}
       {panel === 'commands' && <CommandPalette commands={commands} onClose={() => { setPanel(null); activeEditor?.commands.focus(); }} />}
     </div>
   );
