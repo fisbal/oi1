@@ -51,6 +51,7 @@ const FN_ICON: Record<'financial' | 'logical' | 'text' | 'date' | 'lookup' | 'ma
   financial: 'currency', logical: 'check', text: 'case', date: 'date', lookup: 'search', math: 'sum',
 };
 import { classCopilot, type ClassBridge } from './copilot';
+import { ContextMenu, cm, type MenuSection } from '../../ui/ContextMenu';
 import { Copilot, CopilotButton, useCopilotShortcut } from '../../ui/Copilot';
 import { usePinchZoom } from '../../ui/pinch';
 import { FastScroll } from '../../ui/FastScroll';
@@ -612,7 +613,19 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const fillRight = () => { if (range.c2 > range.c1) applyFill({ ...range, c2: range.c1 }, range); };
 
   // ---------- clipboard ----------
-  const clip = useRef<{ text: string; cells: Record<string, Cell>; origin: Pos } | null>(null);
+  /** What was copied in this sheet: the cells (formulas follow, like Excel's relative references) and their values. */
+  const clip = useRef<{ text: string; cells: Record<string, Cell>; vals: Record<string, Scalar>; origin: Pos } | null>(null);
+  const keepCopy = (text: string) => {
+    const cells: Record<string, Cell> = {}, vals: Record<string, Scalar> = {};
+    forRange((c, r) => {
+      const at = key(c - range.c1, r - range.r1);
+      const cell = sheet.cells[key(c, r)];
+      if (cell) cells[at] = cell;
+      const v = values.get(key(c, r));
+      if (v !== undefined && v !== '') vals[at] = v;
+    });
+    clip.current = { text, cells, vals, origin: { c: range.c1, r: range.r1 } };
+  };
   const tableOf = (rg: Range) => sheetToTable(sheet, rg, values, lang, currency);
   const onCopy = (e: React.ClipboardEvent, cut = false) => {
     if (edit || fromPanel(e)) return;
@@ -621,9 +634,17 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const text = tableToText(table);
     e.clipboardData.setData('text/plain', text);
     e.clipboardData.setData('text/html', tableToHtml(table));
-    const cells: Record<string, Cell> = {};
-    forRange((c, r) => { const cell = sheet.cells[key(c, r)]; if (cell) cells[key(c - range.c1, r - range.r1)] = cell; });
-    clip.current = { text, cells, origin: { c: range.c1, r: range.r1 } };
+    keepCopy(text);
+    if (cut) clearRange();
+  };
+  /** Copy or cut from the menu or a button: the system clipboard (text and table) and our own copy. */
+  const copyRange = async (cut = false) => {
+    const table = tableOf(range);
+    const text = tableToText(table);
+    keepCopy(text);
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([text], { type: 'text/plain' }), 'text/html': new Blob([tableToHtml(table)], { type: 'text/html' }) })]);
+    } catch { try { await navigator.clipboard.writeText(text); } catch { /* the copy inside Office In 1 still works */ } }
     if (cut) clearRange();
   };
   const pasteTable = (table: TableData) => changeSheet(s => {
@@ -655,6 +676,53 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     }
     const table = (html && tableFromHtml(html)) || (text ? tableFromText(text) : null);
     if (table) pasteTable(table);
+  };
+  type PasteMode = 'all' | 'values' | 'formulas' | 'formats' | 'transpose' | 'text';
+  /** Our own copy, pasted the way the person chose (Excel's paste options). */
+  const pasteOwn = (mine: NonNullable<typeof clip.current>, mode: PasteMode) => {
+    const dc = range.c1 - mine.origin.c, dr = range.r1 - mine.origin.r;
+    const follow = (cell: Cell): Cell => (cell.input.startsWith('=')
+      ? { ...cell, input: moveRefs(cell.input, (c, r, absC, absR) => ({ c: absC ? c : c + dc, r: absR ? r : r + dr })) } : cell);
+    const valueOf = (v: Scalar | undefined) => (v === undefined ? '' : typeof v === 'boolean' ? (v ? 'TRUE' : 'FALSE') : String(v));
+    changeSheet(s => {
+      for (const k of new Set([...Object.keys(mine.cells), ...Object.keys(mine.vals)])) {
+        const p = unkey(k);
+        const dst = mode === 'transpose' ? key(range.c1 + p.r, range.r1 + p.c) : key(range.c1 + p.c, range.r1 + p.r);
+        const src = mine.cells[k], old = s.cells[dst];
+        const keepStyle = old?.style ? { style: old.style } : {};
+        if (mode === 'formats') {
+          if (src?.style) s.cells[dst] = { input: old?.input ?? '', style: src.style };
+          else if (old) s.cells[dst] = { input: old.input };
+        } else if (mode === 'values' || mode === 'text') {
+          const v = valueOf(mine.vals[k]);
+          if (v) s.cells[dst] = { input: mode === 'text' ? v : v, ...keepStyle }; else delete s.cells[dst];
+        } else if (mode === 'formulas') {
+          if (src) s.cells[dst] = { input: follow(src).input, ...keepStyle };
+        } else if (mode === 'transpose') {
+          // Formulas would point the wrong way once turned: their values go instead, with the style.
+          if (src) s.cells[dst] = src.input.startsWith('=') ? { input: valueOf(mine.vals[k]), ...(src.style ? { style: src.style } : {}) } : src;
+        } else if (src) s.cells[dst] = follow(src);
+      }
+    });
+  };
+  /** Paste from the menu or the ribbon: the system clipboard when the browser lets us read it, else our own copy. */
+  const pasteWith = async (mode: PasteMode = 'all') => {
+    let text = '', html = '';
+    try {
+      for (const it of await navigator.clipboard.read()) {
+        if (it.types.includes('text/html')) html = await (await it.getType('text/html')).text();
+        if (it.types.includes('text/plain')) text = await (await it.getType('text/plain')).text();
+      }
+    } catch { try { text = await navigator.clipboard.readText(); } catch { text = ''; } }
+    const mine = clip.current;
+    if (mine && (!text || text === mine.text)) { pasteOwn(mine, mode); return; }
+    if (!text && !html) { shell.notify(cm('pasteBlocked')); return; }
+    if (mode === 'formats') return; // another program's copy brings no Office In 1 formatting
+    let table = (mode !== 'text' && html && tableFromHtml(html)) || (text ? tableFromText(text) : null);
+    if (!table) return;
+    if (mode === 'transpose') table = { rows: (table.rows[0] ?? []).map((_, c) => table!.rows.map(row => row[c] ?? { text: '' })) };
+    if (mode === 'values' || mode === 'text' || mode === 'formulas') table = { rows: table.rows.map(row => row.map(cell => (mode === 'formulas' && cell.formula ? { text: cell.text, formula: cell.formula } : { text: cell.text }))) };
+    pasteTable(table);
   };
 
   // ---------- files ----------
@@ -928,6 +996,9 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
 
   // ---------- copilot (Claude) ----------
   const [copilot, setCopilot] = useState(false);
+  const [copilotStart, setCopilotStart] = useState<{ id: string; n: number }>();
+  const askCopilot = (id: string) => { setCopilot(true); setCopilotStart({ id, n: Date.now() }); };
+  const [cellMenu, setCellMenu] = useState<{ x: number; y: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   useCopilotShortcut(() => setCopilot(o => !o), rootRef);
   const bridge: ClassBridge = {
@@ -1408,6 +1479,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     if (k === 'Home') { e.preventDefault(); go(0, mod ? 0 : r, e.shiftKey); return; }
     if (k === 'PageDown' || k === 'PageUp') { e.preventDefault(); go(c, r + (k === 'PageDown' ? 1 : -1) * Math.max(1, Math.floor(view.h / (ROW_H * z))), e.shiftKey); return; }
     if (k === 'F2') { e.preventDefault(); startEdit(null, 'edit'); return; }
+    if (k === 'ContextMenu' || (k === 'F10' && e.shiftKey)) { e.preventDefault(); openMenuAtCell(); return; }
     if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); clearRange(); return; }
     if (k === 'Escape') { setSel(s => ({ a: s.a, f: s.a })); setPainter(null); return; }
     if (mod) {
@@ -1907,6 +1979,138 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     { id: 'thickBottom', label: 'class.border.thickBottom' }, { id: 'doubleBottom', label: 'class.border.doubleBottom' },
   ];
 
+  // ---------- right-click menu (more than Excel's: search, paste options, quick analysis, copilot) ----------
+  const closeCellMenu = useCallback(() => { setCellMenu(null); gridRef.current?.focus({ preventScroll: true }); }, []);
+  const openMenuAtCell = () => {
+    const el = gridRef.current?.querySelector<HTMLElement>('.active-box') ?? scrollRef.current;
+    const b = el?.getBoundingClientRect();
+    if (b) setCellMenu({ x: b.left + Math.min(b.width, 60), y: b.top + Math.min(b.height, 24) });
+  };
+  const onGridMenu = (e: React.MouseEvent) => {
+    if (fromPanel(e)) return;
+    const target = e.target as HTMLElement;
+    // Inside the cell being typed in, the browser's own menu (spelling, paste) is the right one.
+    if (edit && target.closest('textarea, input')) return;
+    e.preventDefault();
+    if (edit) commitEdit();
+    const box = scrollRef.current?.getBoundingClientRect();
+    if (box && e.clientX >= box.left && e.clientX <= box.right && e.clientY >= box.top && e.clientY <= box.bottom) {
+      const p = cellAt(e);
+      if (p.c < range.c1 || p.c > range.c2 || p.r < range.r1 || p.r > range.r2) setSel({ a: p, f: p });
+    }
+    setCellMenu({ x: e.clientX, y: e.clientY });
+  };
+  // A long press opens the menu on phones and tablets (iPhone and iPad have no contextmenu event for it).
+  const press = useRef<{ x: number; y: number; id: number } | null>(null);
+  const pressed = useRef(false);
+  const endPress = (e?: React.TouchEvent) => {
+    if (press.current) window.clearTimeout(press.current.id);
+    press.current = null;
+    // After a long press opened the menu, lifting the finger must not also tap what is now under it.
+    if (pressed.current && e?.type === 'touchend') e.preventDefault();
+    pressed.current = false;
+  };
+  const onGridTouch = (e: React.TouchEvent) => {
+    endPress();
+    if (e.touches.length !== 1 || edit || fromPanel(e)) return;
+    const { clientX: x, clientY: y } = e.touches[0];
+    press.current = { x, y, id: window.setTimeout(() => { press.current = null; pressed.current = true; onGridMenu({ clientX: x, clientY: y, target: e.target, preventDefault() {} } as unknown as React.MouseEvent); }, 550) };
+  };
+  const onGridTouchMove = (e: React.TouchEvent) => {
+    const p = press.current, t0 = e.touches[0];
+    if (p && (!t0 || Math.hypot(t0.clientX - p.x, t0.clientY - p.y) > 10)) endPress();
+  };
+  const quick = () => {
+    const nums: number[] = [];
+    if ((range.c2 - range.c1 + 1) * (range.r2 - range.r1 + 1) <= 200000) {
+      for (let r = range.r1; r <= range.r2; r++) {
+        if (hiddenRows.has(r)) continue;
+        for (let c = range.c1; c <= range.c2; c++) { const v = values.get(key(c, r)); if (typeof v === 'number') nums.push(v); }
+      }
+    }
+    if (!nums.length) return [];
+    const sum = nums.reduce((a, b) => a + b, 0);
+    const copyValue = (n: number) => () => { void navigator.clipboard?.writeText(String(n)).catch(() => {}); shell.notify(`${fmt(n)} ✓`); };
+    const row = (id: string, n: number, icon: string) => ({ id: `q-${id}`, icon, label: cm(id, { v: fmt(n) }), run: copyValue(n) });
+    return [
+      row('qSum', sum, 'sum'), row('qAvg', sum / nums.length, 'fx'), row('qCount', nums.length, 'count'),
+      row('qMin', Math.min(...nums), 'down'), row('qMax', Math.max(...nums), 'up'),
+    ];
+  };
+  const menuSections = (): MenuSection[] => {
+    const many = !single;
+    const q = quick();
+    return [
+      { items: [
+        { id: 'cut', icon: 'cut', label: cm('cut'), keys: 'Ctrl+X', run: () => void copyRange(true) },
+        { id: 'copy', icon: 'copy', label: cm('copy'), keys: 'Ctrl+C', run: () => void copyRange() },
+        { id: 'paste', icon: 'paste', label: cm('paste'), keys: 'Ctrl+V', run: () => void pasteWith('all') },
+      ] },
+      { row: true, title: cm('pasteOptions'), items: [
+        { id: 'p-all', icon: 'paste', label: cm('pAll'), run: () => void pasteWith('all') },
+        { id: 'p-values', icon: 'decimal', label: cm('pValues'), run: () => void pasteWith('values') },
+        { id: 'p-formulas', icon: 'fx', label: cm('pFormulas'), run: () => void pasteWith('formulas') },
+        { id: 'p-formats', icon: 'painter', label: cm('pFormats'), run: () => void pasteWith('formats') },
+        { id: 'p-transpose', icon: 'swap', label: cm('pTranspose'), run: () => void pasteWith('transpose') },
+        { id: 'p-text', icon: 'textTool', label: cm('pText'), run: () => void pasteWith('text') },
+      ] },
+      { items: [
+        { id: 'insert', icon: 'insrow', label: cm('insert'), sub: [
+          { id: 'ins-above', icon: 'rowabove', label: cm('rowAbove'), run: () => shift('r', range.r1, range.r2 - range.r1 + 1) },
+          { id: 'ins-below', icon: 'rowbelow', label: cm('rowBelow'), run: () => shift('r', range.r2 + 1, range.r2 - range.r1 + 1) },
+          { id: 'ins-left', icon: 'colleft', label: cm('colLeft'), run: () => shift('c', range.c1, range.c2 - range.c1 + 1) },
+          { id: 'ins-right', icon: 'colright', label: cm('colRight'), run: () => shift('c', range.c2 + 1, range.c2 - range.c1 + 1) },
+        ] },
+        { id: 'delete', icon: 'delrow', label: cm('delete'), sub: [
+          { id: 'del-rows', icon: 'delrow', label: cm('delRows'), danger: true, run: () => shift('r', range.r1, -(range.r2 - range.r1 + 1)) },
+          { id: 'del-cols', icon: 'delcol', label: cm('delCols'), danger: true, run: () => shift('c', range.c1, -(range.c2 - range.c1 + 1)) },
+        ] },
+        { id: 'clear', icon: 'clear', label: cm('clear'), keys: 'Suppr', run: clearRange },
+        { id: 'clear-more', icon: 'eraser', label: cm('clearAll'), sub: [
+          { id: 'clear-formats', icon: 'clear', label: cm('clearFormats'), run: clearFormats },
+          { id: 'clear-all', icon: 'trash', label: cm('clearAll'), danger: true, run: clearAll },
+        ] },
+      ] },
+      { items: [
+        { id: 'sort', icon: 'sort', label: cm('sort'), sub: [
+          { id: 'sort-az', icon: 'up', label: cm('sortAz'), run: () => sort(1) },
+          { id: 'sort-za', icon: 'down', label: cm('sortZa'), run: () => sort(-1) },
+        ] },
+        { id: 'filter', icon: 'filter', label: cm('filterOn'), run: toggleFilter },
+        { id: 'dedupe', icon: 'dedupe', label: cm('dedupe'), run: removeDuplicates },
+        { id: 'fill-down', icon: 'down', label: cm('fillDown'), keys: 'Ctrl+D', disabled: range.r2 === range.r1, run: fillDown },
+        { id: 'fill-right', icon: 'next', label: cm('fillRight'), keys: 'Ctrl+R', disabled: range.c2 === range.c1, run: fillRight },
+        { id: 'sum', icon: 'sum', label: cm('sum'), keys: 'Alt+=', run: () => autoSum() },
+      ] },
+      { items: [
+        { id: 'format', icon: 'decimal', label: cm('format'), sub: formats.map(f => ({ id: `fmt-${f}`, label: `${t(`class.format.${f}` as MessageKey)}${sample(f) ? ` · ${sample(f)}` : ''}`, run: () => setFormat(f) })) },
+        { id: 'bold', icon: 'bold', label: cm('bold'), keys: 'Ctrl+B', run: () => toggle('bold') },
+        { id: 'italic', label: cm('italic'), keys: 'Ctrl+I', run: () => toggle('italic') },
+        { id: 'wrap', icon: 'wrap', label: cm('wrap'), run: () => toggle('wrap') },
+        mergedHere
+          ? { id: 'unmerge', icon: 'split', label: cm('unmerge'), run: () => merge('unmerge') }
+          : { id: 'merge', icon: 'merge', label: cm('merge'), disabled: !many, run: () => merge('center') },
+        { id: 'fit', icon: 'width', label: cm('fitCol'), run: () => { for (let c = range.c1; c <= range.c2; c++) fitColumn(c); } },
+        { id: 'painter', icon: 'painter', label: cm('painter'), run: () => setPainter({ ...activeStyle }) },
+      ] },
+      { items: [
+        { id: 'chart', icon: 'chart', label: cm('chart'), sub: CHART_TYPES.map(type => ({ id: `chart-${type}`, icon: chartIcon[type], label: t(`class.chart.${type}` as MessageKey), run: () => insertChart(type) })) },
+        { id: 'send', icon: 'send', label: cm('send'), sub: [
+          { id: 'to-letter', icon: 'letter', label: cm('toLetter'), run: () => void sendToLetter(link?.moduleId === 'letter' && linkedLetterOpen ? link.tabId : null) },
+          { id: 'to-stage', icon: 'stage', label: cm('toStage'), run: () => sendToStage() },
+        ] },
+        { id: 'ai', icon: 'sparkle', label: cm('ai'), sub: [
+          { id: 'ai-explain', icon: 'search', label: cm('aiExplain'), run: () => askCopilot('explain') },
+          { id: 'ai-fix', icon: 'check', label: cm('aiFix'), run: () => askCopilot('fix') },
+          { id: 'ai-analyze', icon: 'chart', label: cm('aiAnalyze'), run: () => askCopilot('analyze') },
+          { id: 'ai-clean', icon: 'clean', label: cm('aiClean'), run: () => askCopilot('clean') },
+          { id: 'ai-fill', icon: 'fill', label: cm('aiFill'), run: () => askCopilot('fill') },
+        ] },
+      ] },
+      ...(q.length ? [{ title: `${cm('quick')} ${cm('qCopy')}`, items: q }] : []),
+    ];
+  };
+
   return (
     <div className={`class${painter ? ' painting' : ''}`} ref={rootRef} onKeyDown={e => {
       // Shortcuts like Ctrl+F still work after a click on the ribbon took the focus.
@@ -1936,17 +2140,10 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
         <div className="ribbon-panel" role="tabpanel" onMouseDown={e => { if (!['INPUT', 'SELECT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) e.preventDefault(); }}>
           {shownTab === 'home' && <>
             <Group label="letter.group.clipboard">
-              <Btn big icon="paste" title="letter.paste" onClick={async () => {
-                try {
-                  const items = await navigator.clipboard.read?.();
-                  const html = items?.find(i => i.types.includes('text/html'));
-                  const table = html ? tableFromHtml(await (await html.getType('text/html')).text()) : tableFromText(await navigator.clipboard.readText());
-                  if (table) pasteTable(table);
-                } catch { alert(t('letter.pasteBlocked')); }
-              }} />
+              <Btn big icon="paste" title="letter.paste" onClick={() => void pasteWith('all')} />
               <div className="stack">
-                <Btn icon="cut" title="letter.cut" onClick={() => { gridRef.current?.focus(); document.execCommand('cut'); }} />
-                <Btn icon="copy" title="letter.copy" onClick={() => { gridRef.current?.focus(); document.execCommand('copy'); }} />
+                <Btn icon="cut" title="letter.cut" onClick={() => { gridRef.current?.focus(); void copyRange(true); }} />
+                <Btn icon="copy" title="letter.copy" onClick={() => { gridRef.current?.focus(); void copyRange(); }} />
                 <Btn icon="painter" title="letter.painter" active={!!painter} onClick={() => setPainter(p => (p ? null : { ...activeStyle }))} />
               </div>
             </Group>
@@ -2323,7 +2520,8 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
 
       <div className="class-body">
       <div className={`grid${headings ? '' : ' no-heads'}`} ref={gridRef} tabIndex={0} onKeyDown={onGridKey} style={cellVars}
-        onCopy={e => onCopy(e)} onCut={e => onCopy(e, true)} onPaste={onPaste}>
+        onCopy={e => onCopy(e)} onCut={e => onCopy(e, true)} onPaste={onPaste} onContextMenu={onGridMenu}
+        onTouchStart={onGridTouch} onTouchMove={onGridTouchMove} onTouchEnd={e => endPress(e)} onTouchCancel={e => endPress(e)}>
         <div className="corner" onMouseDown={() => setSel({ a: { c: 0, r: 0 }, f: { c: Math.max(used.cols, 0), r: Math.max(used.rows, 0) } })} />
         <div className="col-heads">
           <div ref={colHeadsRef} style={{ width: lefts[cols] }}>{visibleCols.map(colHead)}</div>
@@ -2364,7 +2562,8 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             onClose={() => { setFind(null); setFindStatus(''); gridRef.current?.focus(); }} />
         )}
       </div>
-      {copilot && <Copilot host={classCopilot(bridge, decimalComma(lang))} ai={shell.ai} onClose={() => { setCopilot(false); gridRef.current?.focus(); }} />}
+      {cellMenu && <ContextMenu at={cellMenu} sections={menuSections()} onClose={closeCellMenu} />}
+      {copilot && <Copilot host={classCopilot(bridge, decimalComma(lang))} ai={shell.ai} start={copilotStart} onClose={() => { setCopilot(false); gridRef.current?.focus(); }} />}
       </div>
 
       <div className="sheet-tabs">

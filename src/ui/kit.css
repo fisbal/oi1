@@ -413,3 +413,32 @@
 .table-grid-row { display: flex; gap: 2px; margin-bottom: 2px; }
 .table-grid button { width: 17px; height: 17px; padding: 0; border: 1px solid rgba(var(--fg-rgb), .12); background: rgba(var(--fg-rgb), .03); border-radius: 4px; }
 .table-grid button.on { background: rgba(212,168,67,.35); border-color: var(--gold); box-shadow: 0 0 6px rgba(212,168,67,.4); }
+
+/* The right-click menu of every app (ContextMenu.tsx). */
+.cell-menu:focus { outline: 0; }
+.cell-menu {
+  position: fixed; z-index: 120; width: min(300px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow-y: auto; overscroll-behavior: contain;
+  background: rgba(var(--bg-rgb), .97); color: var(--ink); border: 1px solid var(--hair); border-radius: 14px; padding: 6px;
+  box-shadow: 0 18px 50px rgba(var(--shade-rgb), calc(.6 * var(--shade-k)));
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); animation: pop .14s var(--ease) both; font-size: 13px;
+}
+.cell-menu .cm-search { display: flex; align-items: center; gap: 6px; margin: 2px 2px 6px; padding: 0 8px; height: 30px;
+  border: 1px solid var(--line); border-radius: 8px; color: var(--faint); background: rgba(var(--fg-rgb), .04); }
+.cell-menu .cm-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--ink); font: inherit; }
+.cell-menu .cm-section + .cm-section { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
+.cell-menu .cm-title { display: block; padding: 4px 10px 2px; font-size: 10.5px; color: var(--faint); text-transform: uppercase; letter-spacing: .04em; }
+.cell-menu .cm-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 32px; padding: 5px 10px; border: 0; border-radius: 8px;
+  background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.cell-menu .cm-item:hover:not(:disabled), .cell-menu .cm-item:focus-visible, .cell-menu .cm-item.open { background: rgba(var(--fg-rgb), .07); outline: 0; }
+.cell-menu .cm-item:disabled { opacity: .4; cursor: default; }
+.cell-menu .cm-item.danger { color: #e06c6c; }
+.cell-menu .cm-icon { width: 16px; flex: none; display: inline-flex; color: var(--muted); }
+.cell-menu .cm-label { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
+.cell-menu kbd { flex: none; font: 10.5px var(--sans); color: var(--faint); }
+.cell-menu .cm-caret { flex: none; color: var(--faint); }
+.cell-menu .cm-sub { margin: 1px 0 3px; border-left: 2px solid rgba(212,168,67,.35); margin-left: 17px; }
+.cell-menu .cm-row-items { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; padding: 2px; }
+.cell-menu .cm-tile { flex-direction: column; justify-content: center; gap: 2px; min-height: 48px; padding: 4px 2px; text-align: center; color: var(--muted); }
+.cell-menu .cm-tile small { font-size: 9.5px; line-height: 1.15; color: var(--faint); overflow-wrap: anywhere; hyphens: auto; }
+.cell-menu .cm-none { padding: 10px; color: var(--faint); margin: 0; }
+@media (pointer: coarse) { .cell-menu .cm-item { min-height: 40px; } }
