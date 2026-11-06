@@ -490,6 +490,11 @@ export default function App() {
               </button>
             ))}
           </div>
+          {/* The protections are reachable from inside an app too, not only from the home screen. */}
+          <div className="launcher-foot">
+            <ShieldButton label />
+            <ConfidentialButton />
+          </div>
         </div>
       )}
       <main id="stage">

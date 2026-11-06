@@ -63,7 +63,8 @@ function detach(strip: HTMLElement) {
 }
 
 // Things that float above the strips: an arrow never shows through them.
-const OVERLAYS = 'dialog[open], .backstage, .drop-panel, .tabs-menu, .tuto-panel, [role=menu], [role=listbox]';
+// The apps window (.launcher) and any other floating window ([role=dialog]) too: Martin saw arrows over it on his phone.
+const OVERLAYS = 'dialog[open], .backstage, .drop-panel, .tabs-menu, .tuto-panel, .launcher, [role=dialog], [role=menu], [role=listbox]';
 
 function covered(strip: HTMLElement, x: number, top: number, size: number): boolean {
   for (const o of document.querySelectorAll<HTMLElement>(OVERLAYS)) {
