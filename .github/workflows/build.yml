@@ -150,6 +150,9 @@ jobs:
       - name: Text right-click menu in Letter, Notes and Mail (copy/paste, plain text, bold, table, copilot, spelling) on every screen
         if: env.FULL_CHECKS == 'true'
         run: npm run check:textmenu
+      - name: Right-click menu in Stage, Draw and Image (objects, slides, tools, photo) on every screen
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:objmenu
       - name: The I want… search finds the buttons, tips guide to them (PC + phone)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:want

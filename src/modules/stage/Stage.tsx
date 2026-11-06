@@ -44,6 +44,8 @@ import { AiError } from '../../shell/ai';
 import { closeRibbonPeek } from '../../ui/ribbonMin';
 import { recheck } from '../../ui/proof/extension';
 import { ProofBubble } from '../../ui/proof/Bubble';
+import { ContextMenu, cm, type MenuItem as CtxItem, type MenuSection } from '../../ui/ContextMenu';
+import { caretAt, textMenuSections } from '../../ui/textMenu';
 import { ProofButtons } from '../../ui/proof/ProofButtons';
 import { PROOF_TAGS, baseLang } from '../../ui/proof/proof';
 
@@ -179,6 +181,9 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const [active, setActive] = useState(Math.min(initial.active, initial.deck.slides.length - 1));
   const [sel, setSel] = useState<string[]>([]);
   const [editing, setEditing] = useState<{ id: string; all: boolean } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; text?: boolean; rail?: number } | null>(null);
+  const [copilotStart, setCopilotStart] = useState<{ id: string; n: number }>();
+  const press = useRef({ x: 0, y: 0, id: 0, fired: false });
   const [editor, setEditor] = useState<Editor | null>(null);
   const [, setTick] = useState(0);
   const [tab, setTab] = useState<Tab>('home');
@@ -449,6 +454,18 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     setSel(copies.map(c => c.id));
     return true;
   };
+  /** Paste from the ribbon or the menu: our own boxes, else a picture or text from the system clipboard. */
+  const pasteAny = async () => {
+    try {
+      const items = await navigator.clipboard.read?.();
+      const img = items?.find(i => i.types.some(x => x.startsWith('image/')));
+      const text = await navigator.clipboard.readText().catch(() => '');
+      if (clip.current && !img && (!text.trim() || clip.current.map(itemText).filter(Boolean).join('\n') === text)) { pasteItems(); return; }
+      if (img) { const type = img.types.find(x => x.startsWith('image/'))!; void addImages([new File([await img.getType(type)], 'image', { type })]); return; }
+      if (text.trim()) addItem({ id: newId(), kind: 'shape', geom: 'rect', ...center(640, 120), fill: null, line: null, html: linesToHtml(text.trim().split(/\r?\n/), false), valign: 'top' });
+      else pasteItems();
+    } catch { if (!pasteItems()) shell.notify(cm('pasteBlocked')); }
+  };
   const arrange = (how: 'front' | 'back' | 'forward' | 'backward') => changeSlide(s => {
     const items = [...s.items];
     const picked = items.filter(i => sel.includes(i.id));
@@ -619,6 +636,13 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable;
     const mod = e.ctrlKey || e.metaKey;
     if (e.key === 'F5') { e.preventDefault(); setShow({ start: e.shiftKey ? active : 0, presenter: e.altKey }); return; }
+    if ((e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) && !mod && !e.altKey && !['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) {
+      e.preventDefault();
+      if (editing && editor && el.isContentEditable) { const c = editor.view.coordsAtPos(editor.state.selection.head); setCtxMenu({ x: c.left, y: c.bottom + 4, text: true }); return; }
+      const c = canvasRef.current?.getBoundingClientRect();
+      if (c) setCtxMenu(selected.length ? { x: c.left + (selected[0].x + selected[0].w / 2) * k, y: c.top + (selected[0].y + selected[0].h / 2) * k } : { x: c.left + 40, y: c.top + 40 });
+      return;
+    }
     if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); void save(); return; }
     if (mod && e.key.toLowerCase() === 'm') { e.preventDefault(); addSlide(); return; }
     if (mod && e.key.toLowerCase() === 'p') { e.preventDefault(); print(); return; }
@@ -1122,16 +1146,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       <div className="ribbon-panel" role="tabpanel" onMouseDown={e => { if (!['INPUT', 'SELECT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) e.preventDefault(); }}>
         {shownTab === 'home' && <>
           <Group label="letter.group.clipboard">
-            <Btn big icon="paste" title="letter.paste" onClick={async () => {
-              if (pasteItems()) return;
-              try {
-                const items = await navigator.clipboard.read?.();
-                const img = items?.find(i => i.types.some(x => x.startsWith('image/')));
-                if (img) { const type = img.types.find(x => x.startsWith('image/'))!; void addImages([new File([await img.getType(type)], 'image', { type })]); return; }
-                const text = await navigator.clipboard.readText();
-                if (text.trim()) addItem({ id: newId(), kind: 'shape', geom: 'rect', ...center(640, 120), fill: null, line: null, html: linesToHtml(text.trim().split(/\r?\n/), false), valign: 'top' });
-              } catch { alert(t('letter.pasteBlocked')); }
-            }} />
+            <Btn big icon="paste" title="letter.paste" onClick={() => void pasteAny()} />
             <div className="stack">
               <Btn icon="cut" title="letter.cut" onClick={() => copySelected(true)} disabled={!sel.length} />
               <Btn icon="copy" title="letter.copy" onClick={() => copySelected()} disabled={!sel.length} />
@@ -1513,6 +1528,69 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const marquee = drag?.kind === 'marquee' ? drag : null;
   const sizeTip = (drag?.kind === 'resize' || drag?.kind === 'rotate') && one ? one : null;
 
+  // ---------- right-click menu: the text tools while typing in a box, else the objects', else the slide's ----------
+  const closeStageMenu = () => { setCtxMenu(null); if (editing && editor) editor.view.focus(); else rootRef.current?.focus(); };
+  const onStageMenu = (e: React.MouseEvent) => {
+    if (preview) return;
+    const target = e.target as HTMLElement;
+    if (editing && editor && target.closest('.ProseMirror')) {
+      if (e.nativeEvent.defaultPrevented) return; // the spelling bubble answered
+      e.preventDefault();
+      caretAt(editor, e.clientX, e.clientY);
+      setCtxMenu({ x: e.clientX, y: e.clientY, text: true });
+      return;
+    }
+    e.preventDefault();
+    const under = document.elementsFromPoint(e.clientX, e.clientY).map(el => (el as HTMLElement).closest<HTMLElement>('.st-canvas .st-item[data-id]')).find(Boolean);
+    const id = under?.dataset.id;
+    if (id && !sel.includes(id)) setSel([id]);
+    if (!id) setSel([]);
+    setCtxMenu({ x: e.clientX, y: e.clientY });
+  };
+  const askAi = (id: string) => { setCopilot(true); setCopilotStart(x => ({ id, n: (x?.n ?? 0) + 1 })); };
+  const stageMenu = (): MenuSection[] => {
+    if (ctxMenu?.text && editor) return textMenuSections(editor, { notify: m => shell.notify(m), blocks: true });
+    const any = selected.length > 0;
+    const ai = stageCopilot(bridge).actions.filter(a => a.needsContext);
+    const slideItems: CtxItem[] = [
+      { id: 'new-slide', icon: 'new', label: t('stage.newSlide'), keys: 'Ctrl+M', run: () => addSlide() },
+      { id: 'dup-slide', icon: 'copy', label: cm('dupSlide'), run: () => duplicateSlide() },
+      { id: 'layout', icon: 'layers', label: t('stage.layout'), sub: LAYOUTS.map(l => ({ id: `lay-${l}`, label: t(`stage.layout.${l}` as MessageKey), run: () => setLayout(l) })) },
+      { id: 'reset-slide', icon: 'clear', label: cm('resetSlide'), run: resetSlide },
+      { id: 'slide-up', icon: 'up', label: cm('slideUp'), disabled: active === 0, run: () => moveSlide(active, active - 1) },
+      { id: 'slide-down', icon: 'down', label: cm('slideDown'), disabled: active >= deck.slides.length - 1, run: () => moveSlide(active, active + 1) },
+      { id: 'show-here', icon: 'play', label: cm('showHere'), keys: 'Shift+F5', run: () => setShow({ start: active, presenter: false }) },
+      { id: 'del-slide', icon: 'trash', label: t('stage.deleteSlide'), danger: true, disabled: deck.slides.length < 2, run: () => deleteSlide() },
+    ];
+    if (ctxMenu?.rail !== undefined) return [{ items: slideItems }, { items: [{ id: 'paste', icon: 'paste', label: cm('paste'), keys: 'Ctrl+V', run: () => void pasteAny() }] }];
+    return [
+      { items: [
+        { id: 'cut', icon: 'cut', label: cm('cut'), keys: 'Ctrl+X', disabled: !any, run: () => copySelected(true) },
+        { id: 'copy', icon: 'copy', label: cm('copy'), keys: 'Ctrl+C', disabled: !any, run: () => copySelected() },
+        { id: 'paste', icon: 'paste', label: cm('paste'), keys: 'Ctrl+V', run: () => void pasteAny() },
+        { id: 'duplicate', icon: 'clean', label: cm('duplicate'), keys: 'Ctrl+D', disabled: !any, run: duplicateSelected },
+        { id: 'delete', icon: 'trash', label: cm('delete'), keys: 'Suppr', danger: true, disabled: !any, run: deleteSelected },
+        { id: 'select-all', icon: 'select', label: cm('selectAllObj'), keys: 'Ctrl+A', run: () => setSel(slide.items.map(i => i.id)) },
+      ] },
+      ...(any ? [{ items: [
+        ...(one && isText(one) ? [{ id: 'edit-text', icon: 'pen', label: cm('editText'), keys: 'F2', run: () => startEdit(one.id) }] : []),
+        { id: 'arrange', icon: 'layers', label: t('stage.arrange'), sub: (['front', 'forward', 'backward', 'back'] as const).map(h => ({ id: `ar-${h}`, label: t(`stage.${h}`), run: () => arrange(h) })) },
+        { id: 'align', icon: 'center', label: t('stage.align'), sub: (['left', 'center', 'right', 'top', 'middle', 'bottom'] as const).map(h => ({ id: `al-${h}`, label: t(`stage.align.${h}`), run: () => align(h) })) },
+      ] as CtxItem[] }] : []),
+      { items: [
+        { id: 'insert', icon: 'new', label: cm('insert'), sub: [
+          { id: 'i-text', icon: 'textTool', label: t('stage.textBox'), run: () => addTextBox() },
+          { id: 'i-table', icon: 'table', label: t('letter.table'), run: () => addTable(3, 3) },
+          { id: 'i-image', icon: 'image', label: t('letter.image'), run: () => imageInput.current?.click() },
+          { id: 'i-qr', icon: 'qr', label: t('letter.qr'), run: () => addQr() },
+          { id: 'i-number', icon: 'pagenum', label: t('stage.slideNumbers'), run: () => numberSlides() },
+        ] },
+        { id: 'slide', icon: 'stage', label: cm('slide'), sub: slideItems },
+        ...(ai.length ? [{ id: 'ai', icon: 'sparkle', label: cm('ai'), sub: ai.map(a => ({ id: `ai-${a.id}`, icon: a.icon, label: a.label, run: () => askAi(a.id) })) }] : []),
+      ] },
+    ];
+  };
+
   return (
     <div className="stage" ref={rootRef} tabIndex={-1} onKeyDown={onKey}>
       {ribbon}
@@ -1545,7 +1623,7 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
                 setRailDrop(null);
                 if (!Number.isNaN(from)) moveSlide(from, to > from ? to - 1 : to);
               }}
-              onContextMenu={e => { e.preventDefault(); setActive(i); }}>
+              onContextMenu={e => { e.preventDefault(); setActive(i); setSel([]); setCtxMenu({ x: e.clientX, y: e.clientY, rail: i }); }}>
               <span className="st-rail-num">{i + 1}</span>
               {s.transition && <span className="st-rail-trans" title={t(`stage.tr.${s.transition}` as MessageKey)}><Icon name="play" size={10} /></span>}
               <button type="button" className="st-rail-card" onClick={() => setActive(i)} aria-label={`${t('stage.slideN', { n: i + 1 })} ${slideTitle(s)}`}>
@@ -1581,6 +1659,16 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             onDrop={e => { const files = Array.from(e.dataTransfer.files); if (files.length) { e.preventDefault(); if (files[0].name.toLowerCase().endsWith('.pptx')) void loadFile(wrapDropped(files[0])); else void addImages(files); } }}>
             <div className="st-stage-inner" style={{ width: deck.w * k, height: deck.h * k, marginTop: Math.max(0, (stageSize.h - deck.h * k) / 2), marginLeft: Math.max(0, (stageSize.w - deck.w * k) / 2) }}
               onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
+              onContextMenu={onStageMenu}
+              onTouchStart={e => {
+                window.clearTimeout(press.current.id);
+                if (e.touches.length !== 1 || preview) return;
+                const { clientX: x, clientY: y } = e.touches[0];
+                const target = e.target;
+                press.current = { x, y, id: window.setTimeout(() => { press.current.fired = true; onStageMenu({ clientX: x, clientY: y, target, nativeEvent: { defaultPrevented: false }, preventDefault() {} } as unknown as React.MouseEvent); }, 550), fired: false };
+              }}
+              onTouchMove={e => { const t0 = e.touches[0]; if (!t0 || Math.hypot(t0.clientX - press.current.x, t0.clientY - press.current.y) > 10) window.clearTimeout(press.current.id); }}
+              onTouchEnd={e => { window.clearTimeout(press.current.id); if (press.current.fired) { e.preventDefault(); press.current.fired = false; } }}
               onDoubleClick={e => {
                 const id = (e.target as HTMLElement).closest<HTMLElement>('.st-canvas .st-item[data-id]')?.dataset.id;
                 const it = slide.items.find(i => i.id === id);
@@ -1620,7 +1708,8 @@ function StageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           )}
         </div>
         <ProofBubble editor={editing ? editor : null} />
-        {copilot && <Copilot host={stageCopilot(bridge)} ai={shell.ai} onClose={() => { setCopilot(false); rootRef.current?.focus(); }} />}
+        {ctxMenu && <ContextMenu at={ctxMenu} sections={stageMenu()} onClose={closeStageMenu} />}
+        {copilot && <Copilot host={stageCopilot(bridge)} ai={shell.ai} start={copilotStart} onClose={() => { setCopilot(false); rootRef.current?.focus(); }} />}
       </div>
       <footer className="status">
         <span>{t('stage.slideOf', { n: active + 1, total: deck.slides.length })}</span>
