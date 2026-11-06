@@ -7,10 +7,11 @@ import type { CellStyle } from './sheet';
 // ---------- number format codes ----------
 
 /** How the sign goes in a format code: the plain signs Excel knows, else [$sign] (shown as it is, read back the same). */
-const PLAIN_SIGN: Record<string, string> = { USD: '"$"', EUR: '"€"', GBP: '"£"', JPY: '"¥"', CHF: '"CHF"' };
+// CAD is written with Excel's French (Canada) dollar, so Excel shows "1 227,00 $" and reads it back as CAD.
+const PLAIN_SIGN: Record<string, string> = { USD: '"$"', EUR: '"€"', GBP: '"£"', JPY: '"¥"', CHF: '"CHF"', CAD: '[$$-C0C]' };
 const signIn = (code: string) => PLAIN_SIGN[code] ?? `[$${currencySymbol(code)}]`;
 /** Currencies written after the number, like 9,99 €. */
-const SYMBOL_AFTER = new Set(['EUR', 'CHF', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'RUB', 'UAH', 'XOF', 'XAF', 'HTG', 'MAD', 'TND', 'DZD', 'VND']);
+const SYMBOL_AFTER = new Set(['EUR', 'CHF', 'CAD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'RUB', 'UAH', 'XOF', 'XAF', 'HTG', 'MAD', 'TND', 'DZD', 'VND']);
 export const BUILTIN_CODES: Record<number, string> = {
   1: '0', 2: '0.00', 3: '#,##0', 4: '#,##0.00', 9: '0%', 10: '0.00%', 11: '0.00E+00', 12: '# ?/?', 13: '# ??/??',
   14: 'm/d/yyyy', 20: 'h:mm', 22: 'm/d/yyyy h:mm', 49: '@',

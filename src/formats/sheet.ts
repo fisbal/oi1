@@ -299,7 +299,14 @@ export function usedRange(sheet: SheetData): { cols: number; rows: number } {
 }
 
 const DEFAULT_CURRENCY: Record<string, string> = { en: 'USD', fr: 'EUR', es: 'EUR', pt: 'EUR', de: 'EUR' };
-export const currencyFor = (lang: string, book?: WorkbookData) => book?.currency ?? DEFAULT_CURRENCY[lang.slice(0, 2)] ?? 'USD';
+/** A device set to a Canadian region (fr-CA, en-CA) counts in Canadian dollars. */
+const regionCurrency = (): string | undefined => {
+  try {
+    const tags = typeof navigator === 'undefined' ? [] : [...(navigator.languages ?? []), navigator.language];
+    return tags.some(t => /-CA\b/i.test(t ?? '')) ? 'CAD' : undefined;
+  } catch { return undefined; }
+};
+export const currencyFor = (lang: string, book?: WorkbookData) => book?.currency ?? regionCurrency() ?? DEFAULT_CURRENCY[lang.slice(0, 2)] ?? 'USD';
 
 /** The digits a format shows after the decimal point when the user did not choose. */
 export const defaultDecimals = (f: NumberFormat) => (f === 'number' || f === 'currency' || f === 'accounting' || f === 'scientific' ? 2 : 0);
