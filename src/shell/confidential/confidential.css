@@ -1,0 +1,39 @@
+/* Confidential mode: lock screen, panel parts, app-bar badge, blocked-send note. Uses the shell's colours. */
+.cf-lock { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: var(--bg); overflow: auto; box-sizing: border-box; }
+.cf-lock-card { width: min(380px, 100%); display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 28px 24px 20px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: 24px; background: rgba(var(--bg-rgb), .9); box-shadow: 0 20px 60px rgba(0, 0, 0, .25); text-align: center; color: var(--ink); }
+.cf-lock-card .wordmark { font-family: var(--display); font-size: 22px; }
+.cf-lock-icon { font-size: 40px; line-height: 1.2; }
+.cf-lock-card h1 { margin: 0; font-family: var(--display); font-size: 20px; line-height: 1.3; overflow-wrap: anywhere; }
+.cf-field { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 13px; color: var(--muted); }
+.cf-field input, .cf-field select { min-height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(var(--bg-rgb), .85); color: var(--ink); font: inherit; font-size: 16px; box-sizing: border-box; width: 100%; }
+.cf-field input[type=password] { letter-spacing: .3em; }
+.cf-primary { min-height: 44px; border: 0; border-radius: 99px; background: var(--gold-gradient, var(--gold)); color: var(--on-gold, #1b1407); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.cf-primary:disabled { opacity: .55; cursor: default; }
+.cf-link { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; padding: 6px; }
+.cf-msg { margin: 0; min-height: 1.4em; font-size: 13px; color: #c62828; overflow-wrap: anywhere; }
+.cf-msg:empty { min-height: 0; }
+.cf-points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cf-points li { display: flex; gap: 10px; align-items: flex-start; overflow-wrap: anywhere; }
+.cf-points li > span { flex: none; }
+.cf-h { margin: 4px 0 0; font-size: 15px; }
+.cf-code { margin: 0; padding: 12px; border-radius: 12px; background: rgba(var(--fg-rgb), .07); font-family: var(--mono, ui-monospace, monospace); font-size: 18px; font-weight: 700; letter-spacing: .06em; text-align: center; overflow-wrap: anywhere; user-select: all; }
+.cf-group { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.cf-journal { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow: auto; }
+.cf-journal li { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 6px 8px; border-radius: 10px; background: rgba(var(--fg-rgb), .04); font-size: 13px; }
+.cf-journal time { color: var(--muted); font-size: 12px; flex: none; }
+.cf-journal span { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
+.cf-journal .cf-bad span { color: #c62828; }
+.cf-home { display: inline-flex; align-items: center; gap: 6px; }
+.cf-home.on { border-color: var(--gold); }
+.cf-home small { color: #2e7d32; font-weight: 700; }
+.cf-badge { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 22px; padding: 0; border: 1px solid var(--gold); border-radius: 999px; background: color-mix(in srgb, var(--gold) 18%, transparent); font-size: 12px; line-height: 1; cursor: pointer; flex: none; }
+.cf-note { position: fixed; z-index: 210; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); max-width: calc(100vw - 32px); box-sizing: border-box;
+  padding: 8px 14px; border-radius: 999px; background: rgba(var(--bg-rgb), .98); color: var(--ink); border: 1px solid var(--gold); box-shadow: 0 10px 30px rgba(0, 0, 0, .25); font-size: 13px; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .cf-note { border-radius: 16px; } }
+/* Phones: the app bar is full; the saved-status text gives room so the 🔒 is never cut at the screen edge. */
+@media (max-width: 640px) {
+  .cf-badge { width: 22px; height: 18px; font-size: 11px; }
+  .app-bar:has(.cf-badge) .save-badge { max-width: 30vw; }
+}

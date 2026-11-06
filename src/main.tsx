@@ -4,6 +4,13 @@ import './shell/shell.css';
 import { startRibbonMin } from './ui/ribbonMin';
 import { startCapsuleTips } from './ui/tips';
 import { watchStaleBuild } from './shell/staleBuild';
+import { installNetGuard } from './shell/confidential/netGuard';
+import { startConfidential } from './shell/confidential/session';
+import { ConfidentialGate } from './shell/confidential/Confidential';
+
+// Confidential mode's network guard goes in first, before anything can send (see confidential/netGuard.ts).
+installNetGuard();
+startConfidential();
 
 // A page left open across a new release reloads onto it instead of failing (see staleBuild.ts).
 watchStaleBuild();
@@ -16,7 +23,7 @@ if (iOS) document.querySelector('meta[name=viewport]')?.setAttribute('content', 
 
 // A "#run=…" link (the QR code in In 1 Code+) shows only the project it carries.
 if (location.hash.startsWith('#run=')) void import('./modules/code/runner').then(m => m.startRunner(location.hash.slice(5)));
-else createRoot(document.getElementById('root')!).render(<App />);
+else createRoot(document.getElementById('root')!).render(<ConfidentialGate><App /></ConfidentialGate>);
 
 startRibbonMin();
 startCapsuleTips();

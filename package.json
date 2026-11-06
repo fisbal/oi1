@@ -54,6 +54,7 @@
     "check:works": "node scripts/check-works.mjs",
     "check:analyse": "node scripts/check-analyse.mjs",
     "check:pages": "node scripts/check-pages.mjs",
+    "check:confidential": "node scripts/check-confidential.mjs",
     "check:mail": "node scripts/check-mail.mjs",
     "check:image": "node scripts/check-image.mjs",
     "check:faults-code": "node scripts/faults-code.mjs",

@@ -5,6 +5,7 @@
 
 import type { AiRequest } from './contract';
 import { browserAiHere } from './webAi';
+import { confidentialOn } from './confidential/mode';
 
 export type ProviderKind = 'anthropic' | 'openai' | 'gemini' | 'azure' | 'web' | 'browser' | 'device' | 'puter';
 export interface Provider {
@@ -137,6 +138,8 @@ const hadClaudeKey = () => { try { return !!localStorage.getItem('oi1:ai:key'); 
 const deviceReady = () => { try { return !!localStorage.getItem('oi1.ai.device.ready'); } catch { return false; } };
 const devicePlusReady = () => { try { return !!localStorage.getItem('oi1.ai.devicePlus.ready'); } catch { return false; } };
 const EMPTY: AiChoice = { main: 'web-chatgpt', byApp: {}, models: {}, azure: { endpoint: '', deployment: '' } };
+/** Runs on this device: nothing it is asked leaves it. */
+export const onDevice = (p: Provider) => p.kind === 'browser' || p.kind === 'device' || (!!p.local && /^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(p.base));
 const noAccountDefault = () => (browserAiHere() ? 'browser' : devicePlusReady() ? 'device-plus' : deviceReady() ? 'device' : 'web-chatgpt');
 /** v2: Puter was the default before 2026-10-31. v3: Claude.ai was the default before 2026-11-02 (needs an account). */
 const VERSION = 3;
@@ -166,7 +169,10 @@ export const aiChoice = {
   /** The provider an app uses. */
   forApp(app?: string): Provider {
     const c = aiChoice.get();
-    return provider((app && c.byApp[app]) || c.main) ?? provider(noAccountDefault())!;
+    const p = provider((app && c.byApp[app]) || c.main) ?? provider(noAccountDefault())!;
+    // Confidential mode: only an AI that runs on this device (browser AI, In 1 AI, Ollama or LM Studio).
+    if (confidentialOn() && !onDevice(p)) return provider(browserAiHere() ? 'browser' : devicePlusReady() ? 'device-plus' : 'device')!;
+    return p;
   },
   model: (p: Provider) => aiChoice.get().models[p.id]?.trim() || (p.kind === 'azure' ? aiChoice.get().azure.deployment : p.model),
 };

@@ -30,7 +30,7 @@ export function ProofButtons({ editor, ai, lang, notify }: { editor: Editor | nu
   return <>
     <Btn big icon="sparkle" title="proof.checkStyle" onClick={() => void style()} active={busy} disabled={!editor} />
     <div className="stack">
-      <Btn icon="check" title="proof.grammarOnline" text active={grammarSettings.on()}
+      <Btn icon="check" title="proof.grammarOnline" text active={grammarSettings.on()} disabled={grammarSettings.blocked()}
         onClick={() => { grammarSettings.set(!grammarSettings.on()); recheck(editor); }} />
       <Drop icon="book" title="proof.dictionary" text>
         {close => words.length
