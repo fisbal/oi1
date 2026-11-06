@@ -13,7 +13,8 @@ import { VAULT_KEY, confidentialOn, setUnlocked, changed } from './mode';
 
 const PIN_ROUNDS = 600_000;
 const CODE_ROUNDS = 200_000; // the code is long and random: fewer rounds are enough
-const TRIES_KEY = 'oi1.confidential.tries';
+// Only a count of wrong tries and the time of the last one (no PIN, no key): the wait after too many tries.
+const TRIES_KEY = 'oi1.lockWait';
 export const PIN_MIN = 6;
 
 interface Wrapped { salt: string; iv: string; data: string; rounds: number }
