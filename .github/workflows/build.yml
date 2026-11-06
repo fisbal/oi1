@@ -153,6 +153,9 @@ jobs:
       - name: Right-click menu in Stage, Draw and Image (objects, slides, tools, photo) on every screen
         if: env.FULL_CHECKS == 'true'
         run: npm run check:objmenu
+      - name: Right-click menu in Plan, Form and Code+ (tasks, questions, code) on every screen
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:appmenu
       - name: The I want… search finds the buttons, tips guide to them (PC + phone)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:want

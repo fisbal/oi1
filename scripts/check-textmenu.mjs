@@ -47,7 +47,10 @@ for (const [name, viewport, touch] of DEVICES) {
     await page.waitForTimeout(150);
   };
   // Selects `word` in the text and returns its middle on screen.
-  const select = word => page.evaluate(w => {
+  // Selects a word like a person dragging over it, then waits for the editor to take the selection (ProseMirror reads
+  // it from the selectionchange event, a moment later): a right click before that would act on the old caret.
+  const select = async word => { const at = await selectNow(word); await page.waitForTimeout(250); return at; };
+  const selectNow = word => page.evaluate(w => {
     const root = document.querySelector('.module-host:not([hidden]) .body-text');
     const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let n = walk.nextNode(); n; n = walk.nextNode()) {

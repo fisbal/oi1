@@ -15,6 +15,7 @@ import { AppKeys, appColor } from '../../ui/AppKeys';
 import { FileMenu } from '../../ui/FileMenu';
 import { TutoTab } from '../../ui/tuto/Tuto';
 import { Copilot, CopilotButton, useCopilotShortcut, type CopilotHost } from '../../ui/Copilot';
+import { ContextMenu, cm, type MenuSection } from '../../ui/ContextMenu';
 import { usePinchZoom } from '../../ui/pinch';
 import { closeRibbonPeek } from '../../ui/ribbonMin';
 import { FastScroll } from '../../ui/FastScroll';
@@ -70,6 +71,7 @@ function FormEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   const [panel, setPanel] = useState<'file' | null>(null);
   const [copilot, setCopilot] = useState(false);
   const [copilotStart, setCopilotStart] = useState<{ id: string; n: number } | undefined>();
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; q: string | null } | null>(null);
   const [aiAsk, setAiAsk] = useState<{ text: string; quiz: boolean; busy: boolean; error: string } | null>(null);
   const [ask, setAsk] = useState<{ title: string; label: string; value: string; ok: (v: string) => void; danger?: boolean; long?: boolean } | null>(null);
   const [importing, setImporting] = useState<string | null>(null);
@@ -556,11 +558,43 @@ function FormEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
 
   const results = <Results form={form} optLabel={optLabel} onDelete={id => change(f => ({ ...f, replies: f.replies.filter(r => r.id !== id) }))} onImport={() => setImporting('')} onShare={() => void shareFile()} onFill={() => setView('fill')} />;
 
+  // ---------- right-click menu (inside a box being typed in, the browser's text menu stays) ----------
+  const onFormMenu = (e: React.MouseEvent) => {
+    const el = e.target as HTMLElement;
+    if (view !== 'edit' || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable) return;
+    e.preventDefault();
+    const q = el.closest<HTMLElement>('[data-q]')?.dataset.q ?? null;
+    if (q) setSel(q);
+    setCtxMenu({ x: e.clientX, y: e.clientY, q });
+  };
+  const formMenu = (id: string | null): MenuSection[] => {
+    const q = id ? form.questions.find(k => k.id === id) : undefined;
+    const i = q ? form.questions.indexOf(q) : -1;
+    const add: MenuSection = { items: [
+      { id: 'add', icon: 'new', label: t('form.newQuestion'), run: addQuestion },
+      { id: 'add-type', icon: 'insrow', label: cm('insert'), sub: QTYPES.map(k => ({ id: `add-${k}`, label: t(`form.type.${k}` as MessageKey), run: () => addType(k) })) },
+      { id: 'view', icon: 'web', label: cm('viewAs'), sub: (['edit', 'fill', 'results'] as View[]).map(v => ({ id: `view-${v}`, label: t(`form.view.${v}` as MessageKey), run: () => setView(v) })) },
+      { id: 'ai', icon: 'sparkle', label: cm('ai'), sub: copilotHost.actions.map(a => ({ id: `ai-${a.id}`, icon: a.icon, label: a.label, run: () => startAi(a.id) })) },
+    ] };
+    if (!q) return [add];
+    return [
+      { items: [
+        { id: 'duplicate', icon: 'copy', label: t('form.duplicate'), run: dupQ },
+        { id: 'up', icon: 'up', label: t('form.moveUp'), disabled: i <= 0, run: () => moveQ(-1, q.id) },
+        { id: 'down', icon: 'down', label: t('form.moveDown'), disabled: i >= form.questions.length - 1, run: () => moveQ(1, q.id) },
+        ...(q.type !== 'section' ? [{ id: 'required', icon: 'check', label: `${q.required ? '✓ ' : ''}${t('form.required')}`, run: () => setQ(q.id, { required: !q.required }) }] : []),
+        { id: 'type', icon: 'swap', label: cm('qType'), sub: QTYPES.map(k => ({ id: `type-${k}`, label: `${k === q.type ? '✓ ' : ''}${t(`form.type.${k}` as MessageKey)}`, run: () => changeType(k) })) },
+        { id: 'delete', icon: 'trash', label: t('form.delete'), danger: true, run: () => delQ(q.id) },
+      ] },
+      add,
+    ];
+  };
+
   return (
     <div className="formapp" ref={rootRef} tabIndex={-1} onKeyDown={onKey} style={{ '--fm-accent': theme.accent, '--fm-page': theme.page } as CSSProperties}>
       {ribbon}
       <div className="fm-body">
-        <div className="fm-scroll" ref={scroller}>
+        <div className="fm-scroll" ref={scroller} onContextMenu={onFormMenu}>
           <div className="fm-bar-top">
             <span className="fm-views" role="tablist">
               {(['edit', 'fill', 'results'] as View[]).map(v => <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>{t(`form.view.${v}` as MessageKey)}{v === 'results' && form.replies.length ? ` (${form.replies.length})` : ''}</button>)}
@@ -574,6 +608,7 @@ function FormEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
           </div>
         </div>
         <FastScroll target={scroller} />
+        {ctxMenu && <ContextMenu at={ctxMenu} sections={formMenu(ctxMenu.q)} onClose={() => { setCtxMenu(null); rootRef.current?.focus(); }} />}
         {copilot && <Copilot host={copilotHost} ai={shell.ai} start={copilotStart} onClose={() => { setCopilot(false); rootRef.current?.focus(); }} />}
       </div>
       <footer className="status">
