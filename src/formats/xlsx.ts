@@ -29,8 +29,9 @@ const XML_HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
 
 // ---------- number format codes ----------
 
-const CURRENCY_SYMBOL: Record<string, string> = { USD: '"$"', EUR: '"€"', GBP: '"£"', JPY: '"¥"', CHF: '"CHF"' };
-const SYMBOL_AFTER = new Set(['EUR', 'CHF']);
+// CAD is written with Excel's French (Canada) dollar, so Excel shows "1 227,00 $" and reads it back as CAD.
+const CURRENCY_SYMBOL: Record<string, string> = { USD: '"$"', EUR: '"€"', GBP: '"£"', JPY: '"¥"', CHF: '"CHF"', CAD: '[$$-C0C]' };
+const SYMBOL_AFTER = new Set(['EUR', 'CHF', 'CAD']);
 const BUILTIN_CODES: Record<number, string> = {
   1: '0', 2: '0.00', 3: '#,##0', 4: '#,##0.00', 9: '0%', 10: '0.00%', 11: '0.00E+00', 12: '# ?/?', 13: '# ??/??',
   14: 'm/d/yyyy', 20: 'h:mm', 22: 'm/d/yyyy h:mm', 49: '@',
@@ -517,6 +518,7 @@ export async function readXlsx(data: ArrayBuffer): Promise<WorkbookData> {
   let currency: string | undefined;
   for (const code of codes.values()) {
     if (code.includes('€')) currency = 'EUR';
+    else if (/\[\$(?:\$|CA\$|C\$)?-(?:C0C|1009)\]|\[\$(?:CA\$|C\$|CAD)[^\]]*\]|CAD/i.test(code)) currency = 'CAD';
     else if (code.includes('£')) currency = 'GBP';
     else if (/"\$"|\[\$\$/.test(code)) currency = 'USD';
   }
