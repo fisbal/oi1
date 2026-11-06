@@ -139,6 +139,43 @@ for (const [name, viewport, mobile] of [['PC', { width: 1280, height: 800 }, fal
   await page.locator('.lc-cancel').click();
   await page.waitForTimeout(300);
   check(!await card.isVisible(), `${name}: Cancel closes the bubble`);
+  // The apps window (grid button) over an open document: no arrow of the tabs or the ribbon below shows through it
+  // (Martin's phone, 2026-11-06), and it offers Protection and Confidential mode.
+  await page.locator('.tabs .tab').first().click().catch(() => {});
+  await page.waitForTimeout(300);
+  await page.locator('.launcher-btn').click();
+  await page.waitForTimeout(500);
+  const overLauncher = await page.evaluate(() => {
+    const m = document.querySelector('.launcher')?.getBoundingClientRect();
+    return m ? [...document.querySelectorAll('.scroll-arrow:not([hidden])')].filter(a => {
+      const r = a.getBoundingClientRect();
+      return r.left < m.right && r.right > m.left && r.top < m.bottom && r.bottom > m.top;
+    }).length : -1;
+  });
+  check(overLauncher === 0, `${name}: no arrow floats over the apps window (${overLauncher})`);
+  check(await page.locator('.launcher [data-testid=cf-home]').isVisible() && await page.locator('.launcher .shield-btn').isVisible(), `${name}: the apps window offers Protection and Confidential mode`);
+  const lb = await page.locator('.launcher').boundingBox();
+  check(!!lb && lb.x >= 0 && lb.x + lb.width <= viewport.width + 1 && lb.y + lb.height <= viewport.height + 1, `${name}: the apps window fits the screen`);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  // The cloud window of the app bar too (Martin's phone, 2026-11-06): no arrow over it.
+  const cloudBtn = page.locator('.app-frame:not([hidden]) .app-bar button:has-text("☁"), .app-frame:not([hidden]) .cloud-btn').first();
+  if (await cloudBtn.count()) {
+    // Strips slid to their end, like on Martin's phone, so their ‹ arrows show.
+    await page.evaluate(() => { for (const el of document.querySelectorAll('.tabs, .ribbon-tabs, .ribbon-panel')) el.scrollLeft = 99999; });
+    await page.waitForTimeout(300);
+    await cloudBtn.click();
+    await page.waitForTimeout(500);
+    const overCloud = await page.evaluate(() => {
+      const m = document.querySelector('.cloud-panel, [class*=cloud-pop], [class*=cloud-panel]')?.getBoundingClientRect();
+      return m ? [...document.querySelectorAll('.scroll-arrow:not([hidden])')].filter(a => {
+        const r = a.getBoundingClientRect();
+        return r.left < m.right && r.right > m.left && r.top < m.bottom && r.bottom > m.top;
+      }).length : -1;
+    });
+    check(overCloud === 0, `${name}: no arrow floats over the cloud window (${overCloud})`);
+    await page.keyboard.press('Escape');
+  } else problems.push(`${name}: no cloud button in the app bar`);
   await ctx.close();
 }
 
