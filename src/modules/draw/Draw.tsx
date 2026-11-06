@@ -14,6 +14,7 @@ import { AppKeys, appColor } from '../../ui/AppKeys';
 import { FileMenu } from '../../ui/FileMenu';
 import { TutoTab } from '../../ui/tuto/Tuto';
 import { Copilot, CopilotButton, useCopilotShortcut, type CopilotHost } from '../../ui/Copilot';
+import { ContextMenu, cm, type MenuSection } from '../../ui/ContextMenu';
 import { usePinchZoom } from '../../ui/pinch';
 import { closeRibbonPeek } from '../../ui/ribbonMin';
 import { FastScroll } from '../../ui/FastScroll';
@@ -123,6 +124,9 @@ function DrawEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   const [fileRef, setFileRef] = useState<FileRef | undefined>();
   const [panel, setPanel] = useState<'file' | null>(null);
   const [copilot, setCopilot] = useState(false);
+  const [copilotStart, setCopilotStart] = useState<{ id: string; n: number }>();
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  const press = useRef({ x: 0, y: 0, id: 0, fired: false });
   const [aiAsk, setAiAsk] = useState<{ text: string; busy: boolean; error: string; written: number } | null>(null);
   const [note, setNote] = useState('');
   const undo = useRef<Drawing[]>([]);
@@ -577,6 +581,12 @@ function DrawEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     const mod = e.ctrlKey || e.metaKey;
     const key = e.key.toLowerCase();
+    if ((e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) && !mod && !(e.target as HTMLElement).isContentEditable) {
+      e.preventDefault();
+      const r = svgRef.current?.getBoundingClientRect();
+      if (r) setCtxMenu(selBox ? { x: r.left + (selBox.x + selBox.w / 2) * kRef.current, y: r.top + (selBox.y + selBox.h / 2) * kRef.current } : { x: r.left + 40, y: r.top + 40 });
+      return;
+    }
     if (mod && key === 'z') { e.preventDefault(); if (e.shiftKey) redoOnce(); else undoOnce(); }
     else if (mod && key === 'y') { e.preventDefault(); redoOnce(); }
     else if (mod && key === 'c') { copySel(); }
@@ -859,6 +869,59 @@ function DrawEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   const marquee = drag?.kind === 'marquee' ? drag : null;
   const cursor = tool === 'hand' ? (drag ? 'grabbing' : 'grab') : tool === 'select' ? 'default' : tool === 'text' ? 'text' : tool === 'eraser' ? 'cell' : 'crosshair';
 
+  // ---------- right-click menu ----------
+  const onDrawMenu = (e: React.MouseEvent) => {
+    if (editing) return; // typing in a label: the browser's text menu
+    e.preventDefault();
+    const s = shapeAt(e.target);
+    if (s && !sel.includes(s.id)) setSel([s.id]);
+    if (!s && !(e.target as Element).closest?.('[data-handle]')) setSel([]);
+    setCtxMenu({ x: e.clientX, y: e.clientY });
+  };
+  const drawMenu = (): MenuSection[] => {
+    const any = selected.length > 0, many = selected.length > 1;
+    const tools: Tool[] = ['select', 'hand', 'pen', 'marker', 'highlighter', 'eraser', 'line', 'arrow', 'shape', 'text'];
+    return [
+      { items: [
+        { id: 'cut', icon: 'cut', label: cm('cut'), keys: 'Ctrl+X', disabled: !any, run: cutSel },
+        { id: 'copy', icon: 'copy', label: cm('copy'), keys: 'Ctrl+C', disabled: !any, run: copySel },
+        { id: 'paste', icon: 'paste', label: cm('paste'), keys: 'Ctrl+V', disabled: !clip.current.length, run: () => { pasteClip(); } },
+        { id: 'duplicate', icon: 'clean', label: t('draw.duplicate'), keys: 'Ctrl+D', disabled: !any, run: duplicate },
+        { id: 'delete', icon: 'trash', label: t('draw.delete'), keys: 'Suppr', danger: true, disabled: !any, run: delSel },
+        { id: 'select-all', icon: 'select', label: t('draw.selectAll'), keys: 'Ctrl+A', run: () => { setSel(doc.shapes.map(x => x.id)); setTool('select'); } },
+      ] },
+      ...(any ? [{ items: [
+        { id: 'order', icon: 'layers', label: t('draw.group.order'), sub: (['front', 'forward', 'backward', 'back'] as const).map(h => ({ id: `or-${h}`, label: t(`draw.${h}`), run: () => order(h) })) },
+        { id: 'align', icon: 'center', label: t('draw.group.align'), sub: [
+          ...(['left', 'center', 'right', 'top', 'middle', 'bottom'] as const).map(h => ({ id: `al-${h}`, label: t(`draw.align.${h}`), run: () => align(h) })),
+          { id: 'dist-h', label: t('draw.distributeH'), disabled: selected.length < 3, run: () => distribute('x') },
+          { id: 'dist-v', label: t('draw.distributeV'), disabled: selected.length < 3, run: () => distribute('y') },
+        ] },
+        { id: 'turn', icon: 'rotate', label: t('draw.group.turn'), sub: [
+          { id: 'rot-r', label: t('draw.rotateRight'), run: () => rotate(90) },
+          { id: 'rot-l', label: t('draw.rotateLeft'), run: () => rotate(-90) },
+          { id: 'flip-h', label: t('draw.flipH'), run: () => flip('h') },
+          { id: 'flip-v', label: t('draw.flipV'), run: () => flip('v') },
+        ] },
+        { id: 'lock', icon: 'shield', label: t(selected.every(x => x.locked) ? 'draw.unlock' : 'draw.lock'), run: () => { const lock = !selected.every(x => x.locked); const ids = new Set(sel); change(l => l.map(x => (ids.has(x.id) ? { ...x, locked: lock } : x))); } },
+        ...(many ? [{ id: 'tidy', icon: 'magic', label: t('draw.tidy'), run: tidy }] : []),
+      ] }] : []),
+      { items: [
+        { id: 'tool', icon: 'pen', label: t('draw.group.tools'), sub: tools.map(x => ({ id: `tool-${x}`, label: t(`draw.tool.${x}`), run: () => setTool(x) })) },
+        { id: 'insert', icon: 'new', label: cm('insert'), sub: [
+          { id: 'i-picture', icon: 'image', label: t('draw.picture'), run: () => imageInput.current?.click() },
+          { id: 'i-text', icon: 'textTool', label: t('draw.tool.text'), run: () => setTool('text') },
+          { id: 'i-shape', icon: 'rectTool', label: t('draw.tool.shape'), run: () => setTool('shape') },
+        ] },
+        { id: 'send', icon: 'send', label: cm('send'), sub: [
+          { id: 'to-letter', icon: 'letter', label: t('draw.toLetter'), run: () => void sendToLetter() },
+          { id: 'to-pdf', icon: 'pdf', label: t('letter.savePdf'), run: () => void exportAs('pdf') },
+        ] },
+        { id: 'ai', icon: 'sparkle', label: cm('ai'), sub: copilotHost.actions.map(a => ({ id: `ai-${a.id}`, icon: a.icon, label: a.label, run: () => { setCopilot(true); setCopilotStart(x => ({ id: a.id, n: (x?.n ?? 0) + 1 })); } })) },
+      ] },
+    ];
+  };
+
   return (
     <div className="draw" ref={rootRef} tabIndex={-1} onKeyDown={onKey}>
       {ribbon}
@@ -869,6 +932,16 @@ function DrawEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
           <div className="dr-stage" style={{ width: doc.w * k + 32, height: doc.h * k + 32 }}>
             <svg ref={svgRef} className="dr-page" width={doc.w * k} height={doc.h * k} viewBox={`0 0 ${doc.w} ${doc.h}`} style={{ cursor, touchAction: 'none' } as CSSProperties}
               onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+              onContextMenu={onDrawMenu}
+              onTouchStart={e => {
+                window.clearTimeout(press.current.id);
+                // A long press opens the menu with the Select tool (with a pen, holding still draws a dot).
+                if (e.touches.length !== 1 || tool !== 'select') return;
+                const { clientX: x, clientY: y } = e.touches[0], target = e.target;
+                press.current = { x, y, fired: false, id: window.setTimeout(() => { press.current.fired = true; onDrawMenu({ clientX: x, clientY: y, target, preventDefault() {} } as unknown as React.MouseEvent); }, 550) };
+              }}
+              onTouchMove={e => { const t0 = e.touches[0]; if (!t0 || Math.hypot(t0.clientX - press.current.x, t0.clientY - press.current.y) > 10) window.clearTimeout(press.current.id); }}
+              onTouchEnd={e => { window.clearTimeout(press.current.id); if (press.current.fired) { e.preventDefault(); press.current.fired = false; } }}
               onDoubleClick={e => { const s = shapeAt(e.target); if (s && (s.kind === 'text' || s.kind === 'geom')) { setSel([s.id]); setEditing(s.id); } }}
               role="img" aria-label={title}>
               <rect width={doc.w} height={doc.h} fill={doc.background} />
@@ -934,7 +1007,8 @@ function DrawEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
             </ol>
           </aside>
         )}
-        {copilot && <Copilot host={copilotHost} ai={shell.ai} onClose={() => { setCopilot(false); rootRef.current?.focus(); }} />}
+        {ctxMenu && <ContextMenu at={ctxMenu} sections={drawMenu()} onClose={() => { setCtxMenu(null); rootRef.current?.focus(); }} />}
+        {copilot && <Copilot host={copilotHost} ai={shell.ai} start={copilotStart} onClose={() => { setCopilot(false); rootRef.current?.focus(); }} />}
       </div>
       <footer className="status">
         <span>{t('draw.count', { n: doc.shapes.length })}{sel.length ? ` · ${t('draw.selected', { n: sel.length })}` : ''}</span>

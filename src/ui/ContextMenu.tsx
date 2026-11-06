@@ -28,17 +28,19 @@ export function ContextMenu({ at, sections, onClose, label }: { at: { x: number;
   const [open, setOpen] = useState<string | null>(null);
   const [pos, setPos] = useState({ left: at.x, top: at.y, maxHeight: 0 });
   useLayoutEffect(() => {
-    const r = ref.current?.getBoundingClientRect();
-    if (!r) return;
+    const el = ref.current;
+    if (!el) return;
     const vw = Math.min(document.documentElement.clientWidth, window.visualViewport?.width ?? Infinity);
     const vh = Math.min(window.innerHeight, document.documentElement.clientHeight || Infinity, window.visualViewport?.height ?? Infinity);
     const maxHeight = vh - 16;
-    const h = Math.min(r.height, maxHeight);
+    // Its full height (it grows when a list opens in place), so it is placed again to stay on the screen.
+    const w = el.getBoundingClientRect().width, h = Math.min(el.scrollHeight + 2, maxHeight);
     // Beside the pointer, flipped when it would leave the screen; never off the edges.
-    const left = Math.max(8, Math.min(at.x + r.width + 8 > vw ? at.x - r.width : at.x, vw - r.width - 8));
+    const left = Math.max(8, Math.min(at.x + w + 8 > vw ? at.x - w : at.x, vw - w - 8));
     const top = Math.max(8, Math.min(at.y + h + 8 > vh ? at.y - h : at.y, vh - h - 8));
-    setPos({ left, top, maxHeight });
-  }, [at.x, at.y]);
+    setPos(p => (p.left === left && p.top === top && p.maxHeight === maxHeight ? p : { left, top, maxHeight }));
+    if (open) el.querySelector<HTMLElement>(`[data-id="${CSS.escape(open)}"]`)?.parentElement?.scrollIntoView({ block: 'nearest' });
+  }, [at.x, at.y, open, q]);
   useEffect(() => {
     const away = (e: Event) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
     const id = window.setTimeout(() => { document.addEventListener('pointerdown', away, true); window.addEventListener('blur', onClose); });
@@ -190,6 +192,18 @@ const S: Record<string, [string, string, string, string, string]> = {
   aiSummary: ['Summarize', 'Résumer', 'Resumir', 'Resumir', 'Zusammenfassen'],
   aiTranslate: ['Translate…', 'Traduire…', 'Traducir…', 'Traduzir…', 'Übersetzen…'],
   aiContinue: ['Continue writing', 'Continuer l’écriture', 'Seguir escribiendo', 'Continuar a escrever', 'Weiterschreiben'],
+  editText: ['Edit the text', 'Modifier le texte', 'Editar el texto', 'Editar o texto', 'Text bearbeiten'],
+  turn: ['Turn and flip', 'Pivoter et retourner', 'Girar y voltear', 'Rodar e inverter', 'Drehen und spiegeln'],
+  resetMenu: ['Reset', 'Rétablir', 'Restablecer', 'Redefinir', 'Zurücksetzen'],
+  exportAs: ['Save as', 'Enregistrer en', 'Guardar como', 'Salvar como', 'Speichern als'],
+  slide: ['Slide', 'Diapositive', 'Diapositiva', 'Slide', 'Folie'],
+  dupSlide: ['Duplicate the slide', 'Dupliquer la diapositive', 'Duplicar la diapositiva', 'Duplicar o slide', 'Folie duplizieren'],
+  slideUp: ['Move the slide up', 'Monter la diapositive', 'Subir la diapositiva', 'Subir o slide', 'Folie nach oben'],
+  slideDown: ['Move the slide down', 'Descendre la diapositive', 'Bajar la diapositiva', 'Descer o slide', 'Folie nach unten'],
+  resetSlide: ['Reset the slide', 'Rétablir la diapositive', 'Restablecer la diapositiva', 'Redefinir o slide', 'Folie zurücksetzen'],
+  showHere: ['Show from this slide', 'Diaporama depuis celle-ci', 'Presentar desde esta', 'Apresentar a partir deste', 'Ab dieser Folie zeigen'],
+  duplicate: ['Duplicate', 'Dupliquer', 'Duplicar', 'Duplicar', 'Duplizieren'],
+  selectAllObj: ['Select everything', 'Tout sélectionner', 'Seleccionar todo', 'Selecionar tudo', 'Alles auswählen'],
   quick: ['Quick analysis', 'Analyse rapide', 'Análisis rápido', 'Análise rápida', 'Schnellanalyse'],
   qSum: ['Sum: {v}', 'Somme : {v}', 'Suma: {v}', 'Soma: {v}', 'Summe: {v}'],
   qAvg: ['Average: {v}', 'Moyenne : {v}', 'Promedio: {v}', 'Média: {v}', 'Mittelwert: {v}'],

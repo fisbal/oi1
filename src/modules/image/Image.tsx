@@ -15,6 +15,7 @@ import { AppKeys, appColor } from '../../ui/AppKeys';
 import { FileMenu } from '../../ui/FileMenu';
 import { TutoTab } from '../../ui/tuto/Tuto';
 import { Copilot, CopilotButton, useCopilotShortcut, type CopilotHost } from '../../ui/Copilot';
+import { ContextMenu, cm, type MenuSection } from '../../ui/ContextMenu';
 import { usePinchZoom } from '../../ui/pinch';
 import { FastScroll } from '../../ui/FastScroll';
 import { closeRibbonPeek } from '../../ui/ribbonMin';
@@ -81,6 +82,8 @@ function ImageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const [fileRef, setFileRef] = useState<FileRef | undefined>();
   const [panel, setPanel] = useState<'file' | null>(null);
   const [copilot, setCopilot] = useState(false);
+  const [copilotStart, setCopilotStart] = useState<{ id: string; n: number }>();
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const [busy, setBusy] = useState('');
   const [exportSide, setExportSide] = useState(0);
   const [quality, setQuality] = useState(92);
@@ -452,6 +455,12 @@ function ImageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const tag = (e.target as HTMLElement).tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     const mod = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
+    if ((e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) && !mod && docRef.current) {
+      e.preventDefault();
+      const r = canvasRef.current?.getBoundingClientRect();
+      if (r) setCtxMenu({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      return;
+    }
     if (mod && key === 'z') { e.preventDefault(); if (e.shiftKey) redoOnce(); else undoOnce(); }
     else if (mod && key === 'y') { e.preventDefault(); redoOnce(); }
     else if (mod && key === 's') { e.preventDefault(); void save(); }
@@ -696,6 +705,46 @@ function ImageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   // ---------- the page ----------
   const cw = Math.max(1, Math.round(out.w * k)), ch = Math.max(1, Math.round(out.h * k));
   const histPath = hist ? (() => { const mx = Math.max(...hist, 1e-6); return `M0 40 ${hist.map((v, i) => `L${(i / 63) * 120} ${40 - (v / mx) * 38}`).join(' ')} L120 40Z`; })() : '';
+  // ---------- right-click menu (a long press keeps showing the photo before the changes) ----------
+  const imageMenu = (): MenuSection[] => [
+    { items: [
+      { id: 'copy', icon: 'copy', label: t('image.copy'), keys: 'Ctrl+C', run: () => void copyImage() },
+      { id: 'paste', icon: 'paste', label: t('image.paste'), keys: 'Ctrl+V', run: () => void pasteImage() },
+    ] },
+    { items: [
+      { id: 'enhance', icon: 'magic', label: t('image.enhance'), run: doEnhance },
+      { id: 'surprise', icon: 'dice', label: t('image.surprise'), run: doSurprise },
+      { id: 'looks', icon: 'palette', label: t('image.looks'), sub: LOOKS.map(l => ({ id: `look-${l.id}`, label: t(`image.look.${l.id}` as MessageKey), run: () => setLook(l.id) })) },
+      { id: 'compare', icon: 'compare', label: t('image.compare'), run: () => setCompare(c => (c === null ? 0.5 : null)) },
+    ] },
+    { items: [
+      { id: 'turn', icon: 'rotate', label: cm('turn'), sub: [
+        { id: 'turn-r', label: t('image.turnRight'), run: () => turn(1) },
+        { id: 'turn-l', label: t('image.turnLeft'), run: () => turn(-1) },
+        { id: 'flip-h', label: t('image.flipH'), run: () => flip('h') },
+        { id: 'flip-v', label: t('image.flipV'), run: () => flip('v') },
+      ] },
+      { id: 'crop', icon: 'crop', label: t('image.tab.crop'), run: () => goTab('crop') },
+      { id: 'reset', icon: 'undo', label: cm('resetMenu'), sub: [
+        { id: 'reset-adjust', label: t('image.resetAdjust'), run: () => resetAdjust() },
+        { id: 'reset-all', label: t('image.resetAll'), danger: true, run: resetAll },
+      ] },
+    ] },
+    { items: [
+      { id: 'send', icon: 'send', label: cm('send'), sub: [
+        { id: 'to-letter', icon: 'letter', label: t('image.toLetter'), run: () => void sendToLetter() },
+        { id: 'to-stage', icon: 'stage', label: t('image.toStage'), run: () => void sendToStage() },
+        { id: 'to-draw', icon: 'pen', label: t('image.toDraw'), run: () => void sendToDraw() },
+        { id: 'to-notes', icon: 'book', label: t('image.toNotes'), run: () => void sendToNotes() },
+      ] },
+      { id: 'export', icon: 'save', label: cm('exportAs'), sub: [
+        { id: 'ex-jpg', icon: 'image', label: t('image.format.jpg'), run: () => void exportAs('jpg') },
+        { id: 'ex-png', icon: 'image', label: t('image.format.png'), run: () => void exportAs('png') },
+      ] },
+      { id: 'ai', icon: 'sparkle', label: cm('ai'), sub: copilotHost.actions.map(a => ({ id: `ai-${a.id}`, icon: a.icon, label: a.label, run: () => { setCopilot(true); setCopilotStart(x => ({ id: a.id, n: (x?.n ?? 0) + 1 })); } })) },
+    ] },
+  ];
+
   return (
     <div className={`imgapp${narrow ? ' narrow' : ''}`} ref={rootRef} tabIndex={-1} onKeyDown={onKey} onKeyUp={e => { if (e.key === '\\' || e.key.toLowerCase() === 'b') setHolding(false); }}>
       {ribbon}
@@ -720,7 +769,7 @@ function ImageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
             )}
             {doc && (
               <div className="im-stage" style={zoom === 'fit' ? { width: '100%', height: '100%' } : { width: Math.max(cw + pad, area.w), height: Math.max(ch + pad, area.h) }}>
-                <div className="im-frame" style={{ width: cw, height: ch }}
+                <div className="im-frame" style={{ width: cw, height: ch }} onContextMenu={e => { if (cropping) return; e.preventDefault(); window.clearTimeout(holdTimer.current); setHolding(false); setCtxMenu({ x: e.clientX, y: e.clientY }); }}
                   onPointerDown={() => { if (!cropping) holdTimer.current = window.setTimeout(() => setHolding(true), 450); }}
                   onPointerUp={() => { window.clearTimeout(holdTimer.current); setHolding(false); }} onPointerLeave={() => { window.clearTimeout(holdTimer.current); setHolding(false); }} onPointerCancel={() => { window.clearTimeout(holdTimer.current); setHolding(false); }}
                   onPointerMove={() => window.clearTimeout(holdTimer.current)}>
@@ -765,7 +814,8 @@ function ImageEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           {busy && <div className="im-busy" role="status">{busy}</div>}
         </div>
         {sidePanel}
-        {copilot && <Copilot host={copilotHost} ai={shell.ai} onClose={() => { setCopilot(false); rootRef.current?.focus(); }} />}
+        {ctxMenu && <ContextMenu at={ctxMenu} sections={imageMenu()} onClose={() => { setCtxMenu(null); rootRef.current?.focus(); }} />}
+        {copilot && <Copilot host={copilotHost} ai={shell.ai} start={copilotStart} onClose={() => { setCopilot(false); rootRef.current?.focus(); }} />}
       </div>
       <footer className="status">
         <span>{doc ? `${outputSize(doc).w} × ${outputSize(doc).h} px` : t('image.noPhoto')}{doc?.look ? ` · ${t(`image.look.${doc.look}` as MessageKey)}` : ''}</span>
