@@ -57,6 +57,7 @@
     "check:confidential": "node scripts/check-confidential.mjs",
     "check:cellmenu": "node scripts/check-cellmenu.mjs",
     "check:paste": "node scripts/check-paste.mjs",
+    "check:interop": "vitest run --config interop/vitest.config.ts",
     "check:textmenu": "node scripts/check-textmenu.mjs",
     "check:mail": "node scripts/check-mail.mjs",
     "check:image": "node scripts/check-image.mjs",
