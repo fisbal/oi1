@@ -18,6 +18,7 @@
 import { closeHistory } from '@tiptap/pm/history';
 import type { Transaction } from '@tiptap/pm/state';
 import { FLUSH_AFTER_MS, SmartWriter, type SmartCommand } from './smartPunct';
+import { confidentialOn } from '../shell/confidential/mode';
 
 export type DictationEngine = 'web' | 'device';
 export type DictationError = 'denied' | 'nomic' | 'unsupported' | 'failed';
@@ -96,6 +97,8 @@ export function webSpeechIsShell(): boolean {
 }
 
 export function pickEngine(forced?: DictationEngine): DictationEngine | null {
+  // Confidential mode: the browser's dictation sends the voice to its maker (Google, Microsoft); Whisper stays here.
+  if (confidentialOn()) return hasMic() || forced === 'device' ? 'device' : null;
   if (forced) return forced;
   let pref = '';
   try { pref = localStorage.getItem(ENGINE_KEY) ?? ''; } catch { /* private mode */ }

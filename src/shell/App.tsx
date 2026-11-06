@@ -19,6 +19,8 @@ import { aiTranslator, bestTranslator, originalOf, registerTranslator, rememberC
 import { LangChoiceDialog } from './LangChoice';
 import { In1Voice } from './voice/In1Voice';
 import { guardFile } from './shield/guard';
+import { journal } from './confidential/journal';
+import { ConfidentialBadge, ConfidentialButton } from './confidential/Confidential';
 import { ShieldButton, ShieldHost } from './shield/Shield';
 import { installScrollArrows, schedule as scheduleScrollArrows } from '../ui/scrollArrows';
 import { autoSaveOn, forgetTab, markSaved, onSaveStatus, registerSaver, saveStatus, setAutoSave, trackedSave } from './saveStatus';
@@ -100,6 +102,7 @@ export default function App() {
     // The shield looks inside first (macros, hidden programs, traps); it may hand back a clean copy, or stop.
     void guardFile(picked).then(file => {
       if (!file) return;
+      journal('open', file.name);
       const entry = moduleForFile(file.name);
       if (entry) { openModule(entry.id, file); void remember(entry.id, file); }
       else alert(`${t('shell.cannotOpen')} ${file.name}`);
@@ -245,6 +248,7 @@ export default function App() {
     tabId,
     openFile: async extensions => {
       const f = await guardFile(await pickFile(extensions));
+      if (f) journal('open', f.name);
       if (f && moduleForFile(f.name)?.id === moduleId) void remember(moduleId, f); // not pictures picked for a letter
       return f;
     },
@@ -501,6 +505,7 @@ export default function App() {
                 <button className="gold-pill" onClick={() => void openModule('letter')}>{t('home.newLetter')}</button>
                 <button className="glass-pill" onClick={() => pickFile(readyExtensions).then(openAnyFile)}>{t('home.openFile')}</button>
                 <ShieldButton label />
+                <ConfidentialButton />
                 <span className="home-cloud">
                   <button className="glass-pill" onClick={() => setHomeCloud(o => !o)}>☁ {cloudAcc ? t('cloud.openTitle') : t('cloud.title')}</button>
                   {homeCloud && <CloudPanel onOpen={openAnyFile} onClose={() => setHomeCloud(false)} />}
@@ -624,6 +629,7 @@ function TabHost({ tab, hidden, makeApi, onOpen, onDrop }: { tab: Tab; hidden: b
         <span className="app-doc" title={tab.title}>{tab.title}</span>
         {tab.moduleId !== 'assistant' && <WantBar moduleId={tab.moduleId} />}
         <SaveBadge tabId={tab.tabId} onOpen={onOpen} />
+        <ConfidentialBadge />
         <ShieldButton />
       </div>
       <div ref={ref} className="module-host" hidden={hidden} />

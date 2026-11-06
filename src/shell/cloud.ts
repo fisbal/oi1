@@ -5,6 +5,7 @@
 
 import { GitHubError, TOKEN_URL, ensureRepo, savedAccount, saveAccount, signIn, type Account } from '../modules/code/github';
 import { store } from './storage';
+import { confidentialOn } from './confidential/mode';
 
 const API = 'https://api.github.com';
 const SETTINGS = 'cloud';
@@ -29,7 +30,8 @@ function setSettings(s: CloudSettings) { store.set(SETTINGS, JSON.stringify(s));
 export function cloudAccount(): Account | null {
   return cloudSettings().provider === 'github' ? savedAccount() : null;
 }
-export const cloudOn = () => !!cloudAccount();
+/** Off in confidential mode: documents never go to the cloud then. */
+export const cloudOn = () => !confidentialOn() && !!cloudAccount();
 export const cloudName = () => (cloudOn() ? 'GitHub' : '');
 export const cloudRepoUrl = () => { const a = cloudAccount(); return a ? `https://github.com/${a.login}/${cloudSettings().repo}` : ''; };
 

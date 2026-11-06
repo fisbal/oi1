@@ -5,6 +5,7 @@
 
 import type { AiApi, DocTranslator } from './contract';
 import { LANGUAGES, type LanguageCode } from './i18n';
+import { confidentialOn } from './confidential/mode';
 
 /** Translates a list of texts; the result has the same length and order. */
 export type TranslateTexts = (texts: string[]) => Promise<string[]>;
@@ -36,11 +37,13 @@ const originals = new Map<string, Original>();
 const KEY_ORIG = (tabId: string) => `oi1.lang.original.${tabId}`;
 export function originalOf(tabId: string): Original | null {
   if (originals.has(tabId)) return originals.get(tabId)!;
+  if (confidentialOn()) return null; // kept in memory only (above)
   try { const v = localStorage.getItem(KEY_ORIG(tabId)); if (v) { const o = JSON.parse(v) as Original; originals.set(tabId, o); return o; } } catch { /* none */ }
   return null;
 }
 function keepOriginal(tabId: string, o: Original) {
   originals.set(tabId, o);
+  if (confidentialOn()) return; // document text: never in clear on the device
   try { localStorage.setItem(KEY_ORIG(tabId), JSON.stringify(o)); } catch { /* too big or blocked: kept while the tab is open */ }
 }
 export function forgetOriginal(tabId: string) {
@@ -279,7 +282,8 @@ export function onlineTranslator(to: string, from: string): (texts: string[]) =>
  *  copilot's AI only for what both could not do. */
 export async function bestTranslator(to: LanguageCode | string, from: string, ai: () => TranslateTexts): Promise<TranslateTexts> {
   const browser = await browserTranslator(to, from);
-  const first = browser ?? (from && from !== to ? onlineTranslator(to, from) : null);
+  // Confidential mode: only translators on the device (the browser's, or an on-device copilot AI).
+  const first = browser ?? (from && from !== to && !confidentialOn() ? onlineTranslator(to, from) : null);
   if (!first) return ai();
   return async texts => {
     const { out, failed } = await first(texts);

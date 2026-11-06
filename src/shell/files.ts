@@ -3,6 +3,7 @@
 // desktop app. Other browsers (Firefox, Safari, phones) pick files with an <input> and save by downloading.
 
 import type { FileRef, OpenedFile, SaveOptions } from './contract';
+import { journal } from './confidential/journal';
 
 interface PickerType { description?: string; accept: Record<string, string[]> }
 interface FsWindow {
@@ -108,6 +109,7 @@ export function placeOf(path: string, asked: string): { name: string; where: str
 }
 
 export function downloadFile(name: string, content: Blob | string, mimeType: string) {
+  journal('export', name);
   const blob = typeof content === 'string' ? new Blob([content], { type: mimeType }) : content;
   const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement('a'), { href: url, download: name });
@@ -122,8 +124,16 @@ export async function blobOf(content: Blob | string | (() => Promise<Blob | stri
   return typeof c === 'string' ? new Blob([c], { type: mimeType }) : c;
 }
 
+/** Saves a document (and, in confidential mode, writes in the journal where it went). */
 export async function saveFile(name: string, content: Blob | string | (() => Promise<Blob | string>), mimeType: string,
   options: SaveOptions = {}): Promise<{ ref: FileRef; blob: Blob } | null> {
+  const r = await saveFileTo(name, content, mimeType, options);
+  if (r && !options.quiet && r.ref.where !== 'downloads') journal('save', r.ref.name);
+  return r;
+}
+
+async function saveFileTo(name: string, content: Blob | string | (() => Promise<Blob | string>), mimeType: string,
+  options: SaveOptions): Promise<{ ref: FileRef; blob: Blob } | null> {
   const toBlob = async () => {
     const c = typeof content === 'function' ? await content() : content;
     return typeof c === 'string' ? new Blob([c], { type: mimeType }) : c;

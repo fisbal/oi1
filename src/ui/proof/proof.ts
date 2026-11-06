@@ -12,6 +12,7 @@ import ptAff from '../../../node_modules/dictionary-pt/index.aff?url';
 import ptDic from '../../../node_modules/dictionary-pt/index.dic?url';
 import deAff from '../../../node_modules/dictionary-de/index.aff?url';
 import deDic from '../../../node_modules/dictionary-de/index.dic?url';
+import { confidentialOn } from '../../shell/confidential/mode';
 
 export type ProofLang = 'en' | 'fr' | 'es' | 'pt' | 'de';
 export const PROOF_LANGS: ProofLang[] = ['en', 'fr', 'es', 'pt', 'de'];
@@ -156,7 +157,9 @@ export const proofing = {
 const GRAMMAR_KEY = 'oi1.proof.grammar';
 /** Grammar goes online (LanguageTool), so it can be turned off; spelling stays on the device either way. */
 export const grammarSettings = {
-  on: () => { try { return localStorage.getItem(GRAMMAR_KEY) !== '0'; } catch { return true; } },
+  on: () => { if (confidentialOn()) return false; try { return localStorage.getItem(GRAMMAR_KEY) !== '0'; } catch { return true; } },
+  /** Off and greyed out in confidential mode: the text would be sent to LanguageTool. */
+  blocked: () => confidentialOn(),
   set(on: boolean) { try { localStorage.setItem(GRAMMAR_KEY, on ? '1' : '0'); } catch { /* private window */ } changed(); },
 };
 export const LT_URL = 'https://api.languagetool.org/v2/check';

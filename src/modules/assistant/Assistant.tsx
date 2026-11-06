@@ -15,21 +15,25 @@ import { safeHtml } from '../../shell/safeHtml';
 import { chatPrompt, planFromAnswer, readySteps, SCHEMA, SYSTEM, taskMessage, type Plan, type Step, type StepApp } from './plan';
 import { matchRecipe, recipePlan, RECIPES, type Recipe, type RecipeLang } from './recipes';
 import { runPlan, savePdf, type Made, type StepState } from './run';
+import { confidentialOn } from '../../shell/confidential/mode';
 
 type Phase = 'home' | 'planning' | 'plan' | 'running' | 'done';
 interface Attached { name: string; text: string }
 interface Saved { id: string; task: string; title: string; time: number; plan: Plan | null }
 
 const HISTORY = 'oi1.assistant.history';
+let memHistory: Saved[] = [];
 const NO_AI = 'oi1.assistant.noAi';
 const TEXT_EXT = ['.txt', '.md', '.csv', '.tsv', '.json', '.html', '.htm', '.xml'];
 
 function loadHistory(): Saved[] {
+  if (confidentialOn()) return memHistory;
   try { const v = JSON.parse(localStorage.getItem(HISTORY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
 }
 function saveHistory(list: Saved[]) {
   // Plans are kept while they fit; the oldest go first.
   let keep = list.slice(0, 20);
+  if (confidentialOn()) { memHistory = keep; return; } // confidential mode: plans stay in memory only
   for (;;) {
     try { localStorage.setItem(HISTORY, JSON.stringify(keep)); return; } catch {
       if (!keep.length) return;

@@ -1,8 +1,10 @@
 // Opens a print window for a document without writing raw HTML into it: the title and the style are set as text and
 // the body goes through safeHtml, so a pasted page or an AI answer can never run code in the print window.
 import { safeHtml } from './safeHtml';
+import { journal } from './confidential/journal';
 
 export function printWindow(title: string, bodyHtml: string, css: string, lang = 'en'): void {
+  journal('print', title);
   const w = window.open('', '_blank');
   if (!w) return;
   const d = w.document;
