@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="fr" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google" content="notranslate">
+<meta name="theme-color" content="#07070A">
+<title>Installer Office In 1</title>
+<meta name="description" content="Office In 1 : tout votre bureau dans une seule app. Windows (Microsoft Store), Android, iPhone, Mac et Web.">
+<meta property="og:title" content="Office In 1 — tout votre bureau dans une seule app">
+<meta property="og:description" content="Lettres, tableurs, présentations, PDF, notes, agenda… liés entre eux. Windows, Android, Mac et Web.">
+<meta property="og:image" content="https://fisbal.github.io/oi1/promo/poster-fr-square.png">
+<meta property="og:url" content="https://fisbal.github.io/oi1/get/">
+<link rel="icon" href="../icons/icon.svg">
+<!-- Where the QR code of the promo kit leads. Its address never changes (printed codes stay good):
+     it recognizes the device and puts the right install first. Links: ../promo/config.json -->
+<style>
+@font-face { font-family: 'Playfair Display Variable'; src: url(../promo/fonts/playfair-display-latin-wght-normal.woff2) format('woff2'); font-weight: 400 900; font-display: swap; }
+@font-face { font-family: 'DM Sans Variable'; src: url(../promo/fonts/dm-sans-latin-wght-normal.woff2) format('woff2'); font-weight: 100 1000; font-display: swap; }
+:root { --ink: #07070A; --text: #F4EFE6; --dim: #B9B1A3; --gold-hi: #F2D78B; --goldfill: linear-gradient(135deg, #B8892E, #F2D78B 55%, #D4A843); }
+* { box-sizing: border-box; margin: 0; }
+body { min-height: 100vh; background: var(--ink); color: var(--text); font: 16px/1.5 'DM Sans Variable', system-ui, sans-serif; padding: 40px 16px 60px;
+  background-image: radial-gradient(60% 40% at 30% 0%, rgba(212,168,67,.22), transparent 70%), radial-gradient(50% 40% at 90% 100%, rgba(212,168,67,.12), transparent 70%); }
+main { max-width: 520px; margin: 0 auto; text-align: center; }
+img.crest { width: 112px; height: 112px; filter: drop-shadow(0 0 30px rgba(212,168,67,.45)); }
+h1 { font: 700 42px/1.05 'Playfair Display Variable', Georgia, serif; margin-top: 18px; }
+b { background: var(--goldfill); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lead { color: var(--dim); margin: 10px 0 28px; }
+.opt { display: flex; align-items: center; gap: 14px; text-align: left; padding: 16px 18px; border-radius: 18px; margin-top: 10px; text-decoration: none; color: inherit;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(242,215,139,.22); transition: transform .15s, border-color .15s; }
+.opt:hover, .opt:focus-visible { border-color: var(--gold-hi); transform: translateY(-1px); outline: none; }
+.opt.best { background: var(--goldfill); color: #17130a; border: 0; box-shadow: 0 16px 40px -14px rgba(212,168,67,.7); }
+.opt .ic { width: 40px; height: 40px; flex: none; display: grid; place-items: center; font-size: 24px; }
+.opt strong { display: block; font-size: 17px; }
+.opt small { display: block; font-size: 13.5px; opacity: .78; }
+.opt.best small { opacity: .85; }
+.how { margin-top: 10px; padding: 14px 18px; border-radius: 14px; background: rgba(212,168,67,.1); color: var(--dim); font-size: 14px; text-align: left; }
+.how[hidden] { display: none; }
+.more { margin-top: 26px; font-size: 13px; color: var(--dim); text-transform: uppercase; letter-spacing: .14em; }
+footer { margin-top: 34px; font-size: 13px; color: var(--dim); }
+footer a { color: var(--gold-hi); }
+.lang { position: absolute; top: 14px; right: 16px; }
+.lang button { all: unset; cursor: pointer; font-size: 13px; padding: 6px 12px; border-radius: 99px; border: 1px solid rgba(242,215,139,.3); color: var(--gold-hi); }
+</style>
+</head>
+<body>
+<div class="lang"><button id="lg" type="button"></button></div>
+<main>
+  <img class="crest" src="../icons/icon.svg" alt="">
+  <h1>Office In <b>1</b></h1>
+  <p class="lead" id="lead"></p>
+  <div id="first"></div>
+  <p class="more" id="more"></p>
+  <div id="rest"></div>
+  <footer id="foot"></footer>
+</main>
+<script src="../promo/kit.js"></script>
+<script>
+(async () => {
+  const L = OI1Kit.lang(), FR = L === 'fr', tx = (f, e) => FR ? f : e;
+  document.documentElement.lang = L;
+  document.title = tx('Installer Office In 1', 'Install Office In 1');
+  const d = await OI1Kit.load(), k = d.links;
+  const ua = navigator.userAgent, plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+  const ios = /iPhone|iPad|iPod/.test(ua) || (plat === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const device = ios ? 'ios' : /Android/i.test(ua) ? 'android' : /Win/i.test(plat) || /Windows/.test(ua) ? 'windows' : /Mac/i.test(plat) ? 'mac' : 'web';
+  // Inside Facebook, Instagram, TikTok or WhatsApp's own browser, downloads and the Store often cannot open.
+  const inApp = /FBAN|FBAV|Instagram|musical_ly|TikTok|BytedanceWebview|WhatsApp/i.test(ua);
+
+  const opts = {
+    windows: { ic: '🪟', t: 'Windows — Microsoft Store', s: tx('Signée par Microsoft, sans avertissement, mises à jour automatiques', 'Signed by Microsoft, no warning, automatic updates'), href: k.store },
+    android: { ic: '🤖', t: tx('Android — fichier APK', 'Android — APK file'), s: tx('Ouvrez le fichier téléchargé pour installer', 'Open the downloaded file to install'), href: k.apk,
+      how: tx('Première fois : Android demande d’autoriser « Installer des applis inconnues » pour votre navigateur. Acceptez, puis revenez et touchez <b>Installer</b>.', 'First time: Android asks to allow “Install unknown apps” for your browser. Allow it, come back and tap <b>Install</b>.') },
+    ios: { ic: '📱', t: 'iPhone · iPad', s: tx('Safari → Partager → Sur l’écran d’accueil', 'Safari → Share → Add to Home Screen'), href: k.site,
+      how: tx('Ouvrez le site dans <b>Safari</b>, touchez <b>Partager</b> (le carré avec la flèche), puis <b>Sur l’écran d’accueil</b>. Office In 1 s’ouvre ensuite comme une app.', 'Open the site in <b>Safari</b>, tap <b>Share</b> (the square with the arrow), then <b>Add to Home Screen</b>. Office In 1 then opens like an app.') },
+    mac: { ic: '💻', t: tx('Mac — fichier DMG', 'Mac — DMG file'), s: tx('Glissez l’app dans Applications', 'Drag the app into Applications'), href: k.dmg },
+    web: { ic: '🌐', t: tx('Ouvrir sur le Web', 'Open on the Web'), s: tx('Rien à installer', 'Nothing to install'), href: k.site },
+    exe: { ic: '⬇', t: tx('Windows — installateur .exe', 'Windows — .exe installer'), s: tx('Sans le Store', 'Without the Store'), href: k.exe },
+  };
+  const card = (key, best) => {
+    const o = opts[key];
+    return `<a class="opt${best ? ' best' : ''}" href="${o.href}" rel="noopener"><span class="ic">${o.ic}</span><span><strong>${o.t}</strong><small>${o.s}</small></span></a>${best && o.how ? `<div class="how">${o.how}</div>` : ''}`;
+  };
+  document.getElementById('lead').textContent = tx('Tout votre bureau dans une seule app.', 'Your whole office in one app.');
+  let first = card(device, true);
+  if (inApp && device !== 'web') first = `<div class="how" style="margin-bottom:10px">${tx('Vous êtes dans le navigateur d’une app (Facebook, Instagram, TikTok ou WhatsApp). Si le bouton ne réagit pas, touchez ⋯ puis <b>Ouvrir dans le navigateur</b>.', 'You are in an app’s own browser (Facebook, Instagram, TikTok or WhatsApp). If the button does nothing, tap ⋯ then <b>Open in browser</b>.')}</div>` + first;
+  document.getElementById('first').innerHTML = first;
+  document.getElementById('more').textContent = tx('Autres appareils', 'Other devices');
+  document.getElementById('rest').innerHTML = ['windows', 'android', 'ios', 'mac', 'web', 'exe'].filter(x => x !== device).map(x => card(x, false)).join('');
+  document.getElementById('foot').innerHTML = `${d.version ? 'v' + d.version + ' · ' : ''}${tx('Se met à jour tout seul', 'Updates itself')} · <a href="${k.kit}">${tx('Kit de présentation', 'Presentation kit')}</a>`;
+  const lg = document.getElementById('lg');
+  lg.textContent = FR ? 'English' : 'Français';
+  lg.onclick = () => { const q = new URLSearchParams(location.search); q.set('lang', FR ? 'en' : 'fr'); location.search = q.toString(); };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "_": "Links of the Office In 1 promo kit (promo/, get/). Edit here only: scripts/promo.mjs copies them into promo/info.json at every build, and the kit, the demo video, the PDF guide and the install page all read them.",
+  "storeId": "9NW4XQH95MRB",
+  "store": "https://apps.microsoft.com/detail/9NW4XQH95MRB",
+  "storeApp": "ms-windows-store://pdp/?productid=9NW4XQH95MRB",
+  "site": "https://fisbal.github.io/oi1/",
+  "get": "https://fisbal.github.io/oi1/get/",
+  "kit": "https://fisbal.github.io/oi1/promo/",
+  "apk": "https://github.com/fisbal/fisbal.github.io/releases/download/oi1-updates/OfficeIn1.apk",
+  "exe": "https://github.com/fisbal/fisbal.github.io/releases/download/oi1-updates/OfficeIn1-Setup.exe",
+  "dmg": "https://github.com/fisbal/fisbal.github.io/releases/download/oi1-updates/OfficeIn1.dmg",
+  "hub": "https://fisbal.github.io/",
+  "_upcoming": "Apps announced but not yet on the home screen (name, kind fr/en, color): shown as coming soon until they appear on the home screen. In 1 Image arrived on 2026-11-01.",
+  "upcoming": []
+}
