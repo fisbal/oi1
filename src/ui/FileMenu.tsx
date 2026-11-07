@@ -25,7 +25,7 @@ export function FileMenu<Id extends string>({ onClose, onNew, onOpen, onSave, sa
   return (
     <div className="backstage" role="dialog" aria-label={t('letter.tab.file')}>
       <nav className="backstage-nav">
-        <button type="button" className="back" onClick={onClose} aria-label={t('letter.close')}>←</button>
+        <button type="button" className="back" onClick={onClose} aria-label={t('letter.close')}><i aria-hidden="true">←</i><span className="back-label">{t('letter.close')}</span></button>
         <button type="button" onClick={act(onNew)}><Icon name="new" />{t('letter.new')}</button>
         <button type="button" onClick={act(onOpen)}><Icon name="open" />{t('letter.open')}</button>
         <button type="button" onClick={act(onSave)}><Icon name="save" />{t('letter.save')}</button>
@@ -42,7 +42,7 @@ export function FileMenu<Id extends string>({ onClose, onNew, onOpen, onSave, sa
                 <li key={r.id}>
                   <button type="button" onClick={act(() => onOpenRecent(r))}>
                     <Icon name="size" />
-                    <span className="name">{r.name}</span>
+                    <span className="name" title={r.name}>{r.name}</span>
                     <span className="time">{new Date(r.time).toLocaleString(getLanguage(), { dateStyle: 'medium', timeStyle: 'short' })}</span>
                   </button>
                 </li>

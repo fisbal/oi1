@@ -150,6 +150,9 @@ jobs:
       - name: Class paste from Excel and any currency (PC, tablet, phone, both ways)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:paste
+      - name: File menu of every app shows its names, finger-size, nothing cut (PC, Mac, tablet, phone, both ways)
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:filemenu
       - name: Files go both ways with Excel, Word, PowerPoint, mail, calendar and contacts apps (openpyxl, python-docx, python-pptx, LibreOffice when there)
         if: env.FULL_CHECKS == 'true'
         run: |
