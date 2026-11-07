@@ -9,6 +9,7 @@ import type { Editor, JSONContent } from '@tiptap/core';
 import type { Node as PmNode } from '@tiptap/pm/model';
 import { applyTitles, findTitles, isTocLine, makeLists, nodeText } from './templates/structure';
 import { isTracking, setTracking } from './review';
+import { TOC_TITLES } from './smart';
 
 export type Group = 'layout' | 'method' | 'structure' | 'sources' | 'language';
 export interface Edit { from: number; to: number; insert: string }
@@ -25,7 +26,7 @@ export interface Finding {
   /** Text fixes, put in as tracked changes. */
   edits?: Edit[];
   /** A fix that changes blocks: titles and lists, or references added at the end. */
-  action?: 'structure' | 'refs' | 'fill' | 'empties' | 'toc' | 'pages' | 'breaks' | 'norm' | 'pagenum' | 'reorganize';
+  action?: 'structure' | 'refs' | 'fill' | 'empties' | 'toc' | 'pages' | 'breaks' | 'norm' | 'pagenum' | 'reorganize' | 'fieldColor' | 'unheading' | 'bodyBold' | 'tocUpdate';
   refs?: string[];
 }
 
@@ -221,7 +222,25 @@ export function analyze(doc: PmNode, opts: AnalyzeOptions = {}): Finding[] {
     return true;
   });
   if (fields) add({ group: 'structure', key: 'ana.fields', vars: { n: fields }, at: fieldAt, action: 'fill' });
+  // Fields already filled that kept the model's yellow (Martin's "3.2 … 3.4" stayed yellow after he wrote over them).
+  const colored = filledFields(doc);
+  if (colored.length) add({ group: 'structure', key: 'ana.s.fieldColor', vars: { n: colored.length }, excerpt: colored.slice(0, 4).map(c => c.text).join('\n'), at: colored[0].pos, action: 'fieldColor' });
+  // A whole paragraph set as a title (so bold, in the plan, kept with the next page), or a title with no words.
+  const wrongHeads = headingsNotTitles(doc);
+  const long = wrongHeads.filter(h => h.text);
+  if (long.length) add({ group: 'structure', key: 'ana.s.longHeading', vars: { n: long.length }, excerpt: long.slice(0, 2).map(h => `${h.text.slice(0, 90)}…`).join('\n'), at: long[0].pos, action: 'unheading' });
+  else if (wrongHeads.length) add({ group: 'structure', key: 'ana.s.emptyHeading', vars: { n: wrongHeads.length }, at: wrongHeads[0].pos, action: 'unheading' });
 
+
+  // A table of contents that no longer matches the titles (a model's "3.1 [Sous-partie]", parts renamed since).
+  const old = oldToc(doc);
+  if (old) add({ group: 'structure', key: 'ana.s.oldToc', vars: { n: old.stale.length }, excerpt: old.stale.slice(0, 4).join('\n'), at: old.from, action: 'tocUpdate' });
+
+  // ---- the norm: no bold in the running text (APA and the others put bold on titles only)
+  if (opts.work) {
+    const bold = bodyBold(doc, lang, opts.known);
+    if (bold.length) add({ group: 'layout', key: 'ana.s.bodyBold', vars: { n: bold.length }, excerpt: bold.slice(0, 3).map(b => `« ${b.text.trim().slice(0, 70)} »`).join('\n'), at: bold[0].from, action: 'bodyBold' });
+  }
 
   // ---- method: the way of working that makes Word-like tools do the work (Martin: "s'il n'utilise pas la bonne méthode")
   const typed = titles.filter(ti => tops[ti.index].type !== 'heading');
@@ -320,7 +339,7 @@ export function analyze(doc: PmNode, opts: AnalyzeOptions = {}): Finding[] {
         spaceEdits.push(range(b, i, i, ' '));
       }
     }
-    for (let m = / {2,}/g.exec(t), re = / {2,}/g; m; m = re.exec(t)) { if (m.index > 0 && m.index + m[0].length < t.length) dbl.push(range(b, m.index, m.index + m[0].length, ' ')); }
+    for (let re = / {2,}/g, m = re.exec(t); m; m = re.exec(t)) { if (m.index > 0 && m.index + m[0].length < t.length) dbl.push(range(b, m.index, m.index + m[0].length, ' ')); }
     const reAfter = /([,;])(?=\p{L})|([.!?])(?=\p{Lu}\p{Ll}{2,})/gu;
     for (let m = reAfter.exec(t); m; m = reAfter.exec(t)) {
       if (/\d/.test(t[m.index - 1] ?? '') && /\d/.test(t[m.index + 1] ?? '')) continue;
@@ -344,7 +363,7 @@ export function analyze(doc: PmNode, opts: AnalyzeOptions = {}): Finding[] {
     }
     if (lang === 'fr') {
       // "dune politique" → "d’une politique" (but "la dune", "une dune").
-      for (let m = /(?<![\p{L}’'])(d)une(?=\s+\p{L})/giu.exec(t), re = /(?<![\p{L}’'])(d)une(?=\s+\p{L})/giu; m; m = re.exec(t)) {
+      for (let re = /(?<![\p{L}’'])(d)une(?=\s+\p{L})/giu, m = re.exec(t); m; m = re.exec(t)) {
         if (/\b(?:la|une|les|des|cette|grande|petite|cette|sur|haute)\s+$/iu.test(t.slice(0, m.index))) continue;
         const fix = `${m[1]}${apos}une`;
         add({ group: 'language', key: 'ana.spell', vars: { wrong: m[0], right: fix }, excerpt: t.slice(Math.max(0, m.index - 25), m.index + 30).trim(), at: b.map[m.index], edits: [range(b, m.index, m.index + 4, fix)] });
@@ -363,7 +382,7 @@ export function analyze(doc: PmNode, opts: AnalyzeOptions = {}): Finding[] {
         add({ group: 'language', key: 'ana.agree', vars: { wrong: m[1], right: `${m[1]}s` }, excerpt: m[0], at: b.map[end - m[1].length], edits: [range(b, end, end, 's')] });
       }
       // "serait de développée" → "serait de développer".
-      for (let m = /\b(?:serait|sera|est|consisterait|consiste|consistera|permettrait|permet|afin|essayer|tenter|décider|choisir)\s+(?:de|d’|d')\s*(\p{L}{3,})ée?s?(?![\p{L}])/giu.exec(t), re = /\b(?:serait|sera|est|consisterait|consiste|consistera|permettrait|permet|afin|essayer|tenter|décider|choisir)\s+(?:de|d’|d')\s*(\p{L}{3,})ée?s?(?![\p{L}])/giu; m; m = re.exec(t)) {
+      for (let re = /\b(?:serait|sera|est|consisterait|consiste|consistera|permettrait|permet|afin|essayer|tenter|décider|choisir)\s+(?:de|d’|d')\s*(\p{L}{3,})ée?s?(?![\p{L}])/giu, m = re.exec(t); m; m = re.exec(t)) {
         const word = m[0].slice(m[0].length - (m[0].length - m[0].lastIndexOf(m[1])));
         const start = m.index + m[0].lastIndexOf(m[1]);
         const fix = `${m[1]}er`;
@@ -371,7 +390,7 @@ export function analyze(doc: PmNode, opts: AnalyzeOptions = {}): Finding[] {
       }
     }
     // A word typed twice: "de de".
-    for (let m = /(?<![\p{L}])(\p{L}+)\s+\1(?![\p{L}])/giu.exec(t), re = /(?<![\p{L}])(\p{L}+)\s+\1(?![\p{L}])/giu; m; m = re.exec(t)) {
+    for (let re = /(?<![\p{L}])(\p{L}+)\s+\1(?![\p{L}])/giu, m = re.exec(t); m; m = re.exec(t)) {
       if (REPEAT_OK.has(m[1].toLowerCase())) continue;
       add({ group: 'language', key: 'ana.repeat', vars: { word: m[1] }, excerpt: t.slice(Math.max(0, m.index - 20), m.index + m[0].length + 20).trim(), at: b.map[m.index], edits: [range(b, m.index + m[1].length, m.index + m[0].length, '')] });
     }
@@ -393,7 +412,9 @@ export function applyEdits(editor: Editor, edits: Edit[]) {
   const was = isTracking(editor);
   if (!was) setTracking(editor, true);
   const tr = editor.state.tr;
-  for (const e of [...edits].sort((a, b) => b.from - a.from)) {
+  // The same place twice (or two overlapping fixes) would strike out a letter next to it: each place once.
+  const once = [...edits].sort((a, b) => b.from - a.from).filter((e, i, all) => !all.slice(0, i).some(o => o.from < Math.max(e.to, e.from + 1) && e.from < Math.max(o.to, o.from + 1)));
+  for (const e of once) {
     if (e.insert) tr.insertText(e.insert, e.from, e.to);
     else tr.delete(e.from, e.to);
   }
@@ -461,6 +482,106 @@ export function aiFindings(answer: string, chunk: { blocks: Block[] }, startId: 
 }
 
 // ---------- fixes that change blocks (one undo step each) ----------
+
+const FIELD = '#FFF2A8';
+const isFieldMark = (m: { type: { name: string }; attrs: Record<string, unknown> }) => m.type.name === 'highlight' && String(m.attrs.color).toUpperCase() === FIELD;
+const SENTENCES = (t: string) => t.replace(/\b(?:p|pp|ex|etc|cf|al|vol|no|éd|ed)\.\s/gi, '').split(/[.!?]\s+(?=\p{Lu})/u).length;
+
+/** Paragraphs whose yellow field color stayed after the field was filled (no "[…]" left in them). */
+export function filledFields(doc: PmNode): { pos: number; text: string; ranges: [number, number][] }[] {
+  const out: { pos: number; text: string; ranges: [number, number][] }[] = [];
+  doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true;
+    if (/\[[^\]]+\]/.test(node.textContent)) return false;
+    const ranges: [number, number][] = [];
+    node.forEach((c, off) => { if (c.isText && c.marks.some(isFieldMark)) ranges.push([pos + 1 + off, pos + 1 + off + c.nodeSize]); });
+    if (ranges.length) out.push({ pos, text: node.textContent.trim(), ranges });
+    return false;
+  });
+  return out;
+}
+/** Titles that are really paragraphs (long, several sentences) or have no words at all. */
+export function headingsNotTitles(doc: PmNode): { pos: number; text: string }[] {
+  const out: { pos: number; text: string }[] = [];
+  doc.forEach((node, pos) => {
+    if (node.type.name !== 'heading') return;
+    const t = node.textContent.replace(/\s+/g, ' ').trim();
+    if (!t && !node.childCount) out.push({ pos, text: '' });
+    else if (t.length > 160 || (t.length > 60 && SENTENCES(t) >= 2)) out.push({ pos, text: t });
+  });
+  return out;
+}
+/** Bold words in the running text, after the cover page, outside titles, the table of contents and the references. */
+export function bodyBold(doc: PmNode, lang: string, known?: (t: string) => boolean): { from: number; to: number; text: string }[] {
+  const tops = (doc.toJSON().content ?? []) as JSONContent[];
+  const brk = tops.findIndex(x => x.type === 'pageBreak');
+  const cover = brk > 0 && brk < 40 && tops.slice(0, brk).every(x => x.type === 'paragraph' && nodeText(x).length <= 160) ? brk : 0;
+  const titles = new Set(findTitles(tops, lang, known).map(ti => ti.index));
+  const out: { from: number; to: number; text: string }[] = [];
+  let inRefs = false;
+  doc.forEach((node, pos, i) => {
+    if (node.type.name === 'heading') { inRefs = REFS_TITLE.test(node.textContent.trim()); return; }
+    if (i < cover || inRefs || node.type.name !== 'paragraph' || titles.has(i) || node.attrs.textAlign === 'center' || isTocLine(tops[i])) return;
+    node.forEach((c, off) => {
+      if (!c.isText || !c.text?.trim() || !c.marks.some(m => m.type.name === 'bold')) return;
+      const from = pos + 1 + off, to = from + c.nodeSize, last = out[out.length - 1];
+      if (last && last.to === from) { last.to = to; last.text += c.text; } else out.push({ from, to, text: c.text });
+    });
+  });
+  return out;
+}
+/** The lines of a table of contents (title, tab, page; or a bare "3.2" left by a model) under its heading. */
+export function oldToc(doc: PmNode): { from: number; to: number; lines: [number, number][]; stale: string[] } | null {
+  let start = -1;
+  const lines: [number, number][] = [], said: string[] = [], heads: string[] = [];
+  let open = false, done = false;
+  doc.forEach((node, pos) => {
+    const t = node.textContent.replace(/\s+$/, '');
+    if (node.type.name === 'heading' && TOC_TITLES.test(t.trim())) { start = pos; open = true; return; }
+    if (open && !done) {
+      if (node.type.name === 'pageBreak') { done = true; return; }
+      const line = /\t\s*[\divxlc]+(?:\s*[-–]\s*\d+)?\s*$/i.test(t) || /^\s*\d{1,2}(?:\.\d{1,2})*\.?\s*$/.test(t) || isTocLine(node.toJSON() as JSONContent);
+      if (line) { lines.push([pos, pos + node.nodeSize]); said.push(t.split('\t')[0].trim()); return; }
+      // A part's title written in the contents is left as it is (and is in the contents).
+      if (node.type.name === 'heading') { if (Number(node.attrs.level) <= 3 && t.trim()) heads.push(t.replace(/\s+/g, ' ').trim()); return; }
+      if (!t.trim()) return;
+      done = true;
+    }
+    if (node.type.name === 'heading' && Number(node.attrs.level) <= 3 && t.trim() && !TOC_TITLES.test(t.trim())) heads.push(t.replace(/\s+/g, ' ').trim());
+  });
+  if (start < 0 || !lines.length) return null;
+  const norm = (x: string) => x.replace(/\s+/g, ' ').replace(/\s*:\s*/g, ' : ').trim().toLowerCase();
+  const have = new Set(heads.map(norm));
+  const stale = said.filter(x => !have.has(norm(x)));
+  if (!stale.length && said.length >= heads.length) return null;
+  return { from: lines[0][0], to: lines[lines.length - 1][1], lines, stale: stale.length ? stale : said.slice(0, 1) };
+}
+/** The yellow of filled fields goes (one undo). */
+export function fixFieldColor(editor: Editor) {
+  const tr = editor.state.tr, hl = editor.schema.marks.highlight;
+  if (!hl) return;
+  for (const f of filledFields(editor.state.doc)) for (const [a, z] of f.ranges) tr.removeMark(a, z, hl);
+  if (tr.docChanged) editor.view.dispatch(tr);
+}
+/** A paragraph set as a title goes back to text (its all-bold look with it); an empty title goes. One undo. */
+export function fixHeadings(editor: Editor) {
+  const tr = editor.state.tr, para = editor.schema.nodes.paragraph, bold = editor.schema.marks.bold;
+  for (const h of headingsNotTitles(editor.state.doc).reverse()) {
+    const node = editor.state.doc.nodeAt(h.pos)!;
+    if (!h.text) { tr.delete(h.pos, h.pos + node.nodeSize); continue; }
+    tr.setNodeMarkup(h.pos, para, { textAlign: node.attrs.textAlign ?? null });
+    let all = true;
+    node.forEach(c => { if (c.isText && c.text?.trim() && !c.marks.some(m => m.type === bold)) all = false; });
+    if (all && bold) tr.removeMark(h.pos + 1, h.pos + node.nodeSize - 1, bold);
+  }
+  if (tr.docChanged) editor.view.dispatch(tr);
+}
+/** Bold goes from the running text (one undo); titles keep theirs. */
+export function fixBodyBold(editor: Editor, lang: string, known?: (t: string) => boolean) {
+  const tr = editor.state.tr, bold = editor.schema.marks.bold;
+  for (const b of bodyBold(editor.state.doc, lang, known)) tr.removeMark(b.from, b.to, bold);
+  if (bold && tr.docChanged) editor.view.dispatch(tr);
+}
 
 const setDoc = (editor: Editor, content: JSONContent[]) => {
   editor.chain().setContent({ type: 'doc', content }, { emitUpdate: true }).run();

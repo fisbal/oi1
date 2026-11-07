@@ -117,6 +117,7 @@ for (const d of DEVICES) {
     await page.waitForTimeout(600);
     check(await pane.locator('[data-group="layout"] .ana-card').count() >= 2, `${n}: Harvard: the layout remarks show (font, size…)`);
     await pane.locator('[data-apply-norm]').click();
+    await pane.locator('[data-apply-norm-go]').click();
     await page.waitForTimeout(900);
     check(await pane.locator('[data-group="layout"] [data-key="ana.n.font"], [data-group="layout"] [data-key="ana.n.pt"]').count() === 0, `${n}: "Appliquer la norme" fixes the font and the size`);
     const font = await body.locator('p').nth(3).evaluate(p => getComputedStyle(p).fontFamily);

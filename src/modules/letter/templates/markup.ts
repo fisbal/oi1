@@ -126,6 +126,41 @@ export const FieldTyping = Extension.create({
           return true;
         },
       },
+      // Words typed in or next to a field never take its yellow, also on phones where typing comes as compositions, not
+      // text input (Martin 2026-11-07: "3.2 …", "3.3 …", "3.4 …" written in fields stayed yellow). A [field] put in by a
+      // model keeps its yellow; undo and redo are left as they are.
+      appendTransaction(trs, _old, state) {
+        const highlight = state.schema.marks.highlight;
+        // Typing only: not undo/redo, not a whole document put in (a file opened, a model, a fix of the analysis; those
+        // keep their look and the analysis proposes to clear a stale yellow).
+        const whole = (tr: (typeof trs)[number]) => tr.steps.some((st, i) => { let all = false; st.getMap().forEach((a, z) => { if (a === 0 && z >= tr.docs[i].content.size) all = true; }); return all; });
+        const typed = trs.filter(tr => tr.docChanged && !tr.getMeta('history$') && tr.getMeta('addToHistory') !== false && !whole(tr));
+        if (!highlight || !typed.length) return null;
+        const ranges: [number, number][] = [];
+        trs.forEach((tr, n) => {
+          if (!typed.includes(tr)) return;
+          tr.steps.forEach((step, i) => {
+            step.getMap().forEach((_a, _b, from, to) => {
+              if (to <= from || to - from > 400) return;
+              let a = from, z = to;
+              for (let j = i + 1; j < tr.steps.length; j++) { const m = tr.steps[j].getMap(); a = m.map(a, -1); z = m.map(z, 1); }
+              for (const later of trs.slice(n + 1)) { a = later.mapping.map(a, -1); z = later.mapping.map(z, 1); }
+              if (z > a) ranges.push([a, z]);
+            });
+          });
+        });
+        const tr = state.tr;
+        for (const [a, z] of ranges) {
+          state.doc.nodesBetween(Math.max(0, a), Math.min(state.doc.content.size, z), (node, pos) => {
+            if (!node.isText) return true;
+            const field = node.marks.find(m => m.type === highlight && String(m.attrs.color).toUpperCase() === FIELD_COLOR);
+            const from = Math.max(a, pos), to = Math.min(z, pos + node.nodeSize);
+            if (field && to > from && !/[[\]]/.test(node.text!.slice(from - pos, to - pos))) tr.removeMark(from, to, field);
+            return false;
+          });
+        }
+        return tr.docChanged ? tr : null;
+      },
     })];
   },
 });

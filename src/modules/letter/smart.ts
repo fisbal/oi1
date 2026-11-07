@@ -227,7 +227,7 @@ export function tableToText(editor: Editor): boolean {
 
 /** A table of contents from the headings, with the page each one is on, as a table without lines. */
 /** Titles of a table of contents in the 5 languages: never listed inside the table itself. */
-const TOC_TITLES = /^(table des mati[eè]res|sommaire|table of contents|contents|[ií]ndice|sum[aá]rio|inhaltsverzeichnis|inhalt)$/i;
+export const TOC_TITLES = /^(table des mati[eè]res|sommaire|table of contents|contents|[ií]ndice|sum[aá]rio|inhaltsverzeichnis|inhalt)$/i;
 
 export function tocJson(editor: Editor, pageOf: (pos: number) => number | null, contentWidth: number, withTitle = true): JSONContent[] | null {
   const rows: { level: number; text: string; page: number | null }[] = [];
