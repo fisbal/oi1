@@ -250,6 +250,9 @@ jobs:
       - name: In 1 Letter Analyse et correction, norm check, Appliquer la norme and the exemplary works, on phone, tablet, PC and Mac (check:analyse)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:analyse
+      - name: Analyse et correction leaves a work in shape, nothing changed without Corriger, no bold or stale yellow, titles and contents right, words kept (check:shape)
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:shape
       - name: In 1 Letter cuts long paragraphs between two pages like Word, no line between pages, same pages in print (check:pages)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:pages

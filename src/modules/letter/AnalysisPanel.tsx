@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AiApi } from '../../shell/contract';
 import { getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { Icon } from '../../ui/kit';
-import { addRefs, aiChunks, aiFindings, aiPrompt, analyze, applyEdits, fixBreaks, fixEmpties, fixPages, fixStructure, type Finding, type Group } from './analysis';
+import { addRefs, aiChunks, aiFindings, aiPrompt, analyze, applyEdits, fixBodyBold, fixBreaks, fixEmpties, fixFieldColor, fixHeadings, fixPages, fixStructure, type Finding, type Group } from './analysis';
 import type { DocStyles } from './model';
 import type { PageSettings } from './page';
 import { normCheck } from './normCheck';
@@ -22,6 +22,8 @@ export interface AnalysisHost {
   pageNumber(id: string): void;
   reorganize(id: string): void;
   toc(at: number): void;
+  /** The table of contents made again from the titles, in place of the old one. */
+  updateToc(): void;
   fill(): void;
   openModel(id: string): void;
 }
@@ -44,6 +46,8 @@ export function AnalysisPanel({ editor, workId, setWorkId, page, styles, header,
   const [ignored, setIgnored] = useState<Set<string>>(() => new Set());
   const [aiLines, setAiLines] = useState<string[]>([]);
   const [aiBusy, setAiBusy] = useState<string | null>(null);
+  // "Appliquer la norme" says first what it changes (Martin 2026-11-07: "ça met du gras sur le texte sans prévenir").
+  const [normAsk, setNormAsk] = useState(false);
   const [aiDone, setAiDone] = useState<Set<string>>(() => new Set());
   const stop = useRef<AbortController | null>(null);
 
@@ -86,6 +90,10 @@ export function AnalysisPanel({ editor, workId, setWorkId, page, styles, header,
       case 'empties': fixEmpties(editor); break;
       case 'pages': fixPages(editor); break;
       case 'breaks': fixBreaks(editor); break;
+      case 'fieldColor': fixFieldColor(editor); break;
+      case 'unheading': fixHeadings(editor); break;
+      case 'bodyBold': fixBodyBold(editor, lang, knownTitle); break;
+      case 'tocUpdate': host.updateToc(); break;
       case 'fill': host.fill(); break;
       case 'toc': host.toc(-1); break;
       case 'norm': if (w) host.applyNorm(w.id); break;
@@ -152,9 +160,18 @@ export function AnalysisPanel({ editor, workId, setWorkId, page, styles, header,
       </label>
       {w && (
         <div className="ana-tools">
-          <button type="button" className="primary" data-apply-norm onClick={() => { host.applyNorm(w.id); setVersion(v => v + 1); }}><Icon name="check" size={14} /> {t('ana.applyNorm')}</button>
+          <button type="button" className="primary" data-apply-norm aria-expanded={normAsk} onClick={() => setNormAsk(x => !x)}><Icon name="check" size={14} /> {t('ana.applyNorm')}</button>
           <button type="button" title={t('ana.modelHint')} data-model onClick={() => host.openModel(w.id)}>{t('ana.model')}</button>
           {example && <a href={example} target="_blank" rel="noreferrer noopener">{t('ana.example')}</a>}
+        </div>
+      )}
+      {w && normAsk && (
+        <div className="cmt-card ana-card ana-confirm" data-norm-ask>
+          <p className="ana-msg">{t('ana.normWill')}</p>
+          <div className="cmt-actions">
+            <button type="button" onClick={() => setNormAsk(false)}>{t('letter.cancel')}</button>
+            <button type="button" className="primary" data-apply-norm-go onClick={() => { setNormAsk(false); host.applyNorm(w.id); setVersion(v => v + 1); }}>{t('ana.normGo')}</button>
+          </div>
         </div>
       )}
       <p className={`ana-sum${found.length ? '' : ' clean'}`} role="status">{found.length ? t('ana.summary', { n: found.length }) : t('ana.clean')}</p>

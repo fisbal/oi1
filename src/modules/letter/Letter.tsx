@@ -53,7 +53,7 @@ import { fieldList, fieldsIn, fillFields, isEmptyDoc, longDate, markupToDoc, sel
 import { TOC_MARK, WORK_LAYOUTS, knownTitle, lookOnly, reorganizeDoc, workDoc, workMargins, workStyles, type WorkLayout } from './templates/works';
 import { modelDoc } from './templates/models';
 import { AnalysisPanel, type AnalysisHost } from './AnalysisPanel';
-import { analyze, docLanguage } from './analysis';
+import { analyze, docLanguage, oldToc } from './analysis';
 import { applyNormContent, coverEnd, normCheck } from './normCheck';
 import { workText } from './templates/worksI18n';
 
@@ -1101,6 +1101,19 @@ html, body { background: ${page.color ?? '#FFFFFF'} !important; -webkit-print-co
     },
     fill: () => setPanel('fill'),
     openModel: id => void openModel(id),
+    updateToc: () => {
+      if (!body) return;
+      const old = oldToc(body.state.doc);
+      if (!old) return;
+      const toc = tocJson(body, pageOf, pw - (m.left + m.right) * PX_PER_IN, false);
+      if (!toc) return;
+      // The old lines go (from the end), the new contents go where the first one was: one undo.
+      const tr = body.state.tr;
+      for (const [a, z] of [...old.lines].reverse()) tr.delete(a, z);
+      const nodes = toc.map(j => body.schema.nodeFromJSON(j));
+      tr.insert(old.lines[0][0], nodes);
+      body.view.dispatch(tr);
+    },
   };
   const applyWork = (id: string, mode: WorkMode) => {
       const w = WORK_LAYOUTS.find(x => x.id === id);

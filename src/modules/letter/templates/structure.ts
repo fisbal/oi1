@@ -96,10 +96,12 @@ export function findTitles(nodes: JSONContent[], lang: string, known?: (t: strin
     if (!g) continue;
     // The bold, centered title of a cover page is not a part of the work.
     if (g.why === 'bold' && n.attrs?.textAlign === 'center' && !out.length) continue;
-    // A run of numbered lines with nothing between them is a list ("1. Lire le texte."), not titles.
+    // A run of numbered sentences with nothing between them is a list ("1. Lire le texte."), not titles. A numbered
+    // title that ends with a period among titles that do not ("3.4 Le manque…" then "3.5 L'absence … des employés.") is
+    // still a title.
     if (g.why === 'number' && END_SENTENCE.test(nodeText(n).trim())) {
-      const next = guess(nodes[i + 1] ?? {}, lang), prev = guess(nodes[i - 1] ?? {}, lang);
-      if (next?.why === 'number' && next.depth === g.depth || prev?.why === 'number' && prev.depth === g.depth) continue;
+      const item = (x: JSONContent | undefined) => { const o = guess(x ?? {}, lang); return o?.why === 'number' && o.depth === g.depth && END_SENTENCE.test(nodeText(x!).trim()); };
+      if (item(nodes[i + 1]) || item(nodes[i - 1])) continue;
     }
     let level = 1;
     if (g.why === 'keyword') {
