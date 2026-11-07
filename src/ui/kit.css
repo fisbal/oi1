@@ -186,15 +186,17 @@
 
 /* ---------- File menu (backstage) ---------- */
 .backstage { position: absolute; inset: 0; z-index: 40; display: flex; background: rgba(var(--bg-rgb), .82); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); animation: reveal .35s var(--ease) both; }
-.backstage-nav { display: flex; flex-direction: column; gap: 2px; width: 220px; padding: 16px 10px; border-right: 1px solid var(--hair); background: linear-gradient(180deg, rgba(212,168,67,.1), rgba(212,168,67,.02)); }
+.backstage-nav { display: flex; flex-direction: column; gap: 2px; width: 220px; flex-shrink: 0; overflow-y: auto; padding: 16px 10px; border-right: 1px solid var(--hair); background: linear-gradient(180deg, rgba(212,168,67,.1), rgba(212,168,67,.02)); }
 .backstage-nav button {
-  display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 0; border-radius: 999px; background: none;
+  display: flex; align-items: center; gap: 12px; min-height: 44px; flex-shrink: 0; padding: 11px 14px; border: 0; border-radius: 999px; background: none;
   color: var(--ink); font: inherit; font-size: 14px; font-weight: 550; text-align: left;
 }
 .backstage-nav button svg { color: var(--gold); }
 .backstage-nav button:hover, .backstage-nav button.on { background: rgba(var(--fg-rgb), .06); }
 .backstage-nav button.on { box-shadow: inset 3px 0 0 var(--gold); }
-.backstage-nav .back { font-size: 20px; margin-bottom: 10px; width: 44px; height: 44px; justify-content: center; border-radius: 50% !important; border: 1px solid var(--line) !important; padding: 0 !important; }
+.backstage-nav .back i { font-style: normal; }
+.backstage-nav .back { margin-bottom: 10px; border: 1px solid var(--line) !important; }
+.backstage-nav .back i { font-size: 18px; color: var(--gold); width: 16px; text-align: center; }
 .backstage-main { flex: 1; overflow: auto; padding: 32px 40px; }
 .backstage-main h2 { margin: 0 0 18px; font-family: var(--display); font-size: 30px; font-weight: 700; }
 .muted { color: var(--muted); }
@@ -205,7 +207,7 @@
 }
 .recent-list button svg, .saveas-list button svg { color: var(--gold); }
 .recent-list button:hover, .saveas-list button:hover { border-color: var(--hair); background: rgba(var(--fg-rgb), .06); }
-.recent-list .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.recent-list .name { overflow-wrap: anywhere; font-weight: 600; }
 .recent-list .time, .saveas-list span { color: var(--faint); font-size: 12px; }
 .saveas-list { max-width: 560px; display: grid; gap: 8px; }
 
@@ -236,10 +238,24 @@
 @media (max-width: 640px) {
   .status-zoom input { width: 70px; }
   .status-file { display: none; }
-  .backstage-nav { width: 64px; }
-  .backstage-nav button { font-size: 0; justify-content: center; padding: 12px; }
-  .backstage-nav button svg { width: 20px; height: 20px; }
-  .backstage-main { padding: 18px; }
+  /* Phone: the File menu's choices become labelled tiles on top (Martin 2026-11-07: icons alone were tiny and unknown). */
+  .backstage { flex-direction: column; }
+  .backstage-nav { width: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 10px; overflow: visible; border-right: 0; border-bottom: 1px solid var(--hair); }
+  .backstage-nav button, .backstage-nav .back {
+    flex-direction: column; justify-content: center; gap: 4px; min-height: 60px; padding: 6px 4px !important; border-radius: 16px !important;
+    font-size: 12px; line-height: 1.2; text-align: center; white-space: normal; overflow-wrap: anywhere; hyphens: auto;
+  }
+  .backstage-nav .back { width: auto; height: auto; margin: 0; border: 1px solid var(--line) !important; }
+  .backstage-nav .back i { font-size: 20px; line-height: 22px; color: var(--gold); }
+  .backstage-nav button svg { width: 22px; height: 22px; flex-shrink: 0; }
+  .backstage-nav button.on { box-shadow: inset 0 -3px 0 var(--gold); }
+  .backstage-main { padding: 16px; }
+  .backstage-main h2 { font-size: 24px; margin-bottom: 12px; }
+  /* Recent files: the whole name shows (on two lines if needed), the date goes under it. */
+  .recent-list .time { grid-column: 2; }
+  .recent-list button, .saveas-list button { grid-template-columns: 20px 1fr; grid-template-rows: auto auto; row-gap: 2px; border-radius: 18px; min-height: 52px; }
+  .recent-list button svg, .saveas-list button svg { grid-row: 1 / 3; }
+  .saveas-list span { grid-column: 2; }
   .font-box { width: 110px; }
   .ribbon-panel { min-height: 88px; }
 }
