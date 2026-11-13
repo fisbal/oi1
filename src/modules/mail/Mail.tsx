@@ -312,7 +312,9 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     setSyncing(true); setNote(ms('syncing'));
     let n = 0;
     try {
-      for (const a of accs) {
+      const readable = accs.filter(a => !a.sendOnly);
+      if (!readable.length) { setNote(ms('sendOnlyNote', { email: accs.map(a => a.email).join(', ') })); return; }
+      for (const a of readable) {
         try {
           const known = new Set(boxRef.current.mails.filter(m => m.account === a.id && m.remoteId).map(m => m.remoteId!));
           const got = await fetchInbox(a, known);
@@ -345,7 +347,7 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
       const mine = lock ? await ensureKey(name, acc.email) : own;
       const headers = mine && mine.email.toLowerCase() === acc.email.toLowerCase() ? [await autocryptHeader(mine)] : [];
       const mime = await toMime(m, fromStr, { send: true, inReplyTo: m.inReplyTo, headers, ...(lock && mine ? { encrypt: (inner: string) => encryptMime(inner, recips.map(r => keys[r]), mine) } : {}) });
-      await sendMime(acc, mime);
+      await sendMime(acc, mime, recips);
     } catch (e) { setNote(errText(e, acc)); return; }
     setMail(m.id, { folder: 'sent', at: new Date().toISOString(), html: m.html, from: fromStr, account: acc.id, ...(lock ? { secure: 'e2e' as const } : {}) });
     setNote(lock ? ms('sentE2e', { email: acc.email }) : ms('sentWith', { email: acc.email }));

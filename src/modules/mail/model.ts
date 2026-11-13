@@ -93,10 +93,20 @@ export function cleanBox(x: unknown): MailBox {
 function cleanAccount(x: unknown): Account | null {
   if (!x || typeof x !== 'object') return null;
   const o = x as Record<string, unknown>;
-  if (o.provider !== 'outlook' && o.provider !== 'gmail') return null;
+  if (o.provider !== 'outlook' && o.provider !== 'gmail' && o.provider !== 'imap') return null;
   const email = str(o.email).slice(0, 320);
   if (!email) return null;
-  return { id: str(o.id) || `${o.provider}:${email.toLowerCase()}`, provider: o.provider, email, name: str(o.name).slice(0, 200), added: str(o.added), ...(o.lastSync ? { lastSync: str(o.lastSync) } : {}) };
+  const sv = (o.servers && typeof o.servers === 'object' ? o.servers : null) as Record<string, unknown> | null;
+  const host = (h: unknown) => str(h).toLowerCase().replace(/[^a-z0-9.-]/g, '').slice(0, 253);
+  const port = (p: unknown, d: number) => (typeof p === 'number' && p > 0 && p < 65536 ? Math.round(p) : d);
+  if (o.provider === 'imap' && !sv) return null;
+  return {
+    id: str(o.id) || `${o.provider}:${email.toLowerCase()}`, provider: o.provider, email, name: str(o.name).slice(0, 200), added: str(o.added),
+    ...(o.lastSync ? { lastSync: str(o.lastSync) } : {}),
+    // Gmail through Google sign-in is sending only (older boxes connected it with reading: treated the same now).
+    ...(o.provider === 'gmail' ? { sendOnly: true } : {}),
+    ...(o.provider === 'imap' && sv ? { servers: { imapHost: host(sv.imapHost), imapPort: port(sv.imapPort, 993), smtpHost: host(sv.smtpHost), smtpPort: port(sv.smtpPort, 465), preset: str(sv.preset).slice(0, 40) } } : {}),
+  };
 }
 
 const EMAIL = /^[^\s@<>,;"]+@[^\s@<>,;"]+\.[^\s@<>,;"]{2,}$/;
