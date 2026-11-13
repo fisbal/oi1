@@ -1,7 +1,7 @@
 // Updates for the installed apps, so nobody has to reinstall by hand:
 // Windows downloads the signed new version, installs it and restarts (Tauri's updater, checked against
 // latest.json on the hub's update channel, then the newest GitHub Release); Android finds the newer release and opens its APK, which
-// installs over the old one. The web version updates itself through the service worker.
+// installs over the old one (the Google Play build leaves updates to Play). The web version updates itself through the service worker.
 
 import { inApp } from './files';
 
@@ -35,6 +35,9 @@ export interface AppUpdate {
 }
 
 const isAndroid = () => /Android/i.test(navigator.userAgent);
+/** The Google Play build (VITE_STORE=play): Play installs the updates by itself, and its rules forbid an app
+ *  updating itself any other way, so that build never offers an APK. */
+export const PLAY_BUILD = import.meta.env.VITE_STORE === 'play';
 
 /** "0.1.42" is newer than "0.1.9". */
 export function newer(a: string, b: string): boolean {
@@ -51,6 +54,7 @@ export async function findUpdate(): Promise<AppUpdate | null> {
   if (!inApp()) return null;
   try {
     if (isAndroid()) {
+      if (PLAY_BUILD) return null;
       const [{ getVersion }, latest] = await Promise.all([import('@tauri-apps/api/app'), latestTag()]);
       if (!latest || !newer(latest, await getVersion())) return null;
       return {
