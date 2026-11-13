@@ -1,6 +1,7 @@
 // Checks In 1 Mail's real accounts like a person would, on every kind of screen (rule 16): phone and tablet both
 // ways, a Windows PC and a Mac. Microsoft's and Google's sign-in pages and mail APIs are played back here (no real
-// account, no network): connect Outlook.com (code + PKCE) and Gmail (token), receive the inbox, a scam mail gets the
+// account, no network): connect Outlook.com (code + PKCE) and Gmail (token, send only: no paid Google audit), Gmail
+// by IMAP with an app password (the installed app's Rust engine played back; wrong password, SMTP answer), receive the inbox, a scam mail gets the
 // "Suspicious" badge and a plain-words warning, its fake link opens a check dialog instead of the site, remote
 // pictures stay blocked until asked; answer through the account (the real MIME leaves with In-Reply-To); create an
 // OpenPGP key, send oneself an end-to-end encrypted mail (nothing readable leaves), receive it and read it; the
@@ -49,7 +50,7 @@ const b64url = s => Buffer.from(s, 'binary').toString('base64').replace(/\+/g, '
 
 async function newPage(d) {
   const ctx = await browser.newContext({ viewport: d.viewport, isMobile: !!d.mobile, hasTouch: !!d.mobile, userAgent: d.ua, locale: d.lang === 'fr' ? 'fr-CA' : 'en-US' });
-  const net = { inbox: [NORMAL, SCAM], sent: [], tokenBodies: [], opened: [], gmailSent: [], patched: 0 };
+  const net = { inbox: [NORMAL, SCAM], sent: [], tokenBodies: [], opened: [], gmailSent: [], patched: 0, gmailRead: 0 };
   // ---- Microsoft (sign-in + Graph) ----
   await ctx.route('https://login.microsoftonline.com/**', async route => {
     const u = new URL(route.request().url());
@@ -81,7 +82,8 @@ async function newPage(d) {
   // ---- Google (token flow + Gmail API) ----
   await ctx.route('https://accounts.google.com/**', async route => {
     const u = new URL(route.request().url());
-    check(u.searchParams.get('response_type') === 'token' && /gmail\.modify/.test(u.searchParams.get('scope') ?? ''), `${d.name}: Gmail sign-in asks only for mail access`);
+    const scope = u.searchParams.get('scope') ?? '';
+    check(u.searchParams.get('response_type') === 'token' && /gmail\.send/.test(scope) && !/gmail\.(modify|readonly)|mail\.google\.com/.test(scope), `${d.name}: Gmail sign-in asks only to send (no reading scope, so no paid Google audit)`);
     return route.fulfill({ status: 302, headers: { location: `${u.searchParams.get('redirect_uri')}#access_token=g-access-1&expires_in=3600&token_type=Bearer&state=${u.searchParams.get('state')}` } });
   });
   await ctx.route('https://gmail.googleapis.com/**', async route => {
@@ -91,14 +93,40 @@ async function newPage(d) {
     if (r.headers().authorization !== 'Bearer g-access-1') return route.fulfill({ status: 401, headers: cors });
     const json = o => route.fulfill({ status: 200, contentType: 'application/json', headers: cors, body: JSON.stringify(o) });
     if (u.pathname.endsWith('/profile')) return json({ emailAddress: 'martin.test@gmail.com' });
+    if (u.pathname.endsWith('/messages')) net.gmailRead++;
     if (u.pathname.endsWith('/messages')) return json({ messages: [{ id: 'g-1' }] });
     if (u.pathname.endsWith('/messages/g-1')) return json({ id: 'g-1', labelIds: ['INBOX', 'UNREAD'], raw: b64url(Buffer.from(GMAIL_ONE, 'utf8').toString('binary')) });
     if (u.pathname.endsWith('/messages/send')) { net.gmailSent.push(JSON.parse(r.postData() ?? '{}').raw); return json({ id: 'g-sent' }); }
     return json({});
   });
+  await ctx.route('https://openidconnect.googleapis.com/**', route => {
+    const r = route.request();
+    if (r.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    if (r.headers().authorization !== 'Bearer g-access-1') return route.fulfill({ status: 401, headers: cors });
+    return route.fulfill({ status: 200, contentType: 'application/json', headers: cors, body: JSON.stringify({ email: 'martin.test@gmail.com', name: 'Martin Test' }) });
+  });
   await ctx.route('https://oauth2.googleapis.com/**', route => route.fulfill({ status: 200, headers: cors, body: '{}' }));
   await ctx.route(/pixel\.example\.org|desjardins-secure\.top/, route => { net.opened.push(route.request().url()); return route.fulfill({ status: 200, body: '' }); });
+  // The installed app's IMAP/SMTP engine (Rust, src-tauri/src/mail.rs) played back: a Gmail mailbox with an app password.
+  if (d.gmail) await ctx.addInitScript(`(() => {
+    const MAIL = ${JSON.stringify(Buffer.from(GMAIL_ONE, 'utf8').toString('base64'))};
+    window.__imapSent = []; window.__imapSeen = [];
+    const okLogin = l => l && l.user === 'martin.test@gmail.com' && l.pass === 'abcdefghijklmnop';
+    window.__oi1Imap = async (cmd, a) => {
+      await new Promise(r => setTimeout(r, 150));
+      if (!okLogin(a.login) || a.login.host !== (cmd === 'mail_smtp_send' ? 'smtp.gmail.com' : 'imap.gmail.com')) throw 'auth: [AUTHENTICATIONFAILED] Invalid credentials';
+      if (cmd === 'mail_imap_check') return null;
+      if (cmd === 'mail_imap_fetch') return a.known.includes('7:1') ? [] : [{ remoteId: '7:1', raw: MAIL, unread: true }];
+      if (cmd === 'mail_imap_seen') { window.__imapSeen.push(a.remoteId); return null; }
+      if (cmd === 'mail_smtp_send') { window.__imapSent.push({ from: a.from, to: a.to, raw: atob(a.raw) }); return null; }
+      if (cmd === 'mail_imap_trash') return null;
+      throw 'net: unknown ' + cmd;
+    };
+  })();`);
+  // Every short status note is kept (they fade away by themselves), so a failure can say what the app said.
+  await ctx.addInitScript(`window.__notes = []; new MutationObserver(() => { for (const n of document.querySelectorAll('.dr-note')) { const t = n.textContent || ''; if (t && window.__notes.at(-1) !== t) window.__notes.push(t); } }).observe(document, { subtree: true, childList: true, characterData: true });`);
   const page = await ctx.newPage();
+  if (process.env.CPU_SLOW) await (await ctx.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.CPU_SLOW) });
   page.on('pageerror', e => problems.push(`${d.name}: script error: ${e.message}`));
   if (process.env.DEBUG) { page.on('console', m => console.log('console:', m.text())); ctx.on('page', p => { console.log('popup', p.url()); p.on('console', m => console.log('popup console:', m.text())); p.on('framenavigated', f => console.log('popup nav', f.url())); }); }
   page.on('dialog', x => x.accept());
@@ -155,7 +183,22 @@ try {
         const [gp] = await Promise.all([ctx.waitForEvent('page', { timeout: 8000 }), dlg.locator('button[data-provider="gmail"]').click()]);
         await gp.waitForEvent('close', { timeout: 8000 }).catch(() => {});
         await page.waitForFunction(() => document.querySelectorAll('dialog[open] .ml-acc-list li').length >= 2, null, { timeout: 8000 }).catch(() => {});
-        check((await dlg.locator('.ml-acc-list').textContent()).includes('martin.test@gmail.com'), `${n}: Gmail account connected too`);
+        check((await dlg.locator('.ml-acc-list').textContent()).includes('martin.test@gmail.com'), `${n}: Gmail account connected too (send only)`);
+        // ---- Gmail reading by IMAP with an app password (the installed app's way) ----
+        const form = dlg.locator('.ml-imap');
+        check(await form.isVisible().catch(() => false), `${n}: the app-password form is offered`);
+        check(await fits(page, form, d), `${n}: the app-password form fits the screen`);
+        await form.locator('select').selectOption('gmail');
+        await form.locator('input[type=email]').fill('martin.test@gmail.com');
+        await form.locator('input[type=password]').fill('wrong pass word');
+        await form.locator('button[data-provider="imap"]').click();
+        await dlg.locator('.ml-acc-error').waitFor({ timeout: 5000 }).catch(() => {});
+        check(((await dlg.locator('.ml-acc-error').textContent().catch(() => '')) ?? '').length > 10, `${n}: a wrong app password says so in plain words`);
+        await form.locator('input[type=password]').fill('abcd efgh ijkl mnop');
+        await form.locator('button[data-provider="imap"]').click();
+        await page.waitForFunction(() => document.querySelectorAll('dialog[open] .ml-acc-list li').length >= 3, null, { timeout: 8000 }).catch(() => {});
+        check(await dlg.locator('.ml-acc-list li').count() >= 3, `${n}: Gmail by IMAP connected with the app password (spaces as Google shows them)`);
+        check(await form.locator('input[type=password]').inputValue() === '', `${n}: the password field is emptied after connecting`);
         await dlg.locator('.ml-acc-list li').first().locator('input[type=radio]').check();
       }
       await page.keyboard.press('Escape');
@@ -171,7 +214,12 @@ try {
       check(await page.locator(`${P} .ml-item:has-text("Souper samedi")`).count() === 1, `${n}: the inbox comes in from Outlook.com`);
       check(await page.locator(`${P} .ml-item:has-text("compte suspendu") .ml-sus`).count() === 1, `${n}: the scam mail has the Suspicious badge`);
       check(await page.locator(`${P} .ml-item:has-text("Souper samedi") .ml-sus`).count() === 0, `${n}: the normal mail has no badge`);
-      if (d.gmail) check(await page.locator(`${P} .ml-item:has-text("Photos du chalet")`).count() === 1, `${n}: the Gmail inbox comes in too`);
+      if (d.gmail) {
+        check(await page.locator(`${P} .ml-item:has-text("Photos du chalet")`).count() === 1, `${n}: the Gmail inbox comes in by IMAP`);
+        check(net.gmailRead === 0, `${n}: the send-only Gmail sign-in never reads the mailbox`);
+        const pwds = await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('oi1.mail.secret.imap:')).map(k => localStorage.getItem(k)));
+        check(pwds.length === 1 && pwds[0].startsWith('oi1enc1:') && !pwds[0].includes('abcd'), `${n}: the app password is stored encrypted`);
+      }
       check(await overflow(page) <= 1, `${n}: no sideways scrolling with the inbox`);
 
       // ---- the scam ----
@@ -214,6 +262,26 @@ try {
       const decoded = [...reply.matchAll(/\r\n\r\n([A-Za-z0-9+/=\r\n]{8,}?)\r\n(?:\r\n)?--/g)].map(m => Buffer.from(m[1].replace(/\s+/g, ''), 'base64').toString('utf8')).join('\n');
       check(decoded.includes('avec plaisir'), `${n}: the typed answer is inside`);
 
+      // ---- answer a Gmail mail: it leaves by SMTP through that mailbox ----
+      if (d.gmail) {
+        await back(page, phone);
+        await back(page, phone);
+        await page.locator(`${P} .ml-folder`).first().click();
+        await page.locator(`${P} .ml-item:has-text("Photos du chalet")`).click();
+        await page.waitForTimeout(300);
+        check((await page.evaluate(() => window.__imapSeen)).includes('7:1'), `${n}: opening it marks it read on the IMAP server`);
+        await page.locator(`${P} .ml-actions button`).first().click();
+        const c3 = page.locator(`${P} .ml-compose`);
+        await c3.waitFor({ timeout: 4000 });
+        await c3.locator('.ml-text').click();
+        await page.keyboard.type('Merci Paul!');
+        await c3.locator('.ml-send').click();
+        await page.waitForFunction(() => window.__imapSent.length > 0, null, { timeout: 15000 }).catch(() => {});
+        const s1 = (await page.evaluate(() => window.__imapSent))[0];
+        check(!!s1 && s1.from === 'martin.test@gmail.com' && s1.to.join() === 'paul@example.net', `${n}: the answer leaves by SMTP from the Gmail mailbox, to Paul`);
+        check(!!s1 && /^Subject: .*Photos du chalet/m.test(s1.raw) && !/^Bcc:/im.test(s1.raw), `${n}: SMTP gets a real message without a Bcc line`);
+      }
+
       // ---- end to end ----
       await closePeek(page);
       await ribbon(page, 'mail.e2e', lang);
@@ -242,7 +310,7 @@ try {
       // Key making and OpenPGP encryption can take a while on a slow machine: wait for the message itself to leave.
       for (let i = 0; i < 120 && net.sent.length === msBefore && net.gmailSent.length === gBefore; i++) await page.waitForTimeout(500);
       const lastRaw = net.gmailSent.length > gBefore ? Buffer.from(net.gmailSent.at(-1).replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8') : net.sent.length > msBefore ? net.sent.at(-1) : '';
-      if (!lastRaw) problems.push(`${n}: nothing left after Send (note: ${await page.locator(`${P} .dr-note`).textContent().catch(() => '—')})`);
+      if (!lastRaw) problems.push(`${n}: nothing left after Send (notes: ${(await page.evaluate(() => window.__notes.slice(-4).join(' | ')).catch(() => '')) || '—'})`);
       check(/multipart\/encrypted/.test(lastRaw) && /BEGIN PGP MESSAGE/.test(lastRaw), `${n}: the mail leaves OpenPGP-encrypted (PGP/MIME) via ${sendWith}`);
       check(!/4321|Code du coffre/.test(lastRaw), `${n}: nothing readable leaves (no text, no subject)`);
       check(/^Autocrypt: addr=/m.test(lastRaw), `${n}: the public key travels with it (Autocrypt)`);

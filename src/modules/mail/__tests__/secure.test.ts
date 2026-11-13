@@ -97,3 +97,13 @@ describe('OpenPGP end to end', () => {
     expect(await keyInfo(anna.priv)).toBeNull();
   }, 30000);
 });
+
+describe('SMTP message', () => {
+  it('drops only the Bcc header, folded lines included, never the body', async () => {
+    const { stripBcc } = await import('../secure/accounts');
+    const m = 'From: a@b.c\r\nBcc: x@y.z,\r\n  w@y.z\r\nTo: c@d.e\r\nSubject: hi\r\n\r\nBcc: stays in the body\r\n';
+    const out = stripBcc(m);
+    expect(out).toBe('From: a@b.c\r\nTo: c@d.e\r\nSubject: hi\r\n\r\nBcc: stays in the body\r\n');
+    expect(stripBcc('To: c@d.e\r\n\r\nhello')).toBe('To: c@d.e\r\n\r\nhello');
+  });
+});

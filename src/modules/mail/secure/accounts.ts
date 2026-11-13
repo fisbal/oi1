@@ -5,14 +5,24 @@
 // - Microsoft: authorization code + PKCE (RFC 7636), the flow Microsoft requires for single-page apps. The refresh
 //   token lasts 24 h (rolling), then the person signs in again with one click. Tenant "consumers" = personal accounts
 //   only: work and school mailboxes (Microsoft 365 of employers, schools, hospitals) are deliberately not offered.
-// - Google: the browser token flow (no client secret can live in a web page). The token lasts one hour; the next
-//   "Receive" asks Google again, silently when the person is still signed in.
+// - Google: the browser token flow (no client secret can live in a web page), SENDING ONLY (scope gmail.send, a
+//   "sensitive" scope: no yearly paid CASA audit, unlike reading, which is "restricted"). Martin's choice 2026-11-13.
+// - Gmail reading, Yahoo, iCloud, GMX, Zoho, Fastmail and any IMAP mailbox: IMAP + SMTP with an app password, in the
+//   installed app only (src-tauri/src/mail.rs: a web page cannot open mail-server connections).
 // Tokens are kept encrypted with the device key (vault.ts) and only ever sent to the provider that made them.
 
 import { getSecret, putSecret } from './vault';
 
 export type ProviderId = 'outlook' | 'gmail';
-export interface Account { id: string; provider: ProviderId; email: string; name: string; added: string; lastSync?: string }
+export type AccountKind = ProviderId | 'imap';
+export interface Servers { imapHost: string; imapPort: number; smtpHost: string; smtpPort: number; preset: string }
+export interface Account {
+  id: string; provider: AccountKind; email: string; name: string; added: string; lastSync?: string;
+  /** Gmail through Google sign-in: sending only (reading Gmail = IMAP in the installed app). */
+  sendOnly?: boolean;
+  /** IMAP / SMTP servers (provider 'imap'). */
+  servers?: Servers;
+}
 interface Tok { access: string; exp: number; refresh?: string }
 export interface Remote { remoteId: string; raw: string; unread: boolean }
 
@@ -31,7 +41,8 @@ const MS = 'https://login.microsoftonline.com/consumers/oauth2/v2.0';
 const MS_SCOPES = 'openid profile email offline_access User.Read Mail.ReadWrite Mail.Send';
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 const G_AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
-const G_SCOPES = 'openid email profile https://www.googleapis.com/auth/gmail.modify';
+const G_SCOPES = 'openid email https://www.googleapis.com/auth/gmail.send';
+const G_USER = 'https://openidconnect.googleapis.com/v1/userinfo';
 const GMAIL = 'https://gmail.googleapis.com/gmail/v1/users/me';
 
 export type MailErrorKind = 'notReady' | 'cancelled' | 'auth' | 'net' | 'blocked' | 'popup';
@@ -114,10 +125,10 @@ export async function connect(provider: ProviderId): Promise<Account> {
     const me = await (await call(`${GRAPH}/me?$select=displayName,mail,userPrincipalName`, { headers: { Authorization: `Bearer ${tok.access}` } })).json() as { displayName?: string; mail?: string; userPrincipalName?: string };
     email = me.mail || me.userPrincipalName || ''; name = me.displayName ?? '';
   } else {
-    const me = await (await call(`${GMAIL}/profile`, { headers: { Authorization: `Bearer ${tok.access}` } })).json() as { emailAddress?: string };
-    email = me.emailAddress ?? '';
+    const me = await (await call(G_USER, { headers: { Authorization: `Bearer ${tok.access}` } })).json() as { email?: string; name?: string };
+    email = me.email ?? ''; name = me.name ?? '';
   }
-  const acc: Account = { id: `${provider}:${email.toLowerCase()}`, provider, email, name, added: new Date().toISOString() };
+  const acc: Account = { id: `${provider}:${email.toLowerCase()}`, provider, email, name, added: new Date().toISOString(), ...(provider === 'gmail' ? { sendOnly: true } : {}) };
   await putSecret(acc.id, tok);
   return acc;
 }
@@ -157,6 +168,7 @@ async function authed(acc: Account, interactive: boolean, url: string, init: Req
 
 /** Forgets the account on this device (and asks Google to revoke its token). */
 export async function disconnect(acc: Account): Promise<void> {
+  if (acc.provider === 'imap') { await putSecret(acc.id, null); return; }
   const tok = await getSecret<Tok>(acc.id);
   await putSecret(acc.id, null);
   if (acc.provider === 'gmail' && tok) { try { await fetch(`https://oauth2.googleapis.com/revoke?${form({ token: tok.access })}`, { method: 'POST', headers: FORM, credentials: 'omit' }); } catch { /* offline: the token dies within the hour */ } }
@@ -170,6 +182,11 @@ const utf8bin = (s: string) => binary(new TextEncoder().encode(s).buffer as Arra
 
 /** The newest mails of the inbox that are not on the device yet, as raw MIME (RFC 5322). */
 export async function fetchInbox(acc: Account, known: Set<string>, max = 40, interactive = true): Promise<Remote[]> {
+  if (acc.provider === 'imap') {
+    const got = await imapCall<{ remoteId: string; raw: string; unread: boolean }[]>('mail_imap_fetch', { login: await loginOf(acc, 'imap'), known: [...known], max });
+    return got.map(r => ({ remoteId: r.remoteId, raw: atob(r.raw), unread: r.unread }));
+  }
+  if (acc.sendOnly) return [];
   const out: Remote[] = [];
   if (acc.provider === 'outlook') {
     const list = await (await authed(acc, interactive, `${GRAPH}/me/mailFolders/inbox/messages?$top=${max}&$select=id,isRead&$orderby=receivedDateTime%20desc`)).json() as { value?: { id: string; isRead?: boolean }[] };
@@ -190,16 +207,83 @@ export async function fetchInbox(acc: Account, known: Set<string>, max = 40, int
 }
 
 /** Sends a complete MIME message (built by toEml, maybe OpenPGP-encrypted). The provider keeps a copy in Sent. */
-export async function sendMime(acc: Account, mime: string): Promise<void> {
+/** The message without its Bcc header (only the header part is looked at; folded lines go with it). */
+export function stripBcc(mime: string): string {
+  const cut = mime.search(/\r?\n\r?\n/);
+  const head = cut < 0 ? mime : mime.slice(0, cut), rest = cut < 0 ? '' : mime.slice(cut);
+  return head.replace(/^Bcc:[^\r\n]*(?:\r?\n[ \t][^\r\n]*)*(?:\r?\n|$)/gim, '') + rest;
+}
+export async function sendMime(acc: Account, mime: string, rcpt: string[] = []): Promise<void> {
   const bin = utf8bin(mime);
+  if (acc.provider === 'imap') {
+    // SMTP sends the message as it is: the Bcc line must go (the server gets those addresses in the envelope only).
+    const noBcc = stripBcc(bin);
+    await imapCall('mail_smtp_send', { login: await loginOf(acc, 'smtp'), from: acc.email, to: rcpt, raw: btoa(noBcc) });
+    return;
+  }
   if (acc.provider === 'outlook') await authed(acc, true, `${GRAPH}/me/sendMail`, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: btoa(bin) });
   else await authed(acc, true, `${GMAIL}/messages/send`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: toB64url(bin) }) });
 }
 export async function markRead(acc: Account, remoteId: string): Promise<void> {
+  if (acc.provider === 'imap') { await imapCall('mail_imap_seen', { login: await loginOf(acc, 'imap'), remoteId }); return; }
+  if (acc.sendOnly) return;
   if (acc.provider === 'outlook') await authed(acc, false, `${GRAPH}/me/messages/${encodeURIComponent(remoteId)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isRead: true }) });
   else await authed(acc, false, `${GMAIL}/messages/${encodeURIComponent(remoteId)}/modify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ removeLabelIds: ['UNREAD'] }) });
 }
 export async function trashRemote(acc: Account, remoteId: string): Promise<void> {
+  if (acc.provider === 'imap') { await imapCall('mail_imap_trash', { login: await loginOf(acc, 'imap'), remoteId }); return; }
+  if (acc.sendOnly) return;
   if (acc.provider === 'outlook') await authed(acc, true, `${GRAPH}/me/messages/${encodeURIComponent(remoteId)}/move`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ destinationId: 'deleteditems' }) });
   else await authed(acc, true, `${GMAIL}/messages/${encodeURIComponent(remoteId)}/trash`, { method: 'POST' });
+}
+
+// ---------- IMAP / SMTP (installed app) ----------
+/** Mail servers of the usual providers, and where each one makes app passwords. Outlook.com is not here: Microsoft
+ *  turned off passwords for IMAP in 2024, it signs in with Microsoft above. */
+export const PRESETS: { id: string; name: string; imap: [string, number]; smtp: [string, number]; help: string }[] = [
+  { id: 'gmail', name: 'Gmail', imap: ['imap.gmail.com', 993], smtp: ['smtp.gmail.com', 465], help: 'https://myaccount.google.com/apppasswords' },
+  { id: 'yahoo', name: 'Yahoo', imap: ['imap.mail.yahoo.com', 993], smtp: ['smtp.mail.yahoo.com', 465], help: 'https://login.yahoo.com/account/security/app-passwords' },
+  { id: 'icloud', name: 'iCloud', imap: ['imap.mail.me.com', 993], smtp: ['smtp.mail.me.com', 587], help: 'https://account.apple.com/account/manage' },
+  { id: 'aol', name: 'AOL', imap: ['imap.aol.com', 993], smtp: ['smtp.aol.com', 465], help: 'https://login.aol.com/account/security' },
+  { id: 'gmx', name: 'GMX', imap: ['imap.gmx.com', 993], smtp: ['mail.gmx.com', 465], help: 'https://www.gmx.com/' },
+  { id: 'zoho', name: 'Zoho', imap: ['imap.zoho.com', 993], smtp: ['smtp.zoho.com', 465], help: 'https://accounts.zoho.com/home#security/app_password' },
+  { id: 'fastmail', name: 'Fastmail', imap: ['imap.fastmail.com', 993], smtp: ['smtp.fastmail.com', 465], help: 'https://app.fastmail.com/settings/security/apps' },
+  { id: 'other', name: 'IMAP', imap: ['', 993], smtp: ['', 465], help: '' },
+];
+type ImapFn = (cmd: string, args: Record<string, unknown>) => Promise<unknown>;
+/** The installed app's mail engine (Tauri); tests may put a stand-in on window.__oi1Imap. */
+function engine(): ImapFn | null {
+  const w = window as unknown as { __oi1Imap?: ImapFn; __TAURI_INTERNALS__?: unknown };
+  if (w.__oi1Imap) return w.__oi1Imap;
+  if (w.__TAURI_INTERNALS__) return async (cmd, args) => (await import('@tauri-apps/api/core')).invoke(cmd, args);
+  return null;
+}
+export const imapAvailable = () => typeof window !== 'undefined' && !!engine();
+/** Sign-in pages of Microsoft and Google come back to the web site only: in the installed app use IMAP instead. */
+export const oauthAvailable = () => typeof window !== 'undefined' && !(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+async function imapCall<T>(cmd: string, args: Record<string, unknown>): Promise<T> {
+  const run = engine();
+  if (!run) throw new MailError('notReady');
+  try { return await run(cmd, args) as T; }
+  catch (e) {
+    const m = String((e as { message?: string })?.message ?? e);
+    throw new MailError(/^auth/i.test(m) ? 'auth' : /confidential/i.test(m) ? 'blocked' : 'net', m);
+  }
+}
+async function loginOf(acc: Account, which: 'imap' | 'smtp') {
+  const sec = await getSecret<{ pass: string }>(acc.id);
+  if (!sec?.pass || !acc.servers) throw new MailError('auth', 'no password');
+  const sv = acc.servers;
+  return which === 'imap' ? { host: sv.imapHost, port: sv.imapPort, user: acc.email, pass: sec.pass } : { host: sv.smtpHost, port: sv.smtpPort, user: acc.email, pass: sec.pass };
+}
+/** Connects an IMAP mailbox: the address and app password are checked at the server before anything is kept. */
+export async function connectImap(email: string, appPassword: string, servers: Servers, name = ''): Promise<Account> {
+  const pass = appPassword.replace(/\s+/g, ''); // Google shows app passwords as "abcd efgh ijkl mnop"
+  const host = (h: string) => h.trim().toLowerCase();
+  const sv: Servers = { ...servers, imapHost: host(servers.imapHost), smtpHost: host(servers.smtpHost) };
+  if (!sv.imapHost || !sv.smtpHost) throw new MailError('net', 'no server');
+  await imapCall('mail_imap_check', { login: { host: sv.imapHost, port: sv.imapPort, user: email.trim(), pass } });
+  const acc: Account = { id: `imap:${email.trim().toLowerCase()}`, provider: 'imap', email: email.trim(), name, added: new Date().toISOString(), servers: sv };
+  await putSecret(acc.id, { pass });
+  return acc;
 }

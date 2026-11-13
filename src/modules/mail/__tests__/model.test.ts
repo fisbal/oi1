@@ -107,3 +107,22 @@ describe('In 1 Mail sending through an account', () => {
     expect(Object.keys(box.keys!)).toEqual(['a@b.com']);
   });
 });
+
+describe('mail accounts without the paid Google audit', () => {
+  it('keeps Gmail by Google sign-in as sending only, even for older boxes', () => {
+    const b = cleanBox({ accounts: [{ provider: 'gmail', email: 'a@gmail.com', id: 'gmail:a@gmail.com' }] });
+    expect(b.accounts?.[0].sendOnly).toBe(true);
+  });
+  it('keeps an IMAP mailbox with clean servers, never a password', () => {
+    const b = cleanBox({ accounts: [
+      { provider: 'imap', email: 'a@gmail.com', pass: 'secret', servers: { imapHost: 'IMAP.gmail.com"<x>', imapPort: 993, smtpHost: 'smtp.gmail.com', smtpPort: 99999, preset: 'gmail' } },
+      { provider: 'imap', email: 'b@x.org' },
+    ] });
+    expect(b.accounts).toHaveLength(1);
+    const a = b.accounts![0];
+    expect(a.id).toBe('imap:a@gmail.com');
+    expect(a.servers).toEqual({ imapHost: 'imap.gmail.comx', imapPort: 993, smtpHost: 'smtp.gmail.com', smtpPort: 465, preset: 'gmail' });
+    expect(JSON.stringify(a)).not.toContain('secret');
+    expect(a.sendOnly).toBeUndefined();
+  });
+});

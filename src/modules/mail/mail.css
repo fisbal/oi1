@@ -187,3 +187,10 @@
 .ml-sus { font-style: normal; margin-right: 6px; padding: 0 6px; border-radius: 999px; background: #C62828; color: #fff; font-size: 11px; font-weight: 700; }
 .ml-compose-bar .ml-lock-btn.on { background: #E6F4EA; border-color: #2E7D32; color: #1E5E2E; }
 .ml-send-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw; }
+.ml-imap { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+.ml-imap small { color: var(--muted); font-size: 12.5px; }
+.ml-imap label { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 13px; }
+.ml-imap input, .ml-imap select { min-height: 40px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper, #fff); color: var(--ink); font: inherit; font-size: 14px; width: 100%; box-sizing: border-box; min-width: 0; }
+.ml-imap-help { font-size: 13px; overflow-wrap: anywhere; }
+.ml-imap-servers { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 8px; }
+.ml-imap button { align-self: flex-start; }
