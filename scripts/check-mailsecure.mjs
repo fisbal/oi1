@@ -123,7 +123,10 @@ async function newPage(d) {
       throw 'net: unknown ' + cmd;
     };
   })();`);
+  // Every short status note is kept (they fade away by themselves), so a failure can say what the app said.
+  await ctx.addInitScript(`window.__notes = []; new MutationObserver(() => { for (const n of document.querySelectorAll('.dr-note')) { const t = n.textContent || ''; if (t && window.__notes.at(-1) !== t) window.__notes.push(t); } }).observe(document, { subtree: true, childList: true, characterData: true });`);
   const page = await ctx.newPage();
+  if (process.env.CPU_SLOW) await (await ctx.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.CPU_SLOW) });
   page.on('pageerror', e => problems.push(`${d.name}: script error: ${e.message}`));
   if (process.env.DEBUG) { page.on('console', m => console.log('console:', m.text())); ctx.on('page', p => { console.log('popup', p.url()); p.on('console', m => console.log('popup console:', m.text())); p.on('framenavigated', f => console.log('popup nav', f.url())); }); }
   page.on('dialog', x => x.accept());
@@ -307,7 +310,7 @@ try {
       // Key making and OpenPGP encryption can take a while on a slow machine: wait for the message itself to leave.
       for (let i = 0; i < 120 && net.sent.length === msBefore && net.gmailSent.length === gBefore; i++) await page.waitForTimeout(500);
       const lastRaw = net.gmailSent.length > gBefore ? Buffer.from(net.gmailSent.at(-1).replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8') : net.sent.length > msBefore ? net.sent.at(-1) : '';
-      if (!lastRaw) problems.push(`${n}: nothing left after Send (note: ${await page.locator(`${P} .dr-note`).textContent().catch(() => '—')})`);
+      if (!lastRaw) problems.push(`${n}: nothing left after Send (notes: ${(await page.evaluate(() => window.__notes.slice(-4).join(' | ')).catch(() => '')) || '—'})`);
       check(/multipart\/encrypted/.test(lastRaw) && /BEGIN PGP MESSAGE/.test(lastRaw), `${n}: the mail leaves OpenPGP-encrypted (PGP/MIME) via ${sendWith}`);
       check(!/4321|Code du coffre/.test(lastRaw), `${n}: nothing readable leaves (no text, no subject)`);
       check(/^Autocrypt: addr=/m.test(lastRaw), `${n}: the public key travels with it (Autocrypt)`);
