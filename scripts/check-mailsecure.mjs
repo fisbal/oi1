@@ -237,10 +237,12 @@ try {
       await page.keyboard.type('Le code est 4321.');
       await c2.locator('.ml-lock-btn').click();
       check((await c2.locator('.ml-lock-btn').getAttribute('aria-pressed')) === 'true', `${n}: Encrypt this mail is switched on`);
-      const sentBefore = net.sent.length + net.gmailSent.length;
+      const msBefore = net.sent.length, gBefore = net.gmailSent.length;
       await c2.locator('.ml-send').click();
-      await page.waitForFunction(() => /end-to-end|bout en bout/i.test(document.querySelector('.module-host:not([hidden]) .mailapp .dr-note')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => {});
-      const lastRaw = net.sent.length + net.gmailSent.length > sentBefore ? (net.gmailSent.length && d.gmail && net.gmailSent.length > (sentBefore - net.sent.length) ? Buffer.from(net.gmailSent.at(-1).replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8') : net.sent.at(-1)) : '';
+      // Key making and OpenPGP encryption can take a while on a slow machine: wait for the message itself to leave.
+      for (let i = 0; i < 120 && net.sent.length === msBefore && net.gmailSent.length === gBefore; i++) await page.waitForTimeout(500);
+      const lastRaw = net.gmailSent.length > gBefore ? Buffer.from(net.gmailSent.at(-1).replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8') : net.sent.length > msBefore ? net.sent.at(-1) : '';
+      if (!lastRaw) problems.push(`${n}: nothing left after Send (note: ${await page.locator(`${P} .dr-note`).textContent().catch(() => '—')})`);
       check(/multipart\/encrypted/.test(lastRaw) && /BEGIN PGP MESSAGE/.test(lastRaw), `${n}: the mail leaves OpenPGP-encrypted (PGP/MIME) via ${sendWith}`);
       check(!/4321|Code du coffre/.test(lastRaw), `${n}: nothing readable leaves (no text, no subject)`);
       check(/^Autocrypt: addr=/m.test(lastRaw), `${n}: the public key travels with it (Autocrypt)`);
