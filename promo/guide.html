@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="fr" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google" content="notranslate">
+<title>Office In 1 — Guide réseaux sociaux</title>
+<link rel="icon" href="../icons/icon.svg">
+<!-- The social media guide. scripts/promo.mjs prints it to OfficeIn1-Guide-FR.pdf / -EN.pdf at every build,
+     with the apps, screenshots and version of that build (info.json). ?lang=fr|en -->
+<style>
+@font-face { font-family: 'Playfair Display Variable'; src: url(fonts/playfair-display-latin-wght-normal.woff2) format('woff2'); font-weight: 400 900; font-display: block; }
+@font-face { font-family: 'DM Sans Variable'; src: url(fonts/dm-sans-latin-wght-normal.woff2) format('woff2'); font-weight: 100 1000; font-display: block; }
+@page { size: Letter; margin: 0; }
+:root { --ink: #07070A; --paper: #FBF8F2; --text: #1d1b17; --dim: #6b645a; --line: #e6dccb; --gold: #B8892E; --gold-hi: #F2D78B;
+  --display: 'Playfair Display Variable', Georgia, serif; --sans: 'DM Sans Variable', system-ui, sans-serif;
+  --goldfill: linear-gradient(135deg, #B8892E, #F2D78B 55%, #D4A843); }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: #555; }
+body { font: 10.5pt/1.45 var(--sans); color: var(--text); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { width: 8.5in; height: 11in; margin: 0 auto 24px; background: var(--paper); position: relative; overflow: hidden; padding: .7in .75in .8in; page-break-after: always; break-after: page; }
+.page:last-child { page-break-after: auto; break-after: auto; }
+@media print { html { background: none; } .page { margin: 0; } }
+h1, h2, h3 { font-family: var(--display); line-height: 1.1; font-weight: 700; }
+h2 { font-size: 24pt; margin-bottom: 4pt; }
+h3 { font-size: 12.5pt; margin: 10pt 0 4pt; }
+.kicker { font: 700 8pt var(--sans); letter-spacing: .18em; text-transform: uppercase; color: var(--gold); margin-bottom: 6pt; }
+.lead { font-size: 11.5pt; color: var(--dim); margin: 4pt 0 10pt; max-width: 6.4in; }
+b.g { color: #C99A3A; } /* plain gold: gradient text prints as a box in PDF */
+.cover b.g { color: #E6C36E; }
+p + p { margin-top: 6pt; }
+ul { padding-left: 14pt; } li { margin: 2.5pt 0; }
+.foot { position: absolute; left: .75in; right: .75in; bottom: .4in; display: flex; justify-content: space-between; font-size: 7.5pt; color: var(--dim); border-top: 1px solid var(--line); padding-top: 6pt; }
+a { color: inherit; }
+
+/* Cover */
+.cover { background: var(--ink); color: #F4EFE6; display: flex; flex-direction: column; padding: .9in .8in; }
+.cover::before { content: ''; position: absolute; inset: -20%; background: radial-gradient(40% 30% at 30% 25%, rgba(212,168,67,.25), transparent 70%), radial-gradient(40% 30% at 80% 75%, rgba(212,168,67,.15), transparent 70%); }
+.cover > * { position: relative; }
+.cover img.crest { width: 1.5in; height: 1.5in; filter: drop-shadow(0 0 30px rgba(212,168,67,.45)); }
+.cover h1 { font-size: 52pt; margin-top: .35in; }
+.cover .what { font-size: 15pt; color: #c9c1b2; margin-top: 10pt; max-width: 4.1in; }
+.cover .title2 { margin-top: .5in; font: 700 9pt var(--sans); letter-spacing: .2em; text-transform: uppercase; color: var(--gold-hi); }
+.cover .t3 { font-family: var(--display); font-size: 24pt; margin-top: 6pt; }
+.cover .bottom { margin-top: auto; display: flex; gap: .35in; align-items: center; }
+.cover .qr { width: 1.7in; height: 1.7in; background: #fff; border-radius: 14pt; padding: 8pt; box-shadow: 0 0 0 2pt rgba(242,215,139,.6); flex: none; }
+.cover .qr img { width: 100%; height: 100%; display: block; }
+.cover .meta { font-size: 10pt; color: #c9c1b2; }
+.cover .meta strong { display: block; font-size: 15pt; color: #fff; margin-bottom: 4pt; }
+.cover .meta span { color: var(--gold-hi); }
+.cover .shots { position: absolute; right: -.55in; top: .55in; display: flex; gap: 10pt; transform: rotate(-8deg); opacity: .85; }
+.cover .shots img { width: 1.2in; border-radius: 12pt; box-shadow: 0 0 0 2pt rgba(242,215,139,.35), 0 20pt 40pt rgba(0,0,0,.6); }
+.cover .shots img:nth-child(2) { margin-top: .6in; }
+
+/* Apps grid */
+.apps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7pt; margin-top: 6pt; }
+.appcard { display: flex; gap: 7pt; border: 1px solid var(--line); border-left: 4pt solid var(--c); border-radius: 8pt; padding: 5pt 7pt; background: #fff; break-inside: avoid; }
+.appcard img { width: .4in; height: .86in; object-fit: cover; object-position: top; border-radius: 5pt; flex: none; background: #111; }
+.appcard strong { font-family: var(--display); font-size: 10.5pt; display: block; }
+.appcard em { font-style: normal; color: var(--dim); font-size: 8pt; display: block; margin-bottom: 3pt; }
+.appcard ul { font-size: 8pt; padding-left: 9pt; }
+.soon { font-size: 9pt; color: var(--dim); margin-top: 8pt; }
+.why { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8pt; margin-top: 10pt; }
+.why div { background: #fff; border: 1px solid var(--line); border-radius: 8pt; padding: 6pt 9pt; font-size: 8.6pt; line-height: 1.35; }
+.why strong { display: block; font-size: 10pt; margin-bottom: 2pt; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 6pt; }
+th, td { text-align: left; vertical-align: top; padding: 6pt 7pt; border-bottom: 1px solid var(--line); }
+th { font: 700 8pt var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--gold); background: #f4ecdd; }
+td:first-child { font-weight: 700; white-space: nowrap; }
+.cap { white-space: pre-wrap; font-size: 8.6pt; background: #fff; border: 1px solid var(--line); border-left: 3pt solid var(--gold); border-radius: 6pt; padding: 7pt 9pt; break-inside: avoid; }
+.caps { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; margin-top: 6pt; }
+.caps h4 { font: 700 8.5pt var(--sans); margin-bottom: 3pt; }
+.install { display: grid; grid-template-columns: 1fr 1.6in; gap: .3in; align-items: start; }
+.install .qrbox { text-align: center; font-size: 8.5pt; color: var(--dim); }
+.install .qrbox img { width: 1.6in; height: 1.6in; display: block; border: 1px solid var(--line); border-radius: 8pt; padding: 5pt; background: #fff; margin-bottom: 5pt; }
+.step { display: grid; grid-template-columns: 1.15in 1fr; gap: 8pt; padding: 7pt 0; border-bottom: 1px solid var(--line); }
+.step strong { font-family: var(--display); font-size: 11pt; }
+.badge { display: inline-block; font: 700 7.5pt var(--sans); letter-spacing: .08em; text-transform: uppercase; color: #fff; background: var(--gold); border-radius: 99px; padding: 1.5pt 6pt; margin-left: 4pt; vertical-align: 1pt; }
+.note { background: #f4ecdd; border-radius: 8pt; padding: 9pt 11pt; font-size: 9pt; margin-top: 12pt; break-inside: avoid; }
+.src { font-size: 8pt; color: var(--dim); margin-top: 10pt; }
+.src li { margin: 1pt 0; }
+code { font-size: 8.5pt; background: #f1ebe0; padding: 0 3pt; border-radius: 3pt; word-break: break-all; }
+</style>
+</head>
+<body>
+<div id="doc"></div>
+<script src="kit.js"></script>
+<script>
+(async () => {
+  const L = OI1Kit.lang();
+  document.documentElement.lang = L;
+  const d = await OI1Kit.load();
+  const k = d.links, esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const apps = d.apps[L] || d.apps.fr || [];
+  const ready = apps.filter(a => a.ready), soon = apps.filter(a => !a.ready);
+  const shots = d.shots[L] || d.shots.fr || {};
+  const shot = a => shots[a.short.replace('+', 'plus').toLowerCase()];
+  const date = new Date(d.built || Date.now()).toLocaleDateString(L === 'fr' ? 'fr-CA' : 'en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+  const ver = d.version ? `v${esc(d.version)}` : '';
+  const FR = L === 'fr';
+  const tx = (fr, en) => FR ? fr : en;
+  const n = apps.length || ready.length;
+  const list = (xs, and) => xs.length > 1 ? xs.slice(0, -1).join(', ') + and + xs[xs.length - 1] : xs.join('');
+  let page = 0;
+  const foot = () => `<div class="foot"><span>Office In 1 · ${tx('Guide réseaux sociaux', 'Social media guide')} · ${ver}</span><span>${esc(OI1Kit.host(k.kit))} · ${tx('mis à jour', 'updated')} ${date} · ${++page + 1}</span></div>`;
+
+  const cover = `<section class="page cover">
+    <div class="shots">${['letter', 'class', 'stage'].map(s => shots[s] ? `<img src="${esc(shots[s])}" alt="">` : '').join('')}</div>
+    <img class="crest" src="../icons/icon.svg" alt="">
+    <h1>Office In <b class="g">1</b></h1>
+    <p class="what">${tx(`Tout votre bureau dans une seule app : ${n} applis liées entre elles${soon.length ? ` (${list(soon.map(a => esc(a.name)), ' et ')} bientôt)` : ''}, sur Windows, Android, Mac et le Web.`, `Your whole office in one app: ${n} linked apps${soon.length ? ` (${list(soon.map(a => esc(a.name)), ' and ')} coming soon)` : ''}, on Windows, Android, Mac and the Web.`)}</p>
+    <p class="title2">${tx('Guide de présentation', 'Presentation guide')}</p>
+    <p class="t3">Facebook · Instagram · TikTok · WhatsApp</p>
+    <div class="bottom">
+      <div class="qr"><img src="qr.svg" alt="QR"></div>
+      <div class="meta"><strong>${tx('Scannez pour installer', 'Scan to install')}</strong>
+        ${tx('Windows : Microsoft Store', 'Windows: Microsoft Store')}<br>${tx('Tous les appareils', 'Every device')} : <span>${esc(OI1Kit.host(k.get))}</span><br><br>
+        ${ver} · ${date}</div>
+    </div>
+  </section>`;
+
+  const p2 = `<section class="page">
+    <p class="kicker">${tx('Ce que vous présentez', 'What you are presenting')}</p>
+    <h2>${tx(`${n} applis. <b class="g">1</b> seul endroit.`, `${n} apps. <b class="g">1</b> place.`)}</h2>
+    <p class="lead">${tx('Office In 1 réunit tout ce qu’on fait au bureau, à l’école ou à la maison dans une seule application. Chaque appli garde sa couleur et son rôle, mais elles partagent vos documents et se parlent entre elles.', 'Office In 1 brings together everything people do at work, at school or at home in a single app. Each app keeps its color and its job, but they share your documents and talk to each other.')}</p>
+    <div class="apps">${ready.map(a => {
+      const f = (OI1Kit.FEATURES[a.short] || {})[L] || [];
+      return `<div class="appcard" style="--c:${a.color}">${shot(a) ? `<img src="${esc(shot(a))}" alt="">` : ''}<div><strong>${esc(a.name)}</strong><em>${esc(a.kind)}</em>${f.length ? `<ul>${f.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div></div>`;
+    }).join('')}</div>
+    ${soon.length ? `<p class="soon">${tx('Bientôt', 'Coming')} : ${soon.map(a => `<strong>${esc(a.name)}</strong> (${esc(a.kind)})`).join(', ')}.</p>` : ''}
+    <h3>${tx('Ce qui le rend différent — les 3 phrases à retenir', 'What makes it different — the 3 lines to remember')}</h3>
+    <div class="why">
+      <div><strong>${tx('Tout en 1', 'All in 1')}</strong>${tx('Une seule app à installer, à apprendre et à garder à jour, au lieu de cinq ou six.', 'One app to install, learn and keep up to date, instead of five or six.')}</div>
+      <div><strong>${tx('Tout est lié', 'Everything linked')}</strong>${tx('Un tableau de Class placé dans une lettre se met à jour tout seul ; l’Assistant crée les documents liés à partir de quelques mots.', 'A Class table placed in a letter updates by itself; the Assistant makes the linked documents from a few words.')}</div>
+      <div><strong>${tx('Toujours à jour', 'Always current')}</strong>${tx('Ouvre vos .docx, .xlsx, .pptx ; enregistre sur l’appareil ; 5 langues ; se met à jour tout seul sur chaque appareil.', 'Opens your .docx, .xlsx, .pptx; saves on the device; 5 languages; updates itself on every device.')}</div>
+    </div>
+    ${foot()}
+  </section>`;
+
+  const p3 = `<section class="page">
+    <p class="kicker">${tx('Installer', 'Install')}</p>
+    <h2>${tx('Un seul code, chaque appareil', 'One code, every device')}</h2>
+    <p class="lead">${tx('Le code QR mène à une page qui reconnaît l’appareil et propose la bonne installation. Son adresse ne change jamais : un code imprimé ou publié reste bon pour toujours.', 'The QR code leads to a page that recognizes the device and offers the right install. Its address never changes: a printed or posted code stays good forever.')}</p>
+    <div class="install"><div>
+      <div class="step"><strong>Windows<span class="badge">${tx('conseillé', 'best')}</span></strong><div>${tx('<b>Microsoft Store</b> : installation signée par Microsoft, sans avertissement. Les mises à jour arrivent seules.', '<b>Microsoft Store</b>: install signed by Microsoft, with no warning. Updates arrive by themselves.')}<br><code>${esc(k.store)}</code></div></div>
+      <div class="step"><strong>Android</strong><div>${tx('Télécharger <b>OfficeIn1.apk</b>, l’ouvrir, puis accepter « Installer des applis inconnues » pour le navigateur la première fois.', 'Download <b>OfficeIn1.apk</b>, open it, then allow “Install unknown apps” for the browser the first time.')}</div></div>
+      <div class="step"><strong>iPhone · iPad</strong><div>${tx('Ouvrir le site dans Safari → <b>Partager</b> → <b>Sur l’écran d’accueil</b>. Il s’ouvre ensuite comme une app.', 'Open the site in Safari → <b>Share</b> → <b>Add to Home Screen</b>. It then opens like an app.')}</div></div>
+      <div class="step"><strong>Mac</strong><div>${tx('Télécharger <b>OfficeIn1.dmg</b> et glisser l’app dans Applications.', 'Download <b>OfficeIn1.dmg</b> and drag the app into Applications.')}</div></div>
+      <div class="step"><strong>Web</strong><div>${tx('Rien à installer : ', 'Nothing to install: ')}<code>${esc(k.site)}</code></div></div>
+    </div><div class="qrbox"><img src="qr.svg" alt="QR">${esc(OI1Kit.host(k.get))}</div></div>
+    <div class="note"><strong>${tx('Pourquoi un seul lien partout ?', 'Why one link everywhere?')}</strong> ${tx('Instagram et TikTok ne rendent pas les liens cliquables dans les légendes. Mettez le lien d’installation dans la bio (ou un autocollant « Lien » en Story) ; sur Facebook et WhatsApp, collez-le directement dans le texte.', 'Instagram and TikTok do not make links clickable in captions. Put the install link in the bio (or a “Link” sticker in Stories); on Facebook and WhatsApp, paste it straight into the text.')}</div>
+    ${foot()}
+  </section>`;
+
+  const nets = [
+    ['Facebook', tx('Vidéo MP4 9:16 en Reel + publication avec l’affiche carrée', 'MP4 9:16 video as a Reel + a post with the square poster'), tx('Dans le texte (cliquable)', 'In the text (clickable)'), tx('Reels : garder le texte hors des ~100 px du haut et ~300 px du bas', 'Reels: keep text out of the top ~100 px and bottom ~300 px')],
+    ['Instagram', tx('Reel 9:16 (MP4) ; Story avec l’affiche verticale ; publication carrée', 'Reel 9:16 (MP4); Story with the vertical poster; square post'), tx('Bio, ou autocollant « Lien » en Story', 'Bio, or “Link” sticker in Stories'), tx('Reels : ~210 px en haut, ~310 px en bas, ~84 px à droite', 'Reels: ~210 px top, ~310 px bottom, ~84 px right')],
+    ['TikTok', tx('Vidéo MP4 9:16, ajouter un son tendance dans l’app', 'MP4 9:16 video, add a trending sound in the app'), tx('Bio du profil (selon le type de compte)', 'Profile bio (depends on account type)'), tx('~108 px en haut, ~320 px en bas, ~120 px à droite', '~108 px top, ~320 px bottom, ~120 px right')],
+    ['WhatsApp', tx('Statut : la vidéo MP4 (moins de 90 s) ; discussions et groupes : vidéo + texte ; le PDF pour expliquer en détail', 'Status: the MP4 video (under 90 s); chats and groups: video + text; the PDF to explain in detail'), tx('Dans le message (aperçu automatique)', 'In the message (automatic preview)'), tx('Statut plein écran : garder le centre', 'Full-screen status: keep to the middle')],
+  ];
+  const p4 = `<section class="page">
+    <p class="kicker">${tx('Publier', 'Post')}</p>
+    <h2>${tx('Quoi publier, où, et comment', 'What to post, where, and how')}</h2>
+    <p class="lead">${tx(`La démo dure ${Math.round(d.videoSeconds || 40)} secondes, en 1080 × 1920 à 30 images/s : elle convient aux quatre réseaux sans montage. Son texte et ses images restent dans la zone sûre (hors des boutons et légendes de chaque app).`, `The demo runs ${Math.round(d.videoSeconds || 40)} seconds at 1080 × 1920, 30 frames/s: it fits all four networks with no editing. Its text and pictures stay in the safe zone (clear of each app’s buttons and captions).`)}</p>
+    <table><tr><th>${tx('Réseau', 'Network')}</th><th>${tx('Fichier', 'File')}</th><th>${tx('Le lien', 'The link')}</th><th>${tx('Zone sûre (1080 × 1920)', 'Safe zone (1080 × 1920)')}</th></tr>
+      ${nets.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>
+    <h3>${tx('Textes prêts à coller', 'Ready-to-paste texts')}</h3>
+    <div class="caps">${['facebook', 'instagram', 'tiktok', 'whatsapp'].map(net => `<div><h4>${net[0].toUpperCase() + net.slice(1)}</h4><div class="cap">${esc(OI1Kit.caption(L, net, d))}</div></div>`).join('')}</div>
+    ${foot()}
+  </section>`;
+
+  const p5 = `<section class="page">
+    <p class="kicker">${tx('Réussir', 'Getting it right')}</p>
+    <h2>${tx('Ce qui fait marcher une vidéo courte', 'What makes a short video work')}</h2>
+    <ul style="margin-top:8pt">
+      <li><strong>${tx('Les 2 premières secondes décident.', 'The first 2 seconds decide.')}</strong> ${tx('La démo ouvre sur le logo et la promesse « Tout votre bureau. Une seule app. » ; en légende, commencez par une question : « Combien d’applis avez-vous pour travailler ? »', 'The demo opens on the logo and the promise “Your whole office. One app.”; in the caption, start with a question: “How many apps do you work with?”')}</li>
+      <li><strong>${tx('Beaucoup regardent sans le son.', 'Many watch with the sound off.')}</strong> ${tx('Tout le message est écrit à l’écran. La vidéo est muette exprès : ajoutez une musique de la bibliothèque du réseau (libre de droits pour lui), jamais une chanson prise ailleurs.', 'The whole message is written on screen. The video is silent on purpose: add music from the network’s own library (cleared for it), never a song taken elsewhere.')}</li>
+      <li><strong>${tx('Un seul appel à l’action.', 'One call to action.')}</strong> ${tx('« Scannez » ou « lien dans la bio » — le même lien d’installation partout.', '“Scan” or “link in bio” — the same install link everywhere.')}</li>
+      <li><strong>${tx('Répondez aux commentaires dans l’heure.', 'Answer comments within the hour.')}</strong> ${tx('Les réseaux montrent davantage une publication qui fait réagir.', 'Networks show a post that gets reactions to more people.')}</li>
+      <li><strong>${tx('Publiez en série.', 'Post as a series.')}</strong> ${tx('Une vidéo par appli (la démo complète, puis un gros plan Letter, Class, Stage…) garde le compte vivant pendant des semaines.', 'One video per app (the full demo, then a close-up of Letter, Class, Stage…) keeps the account alive for weeks.')}</li>
+      <li><strong>${tx('Nommez sans copier.', 'Name without copying.')}</strong> ${tx('Dites « ouvre vos fichiers .docx, .xlsx, .pptx » plutôt que d’utiliser les logos d’autres marques.', 'Say “opens your .docx, .xlsx, .pptx files” rather than using other brands’ logos.')}</li>
+    </ul>
+    <div class="note"><strong>${tx('Ce guide se met à jour tout seul.', 'This guide updates itself.')}</strong> ${tx(`À chaque mise à jour d’Office In 1, la vidéo, les affiches, les captures d’écran, ce PDF et la liste des applis sont refaits à partir de l’app réelle (version ${ver || 'actuelle'}). Prenez toujours les fichiers sur la page du kit :`, `With every Office In 1 update, the video, posters, screenshots, this PDF and the list of apps are made again from the real app (version ${ver || 'current'}). Always take the files from the kit page:`)} <code>${esc(k.kit)}</code>. ${tx('Le code QR, lui, ne change jamais.', 'The QR code itself never changes.')}</div>
+    <div class="src"><strong>${tx('Sources', 'Sources')}</strong><ul>
+      <li>${tx('Zones sûres TikTok, Reels, Stories', 'TikTok, Reels and Stories safe zones')} — AdaptlyPost, <em>Social media safe zones 2026</em> : adaptlypost.com/en/blog/social-media-safe-zones-2026-complete-guide</li>
+      <li>${tx('Statut WhatsApp jusqu’à 90 s (juillet 2025)', 'WhatsApp Status up to 90 s (July 2025)')} — GREEN-API : green-api.com/en/blog/2025/whatsapp-increases-status-length-to-90-seconds</li>
+      <li>${tx('Microsoft Store, fiche Office In 1', 'Microsoft Store, Office In 1 listing')} — ${esc(k.store)}</li>
+    </ul></div>
+    ${foot()}
+  </section>`;
+
+  document.getElementById('doc').innerHTML = cover + p2 + p3 + p4 + p5;
+  await document.fonts.ready.catch(() => {});
+  await Promise.all([...document.images].map(i => i.decode().catch(() => {})));
+  window.promoReady = true;
+})();
+</script>
+</body>
+</html>
