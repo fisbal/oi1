@@ -89,7 +89,9 @@ export function analyse(m: Analysable, knownSenders: Set<string> = new Set()): W
   const w: Warn[] = [];
   const addr = lower((m.from.match(/<([^>]+)>/)?.[1] ?? m.from).trim());
   const fromDomain = domainOf(m.from);
-  const display = lower(m.from.replace(/<[^>]*>/, '').replace(/"/g, '').trim());
+  // The name part only ("Name" <a@b.c>): compared, never shown as HTML.
+  const lt = m.from.lastIndexOf('<');
+  const display = lower((lt >= 0 ? m.from.slice(0, lt) : m.from).replace(/"/g, '').trim());
 
   // 1. The sender's own server said the mail is forged (RFC 8601).
   const auth = lower(m.auth ?? '');
@@ -137,7 +139,8 @@ export function analyse(m: Analysable, knownSenders: Set<string> = new Set()): W
   }
 
   // 6. Pressure words, which matter most with links or a stranger.
-  const text = `${m.subject}\n${m.html.replace(/<[^>]+>/g, ' ')}`;
+  const bodyText = typeof DOMParser !== 'undefined' ? new DOMParser().parseFromString(m.html, 'text/html').body.textContent ?? '' : m.html;
+  const text = `${m.subject}\n${bodyText}`;
   if (PRESSURE.some(re => re.test(text))) w.push({ level: links || w.length ? 'warn' : 'info', code: 'pressure' });
 
   // 7. First mail from this sender.
