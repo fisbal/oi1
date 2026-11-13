@@ -71,3 +71,39 @@ describe('In 1 Mail model', () => {
     expect(TONES.length).toBeGreaterThanOrEqual(20);
   });
 });
+
+describe('In 1 Mail sending through an account', () => {
+  it('builds a real MIME message (Message-ID, no X-Unsent, threading, extra headers) that reads back', async () => {
+    const { toMime, rawHeader } = await import('../model');
+    const m = newMail('drafts', { to: ['Bob <bob@example.org>'], subject: 'Réunion', html: '<p>À demain</p>', inReplyTo: '<abc@x>' });
+    const mime = await toMime(m, 'Anna <anna@example.org>', { send: true, inReplyTo: m.inReplyTo, headers: ['Autocrypt: addr=anna@example.org; keydata=AAAA'] });
+    expect(mime).not.toContain('X-Unsent');
+    expect(mime).toMatch(/Message-ID: <[^>]+@example\.org>/);
+    expect(rawHeader(mime, 'in-reply-to')).toBe('<abc@x>');
+    expect(rawHeader(mime, 'autocrypt')).toContain('addr=anna@example.org');
+    const back = fromEml(mime);
+    expect(back.subject).toBe('Réunion');
+    expect(textOf(back.html)).toBe('À demain');
+    expect(back.msgId).toMatch(/@example\.org>$/);
+  });
+  it('keeps the subject inside when encrypting (protected headers)', async () => {
+    const { toMime } = await import('../model');
+    let inner = '';
+    const mime = await toMime(newMail('drafts', { to: ['bob@example.org'], subject: 'Secret' }), 'anna@example.org', { send: true, encrypt: async i => { inner = i; return { contentType: 'multipart/encrypted; protocol="application/pgp-encrypted"; boundary="b"', body: '--b--' }; } });
+    expect(mime).toContain('Subject: ...');
+    expect(mime).not.toContain('Subject: Secret');
+    expect(inner).toContain('Subject: Secret');
+    expect(inner).toContain('protected-headers="v1"');
+  });
+  it('keeps the security facts of received mails (Authentication-Results, Reply-To)', () => {
+    const m = fromEml('Authentication-Results: mx; spf=pass\r\nAuthentication-Results: mx; dmarc=fail\r\nFrom: a@b.com\r\nReply-To: c@d.com\r\nSubject: x\r\n\r\nbody');
+    expect(m.auth).toContain('dmarc=fail');
+    expect(m.auth).toContain('spf=pass');
+    expect(m.replyTo).toBe('c@d.com');
+    const box = cleanBox({ mails: [{ ...m, account: 'gmail:a@b.com', remoteId: 'r1', secure: 'e2e' }], accounts: [{ provider: 'gmail', email: 'a@b.com' }, { provider: 'yahoo', email: 'x@y.z' }], keys: { 'A@B.com': '-----BEGIN PGP PUBLIC KEY BLOCK-----x', bad: 'x' } });
+    expect(box.mails[0].remoteId).toBe('r1');
+    expect(box.mails[0].secure).toBe('e2e');
+    expect(box.accounts).toHaveLength(1);
+    expect(Object.keys(box.keys!)).toEqual(['a@b.com']);
+  });
+});

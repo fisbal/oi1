@@ -61,8 +61,14 @@ const help = (page, key, tabLabel) => ({
 const drafts = async page => { await page.waitForTimeout(700); return page.evaluate(() => new Promise(res => {
   const rq = indexedDB.open('oi1');
   rq.onsuccess = () => { const tx = rq.result.transaction('kv', 'readonly'); const st = tx.objectStore('kv'); const keys = st.getAllKeys(); const vals = st.getAll();
-    tx.oncomplete = () => { const i = keys.result.findIndex(k => String(k).endsWith(':mail')); res(i < 0 ? null : JSON.parse(vals.result[i])); }; };
+    tx.oncomplete = () => { const i = keys.result.findIndex(k => String(k).endsWith(':mail')); res(i < 0 ? null : vals.result[i]); }; };
   rq.onerror = () => res(null);
+}).then(async raw => {
+  // The mailbox is saved encrypted with the device key (secure/vault.ts): open it like the app does.
+  if (!raw || !String(raw).startsWith('oi1enc1:')) return raw ? JSON.parse(raw) : null;
+  const key = await new Promise(r => { const q = indexedDB.open('oi1-mail-keys'); q.onsuccess = () => { const g = q.result.transaction('k').objectStore('k').get('main'); g.onsuccess = () => r(g.result); }; });
+  const all = Uint8Array.from(atob(String(raw).slice(8)), c => c.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, key, all.slice(12))));
 })); };
 async function openMail(page) {
   await page.goto(url);

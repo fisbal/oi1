@@ -146,3 +146,44 @@
 .ml-sig-mini span { font-size: inherit !important; }
 .ml-sig-use { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); min-width: 0; }
 .ml-sig-del { justify-self: start; color: #c62828; }
+
+/* ---------- accounts, phishing guard, end-to-end encryption (secure/) ---------- */
+.ml-acc { display: flex; flex-direction: column; gap: 10px; max-width: 520px; line-height: 1.45; overflow-wrap: anywhere; }
+.ml-acc p { margin: 0; }
+.ml-acc-lead { color: var(--ink); }
+.ml-acc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ml-acc-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.ml-acc-who { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 200px; }
+.ml-acc-who input { width: 20px; height: 20px; flex: none; }
+.ml-acc-who span { display: flex; flex-direction: column; min-width: 0; }
+.ml-acc-who small, .ml-acc small { color: var(--muted); font-size: 12.5px; }
+.ml-acc-none { color: var(--muted); }
+.ml-acc-add { display: flex; flex-direction: column; gap: 10px; }
+.ml-acc-prov { display: flex; flex-direction: column; gap: 3px; }
+.ml-acc button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 4px 14px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; text-align: center; }
+.ml-acc button.primary { background: var(--ml-accent, #4F5FD0); border-color: transparent; color: #fff; font-weight: 600; }
+.ml-acc button:disabled { opacity: .5; cursor: default; }
+.ml-acc .ml-danger { border-color: #C62828; color: #C62828; }
+.ml-acc-error { color: #C62828; font-weight: 600; }
+.ml-acc-note { font-size: 12.5px; color: var(--muted); border-left: 3px solid var(--ml-accent, #4F5FD0); padding-left: 8px; }
+.ml-key { display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+.ml-fpr { display: block; padding: 6px 8px; border-radius: 8px; background: rgba(var(--fg-rgb), .06); font: 600 13px/1.5 ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+.ml-link-full { font-family: ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+.ml-key-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ml-key-auto { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+.ml-key-auto input { width: 20px; height: 20px; flex: none; }
+.ml-phish { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid; line-height: 1.45; overflow-wrap: anywhere; }
+.ml-phish b { display: flex; align-items: center; gap: 6px; }
+.ml-phish ul { margin: 6px 0; padding-left: 20px; }
+.ml-phish p { margin: 6px 0; font-size: 13px; }
+.ml-phish button { min-height: 36px; padding: 0 12px; border: 1px solid currentColor; border-radius: 999px; background: #fff; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.ml-phish.danger { background: #FDECEA; border-color: #E57373; color: #8E1B1B; }
+.ml-phish.warn { background: #FFF6E0; border-color: #F0B44C; color: #6B4500; }
+.ml-phish.info { background: #EEF3FD; border-color: #A9BCEB; color: #23407A; }
+.ml-images { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; padding: 6px 10px; border-radius: 8px; background: #F3F4F8; color: #444; font-size: 13px; }
+.ml-images button { min-height: 32px; padding: 0 10px; border: 1px solid rgba(0, 0, 0, .2); border-radius: 999px; background: #fff; color: #222; font: inherit; font-size: 13px; cursor: pointer; }
+.ml-e2e { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 10px; padding: 4px 10px; border-radius: 999px; background: #E6F4EA; color: #1E5E2E; font-size: 13px; font-weight: 600; }
+.ml-lock { font-style: normal; margin-right: 4px; }
+.ml-sus { font-style: normal; margin-right: 6px; padding: 0 6px; border-radius: 999px; background: #C62828; color: #fff; font-size: 11px; font-weight: 700; }
+.ml-compose-bar .ml-lock-btn.on { background: #E6F4EA; border-color: #2E7D32; color: #1E5E2E; }
+.ml-send-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw; }

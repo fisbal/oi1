@@ -64,6 +64,7 @@
     "check:objmenu": "node scripts/check-objmenu.mjs",
     "check:appmenu": "node scripts/check-appmenu.mjs",
     "check:mail": "node scripts/check-mail.mjs",
+    "check:mailsecure": "node scripts/check-mailsecure.mjs",
     "check:image": "node scripts/check-image.mjs",
     "check:faults-code": "node scripts/faults-code.mjs",
     "faults:ui": "node scripts/faults-ui.mjs"
@@ -190,6 +191,7 @@
     "html-to-image": "^1.11.13",
     "hunspell-asm": "^4.0.2",
     "jszip": "^3.10.2",
+    "openpgp": "^6.3.2",
     "pdf-lib": "^1.17.1",
     "prettier": "^3.9.10",
     "qrcode-generator": "^2.0.4",
