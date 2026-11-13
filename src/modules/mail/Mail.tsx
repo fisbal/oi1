@@ -35,15 +35,21 @@ import type { ConvertSource } from '../../shell/convert';
 import { aiTranslator, bestTranslator } from '../../shell/translate';
 import { FONTS, TEXT_SIZES } from '../draw/model';
 import {
-  FOLDERS, LABELS, addressOf, cleanBox, contactsFrom, fieldsIn, fromEml, gmailUrl, mailtoUrl, merge, newId, newMail, outlookUrl, preview, sizeText,
+  FOLDERS, LABELS, addressOf, cleanBox, contactsFrom, rawHeader, toMime, fieldsIn, fromEml, gmailUrl, mailtoUrl, merge, newId, newMail, outlookUrl, preview, sizeText,
   splitAddresses, textOf, toEml, toVcf, validAddress, type Attachment, type Contact, type Folder, type Mail, type MailBox,
 } from './model';
 import { MAIL_TEMPLATES, TONES } from './templates';
 import { mailWithAi } from './ai';
+import { fetchInbox, markRead, sendMime, trashRemote } from './secure/accounts';
+import { openText, sealText } from './secure/vault';
+import { analyse, blockRemote, checkLink, worst } from './secure/phish';
+import { autocryptHeader, decryptArmored, encryptMime, ensureKey, isPgpMime, keyFromAutocrypt, myKey, PGP_BLOCK } from './secure/pgp';
+import { AccountsDialog, KeysDialog, LinkDialog, PhishBanner, errText } from './secure/SecureUi';
+import { ms, type SKey } from './secure/strings';
 
 export const EXTENSIONS = ['.eml', '.oi1mail'];
 type Tab = 'home' | 'insert' | 'format' | 'send' | 'mailing' | 'view' | 'ai' | 'oi1' | 'convert';
-type Via = 'app' | 'gmail' | 'outlook' | 'eml';
+type Via = 'app' | 'gmail' | 'outlook' | 'eml' | 'account';
 const ZOOMS = [0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const textToHtml = (s: string) => s.split(/\n{2,}/).map(p => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
@@ -61,7 +67,7 @@ export default function MailApp({ shell, file, handoff }: { shell: ShellApi; fil
   useEffect(() => {
     void (async () => {
       let saved: MailBox | null = null;
-      try { const raw = await shell.storage.load('mail'); if (raw) saved = cleanBox(JSON.parse(raw)); } catch { /* unreadable autosave */ }
+      try { const raw = await shell.storage.load('mail'); if (raw) saved = cleanBox(JSON.parse(await openText(raw))); } catch { /* unreadable autosave */ }
       setInitial(saved ?? cleanBox(null));
     })();
   }, [shell]);
@@ -89,7 +95,9 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   const textMenu = useTextMenu();
   const [aiAsk, setAiAsk] = useState<{ text: string; busy: boolean; error: string } | null>(null);
   const [ask, setAsk] = useState<{ title: string; label: string; value: string; ok: (v: string) => void; danger?: boolean } | null>(null);
-  const [dlg, setDlg] = useState<'contacts' | 'me' | 'merge' | 'sigs' | null>(null);
+  const [dlg, setDlg] = useState<'contacts' | 'me' | 'merge' | 'sigs' | 'accounts' | 'keys' | null>(null);
+  const [linkAsk, setLinkAsk] = useState<{ href: string; host: string; why: string } | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const [mergeRows, setMergeRows] = useState<Record<string, string>[] | null>(null);
   const [note, setNote] = useState('');
   const [narrow, setNarrow] = useState(false);
@@ -104,7 +112,7 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   const contactsInput = useRef<HTMLInputElement>(null);
   const ctl = useRef<AbortController | null>(null);
   const edRef = useRef<Editor | null>(null);
-  useEffect(() => { if (ask || aiAsk || dlg) closeRibbonPeek(); }, [ask, aiAsk, dlg]);
+  useEffect(() => { if (ask || aiAsk || dlg || linkAsk) closeRibbonPeek(); }, [ask, aiAsk, dlg, linkAsk]);
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
@@ -141,7 +149,8 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   const saveTimer = useRef(0);
   useEffect(() => {
     window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => { void shell.storage.save('mail', JSON.stringify(box)); }, 500);
+    // Saved encrypted with the device key (secure/vault.ts): a copy of the browser's files shows no mail.
+    saveTimer.current = window.setTimeout(() => { void sealText(JSON.stringify(box)).then(v => shell.storage.save('mail', v)).catch(() => shell.storage.save('mail', JSON.stringify(box))); }, 500);
   }, [box, shell]);
   const current = box.mails.find(m => m.id === sel) ?? null;
   const editing = !!current && (current.folder === 'drafts' || current.folder === 'templates');
@@ -156,7 +165,13 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
   useEffect(() => { shell.autoSave(null); }, [shell]);
 
   // ---------- opening ----------
-  const openMail = (id: string) => { setSel(id); setPane('mail'); const m = boxRef.current.mails.find(x => x.id === id); if (m && !m.read) setMail(id, { read: true }, false); closeRibbonPeek(); };
+  const accountOf = (m?: Mail | null) => (m?.account ? boxRef.current.accounts?.find(a => a.id === m.account) : undefined);
+  const openMail = (id: string) => {
+    setSel(id); setPane('mail');
+    const m = boxRef.current.mails.find(x => x.id === id);
+    if (m && !m.read) { setMail(id, { read: true }, false); const a = accountOf(m); if (a && m.remoteId) void markRead(a, m.remoteId).catch(() => { /* next time */ }); }
+    closeRibbonPeek();
+  };
   const addMails = (list: Mail[], open = true) => {
     if (!list.length) return;
     change(b => ({ ...b, mails: [...list, ...b.mails] }));
@@ -178,7 +193,12 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
       return;
     }
     if (name.endsWith('.vcf') || name.endsWith('.csv')) { importContacts(text); return; }
-    if (/^(from|to|subject|received|mime-version|date|return-path|message-id):/im.test(text.slice(0, 4000))) { addMails([fromEml(text)]); return; }
+    if (/^(from|to|subject|received|mime-version|date|return-path|message-id):/im.test(text.slice(0, 4000))) {
+      const keys = { ...(boxRef.current.keys ?? {}) };
+      const m = await receive(text, keys);
+      if (Object.keys(keys).length !== Object.keys(boxRef.current.keys ?? {}).length) change(b => ({ ...b, keys }), false);
+      addMails([m]); return;
+    }
     setNote(t('mail.badFile'));
   };
   const attachBlob = async (name: string, blob: Blob) => {
@@ -213,7 +233,7 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     if (!current) return;
     const me = addressOf(from()).toLowerCase();
     const others = all ? [...current.to, ...current.cc].filter(a => addressOf(a).toLowerCase() !== me) : [];
-    compose({ to: current.from ? [current.from] : [], cc: others, subject: /^(re|ré|aw|res)\s*:/i.test(current.subject) ? current.subject : `${t('mail.re')} ${current.subject}`, html: `<p></p>${replySig()}${quoteOf(current)}` });
+    compose({ to: [current.replyTo || current.from].filter(Boolean), cc: others, ...(current.msgId ? { inReplyTo: current.msgId } : {}), ...(current.account ? { account: current.account } : {}), ...(current.secure ? { secure: current.secure } : {}), subject: /^(re|ré|aw|res)\s*:/i.test(current.subject) ? current.subject : `${t('mail.re')} ${current.subject}`, html: `<p></p>${replySig()}${quoteOf(current)}` });
   };
   const forward = () => {
     if (!current) return;
@@ -223,7 +243,11 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     const m = boxRef.current.mails.find(x => x.id === id);
     if (!m) return;
     if (m.folder === 'trash') change(b => ({ ...b, mails: b.mails.filter(x => x.id !== id) }));
-    else setMail(m.id, { folder: 'trash' });
+    else {
+      setMail(m.id, { folder: 'trash' });
+      const a = accountOf(m);
+      if (a && m.remoteId && m.folder === 'inbox') void trashRemote(a, m.remoteId).catch(e => setNote(errText(e, a)));
+    }
     setSel(null); setPane('list');
     setNote(t('mail.deleted'));
   };
@@ -246,6 +270,7 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     if (p) { setNote(p); return; }
     if (!fresh.subject.trim() && !window.confirm?.(t('mail.noSubject'))) return;
     setVia(how);
+    if (how === 'account') { await sendWithAccount(fresh); return; }
     if (how === 'eml') await shell.saveFile(`${baseName()}.eml`, toEml(fresh, from()), 'message/rfc822', { saveAs: true });
     else {
       const url = how === 'gmail' ? gmailUrl(fresh) : how === 'outlook' ? outlookUrl(fresh) : mailtoUrl(fresh);
@@ -256,6 +281,91 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     if (how === 'app' && fresh.attachments.length) setNote(t('mail.attachHint'));
     else setNote(t(`mail.sentVia.${how}` as MessageKey));
     setFolder('sent');
+  };
+
+  // ---------- real accounts (secure/accounts.ts) ----------
+  /** A raw received mail made readable: OpenPGP opened, the sender's Autocrypt key learned (into `keys`). */
+  async function receive(raw: string, keys: Record<string, string>): Promise<Mail> {
+    let m = fromEml(raw);
+    const fromAddr = addressOf(m.from).toLowerCase();
+    const ac = rawHeader(raw, 'autocrypt');
+    if (ac) { const k = await keyFromAutocrypt(ac, fromAddr).catch(() => null); if (k) keys[fromAddr] = k; }
+    const armored = raw.match(PGP_BLOCK)?.[0] ?? m.attachments.map(a => { try { return atob(a.data); } catch { return ''; } }).join('\n').match(PGP_BLOCK)?.[0];
+    if (!armored) return m;
+    const mine = await myKey();
+    try {
+      if (!mine) throw new Error('no key');
+      const o = await decryptArmored(armored, mine, keys[fromAddr] ? [keys[fromAddr]] : []);
+      if (isPgpMime(raw)) {
+        const inner = fromEml(o.text);
+        m = { ...m, subject: inner.subject && inner.subject !== '...' ? inner.subject : m.subject, html: inner.html, attachments: inner.attachments.filter(a => !/\.asc$/i.test(a.name) || a.type !== 'application/pgp-keys') };
+      } else m = { ...m, html: textToHtml(o.text) };
+      return { ...m, secure: 'e2e', ...(o.verified ? { signed: true } : {}) };
+    } catch {
+      return { ...m, html: `<p><b>🔒 ${esc(ms('cantOpen'))}</b></p>`, secure: 'e2e', attachments: [] };
+    }
+  }
+  const sync = async () => {
+    const accs = boxRef.current.accounts ?? [];
+    if (!accs.length) { setDlg('accounts'); return; }
+    if (syncing) return;
+    setSyncing(true); setNote(ms('syncing'));
+    let n = 0;
+    try {
+      for (const a of accs) {
+        try {
+          const known = new Set(boxRef.current.mails.filter(m => m.account === a.id && m.remoteId).map(m => m.remoteId!));
+          const got = await fetchInbox(a, known);
+          const keys = { ...(boxRef.current.keys ?? {}) };
+          const mails: Mail[] = [];
+          for (const r of got) mails.push({ ...(await receive(r.raw, keys)), folder: 'inbox', account: a.id, remoteId: r.remoteId, read: !r.unread });
+          n += mails.length;
+          const now = new Date().toISOString();
+          change(b => ({ ...b, keys, accounts: (b.accounts ?? []).map(x => (x.id === a.id ? { ...x, lastSync: now } : x)), mails: [...mails, ...b.mails] }), false);
+        } catch (e) { setNote(errText(e, a)); return; }
+      }
+      setFolder('inbox'); setLabel(null); setPane('list');
+      setNote(n ? ms('got', { n }) : ms('nothing'));
+    } finally { setSyncing(false); }
+  };
+  const sendWithAccount = async (m: Mail) => {
+    const accs = boxRef.current.accounts ?? [];
+    const acc = accs.find(a => a.id === (m.account || boxRef.current.sendWith)) ?? accs[0];
+    if (!acc) { setNote(ms('noAccount')); setDlg('accounts'); return; }
+    const recips = [...new Set([...m.to, ...m.cc, ...m.bcc].map(a => addressOf(a).toLowerCase()))];
+    const own = await myKey().catch(() => null);
+    // Writing to oneself (or a copy to oneself): one's own public key does the job.
+    const keys = { ...(own ? { [own.email.toLowerCase()]: own.pub } : {}), ...(boxRef.current.keys ?? {}) };
+    const missing = recips.filter(r => !keys[r]);
+    const lock = m.secure === 'e2e' || (!!boxRef.current.e2e && !missing.length);
+    if (m.secure === 'e2e' && missing.length) { setNote(ms('missingKey', { who: missing.join(', ') })); return; }
+    const name = boxRef.current.me.name || acc.name;
+    const fromStr = name ? `${name} <${acc.email}>` : acc.email;
+    try {
+      const mine = lock ? await ensureKey(name, acc.email) : own;
+      const headers = mine && mine.email.toLowerCase() === acc.email.toLowerCase() ? [await autocryptHeader(mine)] : [];
+      const mime = await toMime(m, fromStr, { send: true, inReplyTo: m.inReplyTo, headers, ...(lock && mine ? { encrypt: (inner: string) => encryptMime(inner, recips.map(r => keys[r]), mine) } : {}) });
+      await sendMime(acc, mime);
+    } catch (e) { setNote(errText(e, acc)); return; }
+    setMail(m.id, { folder: 'sent', at: new Date().toISOString(), html: m.html, from: fromStr, account: acc.id, ...(lock ? { secure: 'e2e' as const } : {}) });
+    setNote(lock ? ms('sentE2e', { email: acc.email }) : ms('sentWith', { email: acc.email }));
+    setFolder('sent');
+  };
+  const knownSenders = useMemo(() => new Set([
+    ...box.contacts.map(c => c.email.toLowerCase()),
+    ...box.mails.filter(m => m.folder === 'sent').flatMap(m => [...m.to, ...m.cc].map(a => addressOf(a).toLowerCase())),
+  ]), [box.contacts, box.mails]);
+  const warnsOf = useCallback((m: Mail) => (m.folder === 'inbox' || m.folder === 'trash') && !m.trusted ? analyse(m, knownSenders) : [], [knownSenders]);
+  const onBodyClick = (e: React.MouseEvent) => {
+    const a = (e.target as HTMLElement).closest('a[href]');
+    if (!a) return;
+    e.preventDefault();
+    const href = a.getAttribute('href') ?? '';
+    if (/^mailto:/i.test(href)) { compose({ to: [decodeURIComponent(href.slice(7).split('?')[0])] }); return; }
+    const c = checkLink(a.textContent ?? '', href);
+    if (!/^https?:/i.test(href)) { setLinkAsk({ href, host: c.host, why: ms('ph.badScheme') }); return; }
+    if (c.level === 'danger' || c.level === 'warn') setLinkAsk({ href, host: c.host, why: ms(`ph.${c.code}` as SKey, { d: c.host }) });
+    else window.open(href, '_blank', 'noopener,noreferrer');
   };
 
   // ---------- contacts and mail merge ----------
@@ -535,6 +645,12 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
             <Btn big icon="send" title="mail.via.gmail" active={via === 'gmail'} onClick={() => void send('gmail')} disabled={!editing} />
             <Btn big icon="window" title="mail.via.outlook" active={via === 'outlook'} onClick={() => void send('outlook')} disabled={!editing} />
             <Btn big icon="save" title="mail.via.eml" active={via === 'eml'} onClick={() => void send('eml')} disabled={!current} />
+            <Btn big icon="envelope" title="mail.via.account" active={via === 'account'} onClick={() => void send('account')} disabled={!editing} />
+          </Group>
+          <Group label="mail.group.accounts">
+            <Btn big icon="user" title="mail.accounts" onClick={() => setDlg('accounts')} />
+            <Btn big icon="sync" title="mail.receive" onClick={() => void sync()} disabled={syncing} />
+            <Btn text icon="shield" title="mail.e2e" onClick={() => setDlg('keys')} />
           </Group>
           <Group label="mail.group.before">
             <Btn text icon="check" title="mail.check" onClick={() => { if (current) { const p = problemsOf(current); setNote(p || t('mail.checkOk')); } }} disabled={!current} />
@@ -627,17 +743,24 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
     <section className="ml-list" aria-label={t('mail.list')}>
       <div className="ml-search"><Icon name="search" size={13} /><input type="search" value={query} placeholder={t('mail.searchPh')} aria-label={t('mail.search')} onChange={e => setQuery(e.target.value)} /></div>
       {!shown.length && <p className="ml-none">{t(folder === 'inbox' && !label ? 'mail.emptyInbox' : 'mail.emptyFolder')}</p>}
+      {folder === 'inbox' && !label && !shown.length && <button type="button" className="ml-import" onClick={() => (box.accounts?.length ? void sync() : setDlg('accounts'))}><Icon name={box.accounts?.length ? 'sync' : 'user'} size={14} />{t(box.accounts?.length ? 'mail.receive' : 'mail.accounts')}</button>}
       {folder === 'inbox' && !label && !shown.length && <button type="button" className="ml-import" onClick={() => emlInput.current?.click()}><Icon name="download" size={14} />{t('mail.importEml')}</button>}
       {shown.map(m => (
         <button key={m.id} type="button" className={`ml-item${sel === m.id ? ' on' : ''}${m.read ? '' : ' unread'}`} onClick={() => openMail(m.id)}>
           <span className="ml-item-top"><b>{m.folder === 'drafts' || m.folder === 'sent' ? (m.to.join(', ') || t('mail.noRecipient')) : (m.from || '—')}</b><small>{dayText(m.at, lang)}</small></span>
-          <span className="ml-item-subject">{m.star && <i className="ml-star">★</i>}{m.attachments.length > 0 && '📎 '}{m.subject || t('mail.untitled')}</span>
+          <span className="ml-item-subject">{m.secure === 'e2e' && <i className="ml-lock" title={ms('e2e')}>🔒</i>}{worst(warnsOf(m)) === 'danger' && <i className="ml-sus" data-sus="1">{ms('ph.badge')}</i>}{m.star && <i className="ml-star">★</i>}{m.attachments.length > 0 && '📎 '}{m.subject || t('mail.untitled')}</span>
           <span className="ml-item-preview">{preview(m) || '…'}</span>
           {m.labels.length > 0 && <span className="ml-dots">{m.labels.map(l => <i key={l} style={{ background: LABELS.find(x => x.id === l)?.color }} title={t(`mail.label.${l}` as MessageKey)} />)}</span>}
         </button>
       ))}
     </section>
   );
+  const warns = current && !editing ? warnsOf(current) : [];
+  const bodyView = useMemo(() => {
+    if (!current || editing) return { html: '', blocked: 0 };
+    const clean = safeHtml(current.html);
+    return current.images ? { html: clean, blocked: 0 } : blockRemote(clean);
+  }, [current?.id, current?.html, current?.images, editing]); // eslint-disable-line react-hooks/exhaustive-deps
   const reader = current && !editing ? (
     <article className="ml-paper ml-reader">
       <h1>{current.subject || t('mail.untitled')}</h1>
@@ -654,13 +777,18 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
         <button type="button" onClick={() => startAi('reply')}>✦ {t('mail.ai.reply')}</button>
         {current.folder === 'sent' && <button type="button" onClick={() => setMail(current.id, { folder: 'drafts' })}><Icon name="pen" size={14} />{t('mail.editAgain')}</button>}
       </div>
-      <div className="ml-body" dangerouslySetInnerHTML={{ __html: safeHtml(current.html) }} />
+      {current.secure === 'e2e' && <p className="ml-e2e" data-signed={current.signed ? '1' : '0'}><Icon name="shield" size={13} />{ms('e2e')}{current.signed ? ` · ${ms('signedOk')}` : ''}</p>}
+      {warns.length > 0 && <PhishBanner warns={warns} onTrust={() => setMail(current.id, { trusted: true })} />}
+      {bodyView.blocked > 0 && <p className="ml-images" role="note">{ms('images', { n: bodyView.blocked })} <button type="button" onClick={() => setMail(current.id, { images: true }, false)}>{ms('showImages')}</button></p>}
+      <div className="ml-body" onClick={onBodyClick} dangerouslySetInnerHTML={{ __html: bodyView.html }} />
       {current.attachments.length > 0 && <Attachments list={current.attachments} />}
     </article>
   ) : null;
   const composer = current && editing ? (
     <Composer key={current.id} mail={current} contacts={box.contacts} edRef={edRef} onChange={(patch, record) => setMail(current.id, patch, record)} onEdit={on => (on ? editStart() : editEnd())}
-      onSend={() => void send()} onDiscard={() => delMail(current.id)} onAttach={() => attachInput.current?.click()} via={via} onMenu={(ed, x, y) => textMenu.setMenu({ x, y, ed })} />
+      onSend={() => void send()} onDiscard={() => delMail(current.id)} onAttach={() => attachInput.current?.click()} via={via} onMenu={(ed, x, y) => textMenu.setMenu({ x, y, ed })}
+      viaName={via === 'account' ? (box.accounts?.find(a => a.id === (current.account || box.sendWith)) ?? box.accounts?.[0])?.email : undefined}
+      lock={via === 'account' ? { on: current.secure === 'e2e', toggle: () => setMail(current.id, current.secure === 'e2e' ? { secure: undefined } : { secure: 'e2e' }) } : undefined} />
   ) : null;
   const empty = !current && <div className="ml-paper ml-hello"><p>{t('mail.helloLead')}</p><div><button type="button" className="primary" onClick={() => compose()}><Icon name="new" size={14} />{t('mail.new')}</button><button type="button" onClick={() => setAiAsk({ text: '', busy: false, error: '' })}>✦ {t('mail.aiWrite')}</button><button type="button" onClick={() => emlInput.current?.click()}><Icon name="download" size={14} />{t('mail.importEml')}</button></div></div>;
 
@@ -730,6 +858,14 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
         </Dialog>
       )}
       {dlg === 'sigs' && <MailSigsDialog box={box} onClose={() => setDlg(null)} onSave={(sigs, sigNew, sigReply) => { change(b => ({ ...b, sigs, sigNew, sigReply })); setDlg(null); }} />}
+      {dlg === 'accounts' && <AccountsDialog accounts={box.accounts ?? []} sendWith={box.sendWith} onClose={() => setDlg(null)} onNote={setNote}
+        onAdd={a => { change(b => ({ ...b, accounts: [...(b.accounts ?? []).filter(x => x.id !== a.id), a], ...(b.me.email ? {} : { me: { name: b.me.name || a.name, email: a.email } }) })); setVia('account'); }}
+        onRemove={a => change(b => ({ ...b, accounts: (b.accounts ?? []).filter(x => x.id !== a.id), ...(b.sendWith === a.id ? { sendWith: undefined } : {}) }))}
+        onSendWith={id => change(b => ({ ...b, sendWith: id }))} />}
+      {dlg === 'keys' && <KeysDialog me={box.accounts?.find(a => a.id === box.sendWith) ? { name: box.me.name, email: box.accounts.find(a => a.id === box.sendWith)!.email } : box.me} keys={box.keys ?? {}} auto={!!box.e2e}
+        onAuto={on => change(b => ({ ...b, e2e: on }))} onKeys={keys => change(b => ({ ...b, keys }))} onClose={() => setDlg(null)} onNote={setNote}
+        onSave={(name, text) => void shell.saveFile(name, text, 'application/pgp-keys', { saveAs: true })} />}
+      {linkAsk && <LinkDialog {...linkAsk} onOpen={() => window.open(linkAsk.href, '_blank', 'noopener,noreferrer')} onClose={() => setLinkAsk(null)} />}
       {dlg === 'me' && <MeDialog box={box} onClose={() => setDlg(null)} onSave={(me, signature) => { change(b => ({ ...b, me, signature })); setDlg(null); }} />}
       {dlg === 'contacts' && <ContactsDialog contacts={box.contacts} onClose={() => setDlg(null)} onChange={contacts => change(b => ({ ...b, contacts }))}
         onWrite={c => { setDlg(null); compose({ to: [c.name ? `${c.name} <${c.email}>` : c.email] }); }} onImport={() => contactsInput.current?.click()} />}
@@ -761,9 +897,10 @@ function MailEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?:
 }
 
 // ---------- writing a mail ----------
-function Composer({ mail, contacts, edRef, onChange, onEdit, onSend, onDiscard, onAttach, via, onMenu }: {
+function Composer({ mail, contacts, edRef, onChange, onEdit, onSend, onDiscard, onAttach, via, onMenu, viaName, lock }: {
   mail: Mail; contacts: Contact[]; edRef: React.MutableRefObject<Editor | null>; onChange: (p: Partial<Mail>, record?: boolean) => void; onEdit: (on: boolean) => void;
   onSend: () => void; onDiscard: () => void; onAttach: () => void; via: Via; onMenu: (ed: Editor, x: number, y: number) => void;
+  viaName?: string; lock?: { on: boolean; toggle: () => void };
 }) {
   const lastPointer = useRef('mouse');
   const [showCc, setShowCc] = useState(mail.cc.length > 0 || mail.bcc.length > 0);
@@ -807,7 +944,8 @@ function Composer({ mail, contacts, edRef, onChange, onEdit, onSend, onDiscard, 
         onKeyDown={e => { if (editor && (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey))) { e.preventDefault(); const p = caretPoint(editor); onMenu(editor, p.x, p.y); } }} />
       {mail.attachments.length > 0 && <Attachments list={mail.attachments} onRemove={i => onChange({ attachments: mail.attachments.filter((_, j) => j !== i) })} />}
       <div className="ml-compose-bar">
-        <button type="button" className="ml-send primary" onClick={onSend}><Icon name="send" size={14} />{t('mail.send')} · {t(`mail.via.${via}` as MessageKey)}</button>
+        <button type="button" className="ml-send primary" onClick={onSend}><Icon name="send" size={14} /><span className="ml-send-label">{t('mail.send')} · {viaName ?? t(`mail.via.${via}` as MessageKey)}</span></button>
+        {lock && <button type="button" className={`ml-lock-btn${lock.on ? ' on' : ''}`} aria-pressed={lock.on} title={ms('encryptThis')} aria-label={ms('encryptThis')} onClick={lock.toggle}><Icon name="shield" size={14} />{lock.on ? '🔒' : ''}</button>}
         <button type="button" onClick={onAttach}><Icon name="upload" size={14} />{t('mail.attach')}</button>
         <span className="ml-grow" />
         <button type="button" className="ml-discard" title={t('mail.discard')} aria-label={t('mail.discard')} onClick={onDiscard}><Icon name="trash" size={14} /></button>

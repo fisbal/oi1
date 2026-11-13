@@ -2,6 +2,7 @@
 // through the person's own mail app (mailto), Gmail or Outlook on the web, or as a ready-to-send .eml file (with its
 // attachments, opened as a new mail by Outlook, Apple Mail and Thunderbird). Received mails come in as .eml files.
 import { cleanSig, type MailSig } from './signatures';
+import type { Account } from './secure/accounts';
 
 let counter = 0;
 export const newId = (p = 'm') => `${p}${Date.now().toString(36)}${(counter++).toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -12,12 +13,26 @@ export interface Attachment { name: string; type: string; size: number; data: st
 export interface Mail {
   id: string; folder: Exclude<Folder, 'starred'>; from: string; to: string[]; cc: string[]; bcc: string[];
   subject: string; html: string; at: string; read: boolean; star: boolean; labels: string[]; attachments: Attachment[];
+  /** A mail from (or sent with) a connected account: which one, and its id there. */
+  account?: string; remoteId?: string;
+  /** Kept from the received headers for the phishing guard (RFC 8601 Authentication-Results, Reply-To). */
+  auth?: string; replyTo?: string; msgId?: string;
+  /** 'e2e' = arrived (or sent) OpenPGP-encrypted; signed = the sender's signature was checked. */
+  secure?: 'e2e'; signed?: boolean;
+  /** The person chose to show remote pictures, or said the mail is safe. */
+  images?: boolean; trusted?: boolean;
+  /** The Message-ID this draft answers (threading in the other person's mail app). */
+  inReplyTo?: string;
 }
 export interface Contact { id: string; name: string; email: string; group: string }
 export interface MailBox {
   v: 1; me: { name: string; email: string }; signature: string; mails: Mail[]; contacts: Contact[];
   /** Several signatures (Pro, Perso…); which one new mails and replies get ('' = none). */
   sigs?: MailSig[]; sigNew?: string; sigReply?: string;
+  /** Connected mail accounts (public facts only: the sign-in tokens live encrypted in secure/vault.ts). */
+  accounts?: Account[]; sendWith?: string;
+  /** OpenPGP public keys of the people written to (e-mail -> armored key), and "encrypt when possible". */
+  keys?: Record<string, string>; e2e?: boolean;
 }
 
 export const LABELS: { id: string; color: string }[] = [
@@ -47,6 +62,10 @@ export function cleanMail(x: unknown): Mail | null {
   return newMail(folder, {
     id: str(o.id) || newId(), from: str(o.from).slice(0, 320), to: strs(o.to), cc: strs(o.cc), bcc: strs(o.bcc), subject: str(o.subject).slice(0, 500),
     html: str(o.html, '<p></p>'), at: str(o.at) || new Date().toISOString(), read: o.read !== false, star: !!o.star, labels: strs(o.labels), attachments: att,
+    ...(o.account ? { account: str(o.account).slice(0, 400) } : {}), ...(o.remoteId ? { remoteId: str(o.remoteId).slice(0, 400) } : {}),
+    ...(o.auth ? { auth: str(o.auth).slice(0, 4000) } : {}), ...(o.replyTo ? { replyTo: str(o.replyTo).slice(0, 320) } : {}), ...(o.msgId ? { msgId: str(o.msgId).slice(0, 400) } : {}),
+    ...(o.secure === 'e2e' ? { secure: 'e2e' as const } : {}), ...(o.signed ? { signed: true } : {}), ...(o.images ? { images: true } : {}), ...(o.trusted ? { trusted: true } : {}),
+    ...(o.inReplyTo ? { inReplyTo: str(o.inReplyTo).slice(0, 400) } : {}),
   });
 }
 export function cleanBox(x: unknown): MailBox {
@@ -64,7 +83,20 @@ export function cleanBox(x: unknown): MailBox {
     ...(Array.isArray(o.sigs) ? { sigs: o.sigs.map(cleanSig).filter((x): x is MailSig => !!x).slice(0, 30) } : {}),
     ...(typeof o.sigNew === 'string' ? { sigNew: o.sigNew.slice(0, 60) } : {}),
     ...(typeof o.sigReply === 'string' ? { sigReply: o.sigReply.slice(0, 60) } : {}),
+    ...(Array.isArray(o.accounts) ? { accounts: o.accounts.map(cleanAccount).filter((x): x is Account => !!x).slice(0, 20) } : {}),
+    ...(typeof o.sendWith === 'string' ? { sendWith: o.sendWith.slice(0, 400) } : {}),
+    ...(o.keys && typeof o.keys === 'object' ? { keys: Object.fromEntries(Object.entries(o.keys as Record<string, unknown>).filter(([k, v]) => validAddress(k) && typeof v === 'string' && v.includes('BEGIN PGP PUBLIC KEY')).slice(0, 5000).map(([k, v]) => [k.toLowerCase(), String(v).slice(0, 20000)])) } : {}),
+    ...(o.e2e ? { e2e: true } : {}),
   };
+}
+
+function cleanAccount(x: unknown): Account | null {
+  if (!x || typeof x !== 'object') return null;
+  const o = x as Record<string, unknown>;
+  if (o.provider !== 'outlook' && o.provider !== 'gmail') return null;
+  const email = str(o.email).slice(0, 320);
+  if (!email) return null;
+  return { id: str(o.id) || `${o.provider}:${email.toLowerCase()}`, provider: o.provider, email, name: str(o.name).slice(0, 200), added: str(o.added), ...(o.lastSync ? { lastSync: str(o.lastSync) } : {}) };
 }
 
 const EMAIL = /^[^\s@<>,;"]+@[^\s@<>,;"]+\.[^\s@<>,;"]{2,}$/;
@@ -122,14 +154,16 @@ const wrap76 = (s: string) => s.replace(/.{1,76}/g, '$&\r\n').trimEnd();
 const hdr = (s: string) => (/^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${b64(s)}?=`);
 const hdrAddr = (a: string) => { const m = a.match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/); return m && m[1] ? `${hdr(m[1])} <${m[2]}>` : addressOf(a); };
 
-/** A ready-to-send .eml: Outlook opens it as a new mail (X-Unsent), with the HTML, a text copy and the attachments. */
-export function toEml(m: Mail, from: string): string {
+export interface EmlOptions {
+  /** Really sent (through an account), not a file to open: no X-Unsent, a Message-ID, threading headers. */
+  send?: boolean; inReplyTo?: string; headers?: string[];
+  /** OpenPGP: replaces the body with this encrypted entity; the real subject travels inside (protected headers). */
+  encrypt?: (inner: string) => Promise<{ contentType: string; body: string }>;
+}
+/** The MIME body of a mail: its text, HTML and attachments (multipart/mixed). */
+export function mimeEntity(m: Mail): { contentType: string; body: string } {
   const mixed = `=_mix_${m.id}`, alt = `=_alt_${m.id}`;
   const lines = [
-    `From: ${from ? hdrAddr(from) : ''}`, `To: ${m.to.map(hdrAddr).join(', ')}`,
-    ...(m.cc.length ? [`Cc: ${m.cc.map(hdrAddr).join(', ')}`] : []), ...(m.bcc.length ? [`Bcc: ${m.bcc.map(hdrAddr).join(', ')}`] : []),
-    `Subject: ${hdr(m.subject)}`, `Date: ${new Date(m.at).toUTCString()}`, 'MIME-Version: 1.0', 'X-Unsent: 1', 'X-Mailer: In 1 Mail (Office In 1)',
-    `Content-Type: multipart/mixed; boundary="${mixed}"`, '',
     `--${mixed}`, `Content-Type: multipart/alternative; boundary="${alt}"`, '',
     `--${alt}`, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', wrap76(b64(textOf(m.html))), '',
     `--${alt}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', wrap76(b64(`<!doctype html><html><body>${m.html}</body></html>`)), '',
@@ -140,7 +174,32 @@ export function toEml(m: Mail, from: string): string {
       `Content-Disposition: attachment; filename="${hdr(a.name)}"`, '', wrap76(a.data), '');
   }
   lines.push(`--${mixed}--`, '');
-  return lines.join('\r\n');
+  return { contentType: `multipart/mixed; boundary="${mixed}"`, body: lines.join('\r\n') };
+}
+const domainPart = (from: string) => addressOf(from).split('@')[1] || 'in1.mail';
+/** A ready-to-send .eml: Outlook opens it as a new mail (X-Unsent), with the HTML, a text copy and the attachments. */
+export function toEml(m: Mail, from: string): string {
+  const e = mimeEntity(m);
+  return [...topHeaders(m, from, {}), `Content-Type: ${e.contentType}`, '', e.body].join('\r\n');
+}
+function topHeaders(m: Mail, from: string, o: EmlOptions, subject = m.subject): string[] {
+  return [
+    `From: ${from ? hdrAddr(from) : ''}`, `To: ${m.to.map(hdrAddr).join(', ')}`,
+    ...(m.cc.length ? [`Cc: ${m.cc.map(hdrAddr).join(', ')}`] : []), ...(m.bcc.length ? [`Bcc: ${m.bcc.map(hdrAddr).join(', ')}`] : []),
+    `Subject: ${hdr(subject)}`, `Date: ${new Date(m.at).toUTCString()}`, 'MIME-Version: 1.0',
+    ...(o.send ? [`Message-ID: <${m.id}.${Date.now().toString(36)}@${domainPart(from)}>`] : ['X-Unsent: 1']),
+    ...(o.inReplyTo ? [`In-Reply-To: ${o.inReplyTo}`, `References: ${o.inReplyTo}`] : []),
+    'X-Mailer: In 1 Mail (Office In 1)', ...(o.headers ?? []),
+  ];
+}
+/** The message as it leaves through an account (Gmail API / Microsoft Graph take it as it is). */
+export async function toMime(m: Mail, from: string, o: EmlOptions = {}): Promise<string> {
+  const e = mimeEntity(m);
+  if (!o.encrypt) return [...topHeaders(m, from, o), `Content-Type: ${e.contentType}`, '', e.body].join('\r\n');
+  // Protected headers (draft-ietf-lamps-header-protection): the real subject is inside, "..." outside (as Thunderbird).
+  const inner = [`Content-Type: ${e.contentType}; protected-headers="v1"`, `Subject: ${hdr(m.subject)}`, `From: ${from ? hdrAddr(from) : ''}`, `To: ${m.to.map(hdrAddr).join(', ')}`, '', e.body].join('\r\n');
+  const enc = await o.encrypt(inner);
+  return [...topHeaders(m, from, o, '...'), `Content-Type: ${enc.contentType}`, '', enc.body].join('\r\n');
 }
 
 const decoder = (charset: string) => { try { return new TextDecoder(charset || 'utf-8'); } catch { return new TextDecoder('utf-8'); } };
@@ -157,7 +216,9 @@ function headersOf(block: string): Record<string, string> {
   const h: Record<string, string> = {};
   for (const line of block.replace(/\r\n/g, '\n').replace(/\n[ \t]+/g, ' ').split('\n')) {
     const i = line.indexOf(':');
-    if (i > 0) h[line.slice(0, i).trim().toLowerCase()] = line.slice(i + 1).trim();
+    if (i <= 0) continue;
+    const k = line.slice(0, i).trim().toLowerCase(), v = line.slice(i + 1).trim();
+    h[k] = k === 'authentication-results' && h[k] ? `${h[k]}; ${v}` : v;
   }
   return h;
 }
@@ -210,7 +271,15 @@ export function fromEml(text: string): Mail {
   return newMail('inbox', {
     from: decodeWords(top.from ?? ''), to: list(top.to), cc: list(top.cc), subject: decodeWords(top.subject ?? ''), html,
     at: Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString(), read: false, attachments,
+    ...(top['authentication-results'] ? { auth: top['authentication-results'].slice(0, 4000) } : {}),
+    ...(top['reply-to'] ? { replyTo: decodeWords(top['reply-to']).slice(0, 320) } : {}),
+    ...(top['message-id'] ? { msgId: top['message-id'].slice(0, 400) } : {}),
   });
+}
+/** One header of a raw message (the first block), unfolded: Autocrypt, Authentication-Results… */
+export function rawHeader(text: string, name: string): string {
+  const end = text.search(/\r?\n\r?\n/);
+  return headersOf(end < 0 ? text : text.slice(0, end))[name.toLowerCase()] ?? '';
 }
 
 /** Mail merge: {{Field}} replaced by the person's value (case and spaces ignored in the name). */

@@ -235,6 +235,9 @@ jobs:
       - name: In 1 Mail works on phone, tablet, PC and Mac, both ways, with and without AI (check:mail)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:mail
+      - name: In 1 Mail accounts are safe on phone, tablet, PC and Mac, both ways - Outlook.com/Gmail sign-in, scam warnings, OpenPGP end to end, encrypted on the device (check:mailsecure)
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:mailsecure
       - name: Dictation works in Letter, Notes and Assistant on phone and PC, also in the Windows app, plus a real spoken sentence through Whisper (check:dictation)
         if: env.FULL_CHECKS == 'true'
         run: |

@@ -196,6 +196,7 @@ Generated with `npx license-checker-rseidelsohn --production`. Run it again afte
 | nanoid@3.3.20 | MIT | https://github.com/ai/nanoid |
 | normalize-path@2.1.1 | MIT | https://github.com/jonschlinkert/normalize-path |
 | object-assign@4.1.1 | MIT | https://github.com/sindresorhus/object-assign |
+| openpgp@6.3.2 (OpenPGP.js, © Proton AG and contributors) | LGPL-3.0-or-later (used unmodified, loaded as a separate file only when encryption is used; replaceable) | https://github.com/openpgpjs/openpgpjs |
 | orderedmap@2.1.1 | MIT | https://github.com/marijnh/orderedmap |
 | pako@1.0.11 | (MIT AND Zlib) | https://github.com/nodeca/pako |
 | picomatch@4.0.7 | MIT | https://github.com/micromatch/picomatch |
