@@ -307,8 +307,16 @@ try {
       const c2 = page.locator(`${P} .ml-compose`);
       await c2.waitFor({ timeout: 4000 });
       const sendWith = d.gmail ? 'martin.test@gmail.com' : ME;
-      await c2.locator('.ml-field input').first().fill(ME);
-      await c2.locator('.ml-field input').last().fill('Code du coffre');
+      // To is the first address box, Subject the box without inputmode; check each holds what was typed
+      // (on a slow tablet the new mail could still be settling and the subject landed in To).
+      const toBox = c2.locator('.ml-field input[inputmode="email"]').first(), subjBox = c2.locator('.ml-field input:not([inputmode])').first();
+      for (let i = 0; i < 3; i++) {
+        await toBox.fill(ME);
+        await subjBox.fill('Code du coffre');
+        await page.waitForTimeout(300);
+        if (await toBox.inputValue() === ME && await subjBox.inputValue() === 'Code du coffre') break;
+      }
+      check(await toBox.inputValue() === ME, `${n}: the address is typed in To`);
       await c2.locator('.ml-text').click();
       await page.keyboard.type('Le code est 4321.');
       await c2.locator('.ml-lock-btn').click();
