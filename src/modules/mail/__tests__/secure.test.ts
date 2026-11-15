@@ -107,3 +107,12 @@ describe('SMTP message', () => {
     expect(stripBcc('To: c@d.e\r\n\r\nhello')).toBe('To: c@d.e\r\n\r\nhello');
   });
 });
+
+describe('app password as pasted on a phone', () => {
+  it('keeps the 16 letters whatever spaces, invisible characters or dashes came with them', async () => {
+    const { cleanAppPassword } = await import('../secure/accounts');
+    expect(cleanAppPassword('abcd efgh ijkl mnop', true)).toBe('abcdefghijklmnop');
+    expect(cleanAppPassword('abcd efgh​ijkl-mnop\n', true)).toBe('abcdefghijklmnop');
+    expect(cleanAppPassword(' p@ss word! ')).toBe('p@ssword!');
+  });
+});

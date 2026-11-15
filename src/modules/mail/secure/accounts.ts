@@ -46,7 +46,19 @@ const G_USER = 'https://openidconnect.googleapis.com/v1/userinfo';
 const GMAIL = 'https://gmail.googleapis.com/gmail/v1/users/me';
 
 export type MailErrorKind = 'notReady' | 'cancelled' | 'auth' | 'net' | 'blocked' | 'popup';
-export class MailError extends Error { constructor(public kind: MailErrorKind, msg: string = kind) { super(msg); } }
+export class MailError extends Error {
+  /** For a refused app password: how many characters were sent (never the password itself). */
+  sentLength?: number;
+  constructor(public kind: MailErrorKind, msg: string = kind) { super(msg); }
+  /** The mail server's own words, without our "auth:"/"net:" prefix (for the person and for support). */
+  get server(): string { return this.message.replace(/^(auth|net|bad [a-z]+):\s*/i, '').trim(); }
+}
+/** An app password as pasted: Google shows "abcd efgh ijkl mnop", phones may add invisible or non-breaking spaces,
+ *  dashes or a line break. Gmail's are 16 letters, so for Gmail only letters and digits are kept. */
+export function cleanAppPassword(raw: string, gmail = false): string {
+  const s = raw.normalize('NFKC').replace(/[\s\u00A0\u200B-\u200D\u2060\uFEFF]+/g, '');
+  return gmail ? s.replace(/[^A-Za-z0-9]/g, '') : s;
+}
 
 /** https://fisbal.github.io/oi1/oauth.html on the site (the address registered at Microsoft and Google). */
 export const redirectUri = () => new URL('oauth.html', new URL((import.meta.env.BASE_URL as string | undefined) || './', location.href)).href;
@@ -304,12 +316,18 @@ async function loginOf(acc: Account, which: 'imap' | 'smtp') {
 }
 /** Connects an IMAP mailbox: the address and app password are checked at the server before anything is kept. */
 export async function connectImap(email: string, appPassword: string, servers: Servers, name = ''): Promise<Account> {
-  const pass = appPassword.replace(/\s+/g, ''); // Google shows app passwords as "abcd efgh ijkl mnop"
   const host = (h: string) => h.trim().toLowerCase();
   const sv: Servers = { ...servers, imapHost: host(servers.imapHost), smtpHost: host(servers.smtpHost) };
+  const pass = cleanAppPassword(appPassword, sv.imapHost === 'imap.gmail.com');
+  email = email.normalize('NFKC').replace(/[\s\u00A0\u200B-\u200D\u2060\uFEFF]+/g, '');
   if (!sv.imapHost || !sv.smtpHost) throw new MailError('net', 'no server');
-  await imapCall('mail_imap_check', { login: { host: sv.imapHost, port: sv.imapPort, user: email.trim(), pass } });
-  const acc: Account = { id: `imap:${email.trim().toLowerCase()}`, provider: 'imap', email: email.trim(), name, added: new Date().toISOString(), servers: sv };
+  try {
+    await imapCall('mail_imap_check', { login: { host: sv.imapHost, port: sv.imapPort, user: email, pass } });
+  } catch (e) {
+    if (e instanceof MailError && e.kind === 'auth' && sv.imapHost === 'imap.gmail.com') e.sentLength = pass.length;
+    throw e;
+  }
+  const acc: Account = { id: `imap:${email.toLowerCase()}`, provider: 'imap', email, name, added: new Date().toISOString(), servers: sv };
   await putSecret(acc.id, { pass });
   return acc;
 }

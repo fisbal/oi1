@@ -201,7 +201,9 @@ try {
         await form.locator('input[type=password]').fill('wrong pass word');
         await form.locator('button[data-provider="imap"]').click();
         await dlg.locator('.ml-acc-error').waitFor({ timeout: 5000 }).catch(() => {});
-        check(((await dlg.locator('.ml-acc-error').textContent().catch(() => '')) ?? '').length > 10, `${n}: a wrong app password says so in plain words`);
+        const errT = (await dlg.locator('.ml-acc-error').textContent().catch(() => '')) ?? '';
+        check(errT.length > 10, `${n}: a wrong app password says so in plain words`);
+        check(errT.includes('AUTHENTICATIONFAILED') && /\b13\b/.test(errT), `${n}: and shows the server's own reply and how many characters were sent (${errT.replace(/\s+/g, " ").slice(-160)})`);
         await form.locator('input[type=password]').fill('abcd efgh ijkl mnop');
         await form.locator('button[data-provider="imap"]').click();
         await page.waitForFunction(() => document.querySelectorAll('dialog[open] .ml-acc-list li').length >= 3, null, { timeout: 8000 }).catch(() => {});
@@ -398,7 +400,9 @@ try {
       const before = await page.locator('dialog.oi-dialog[open] .ml-acc-lead').textContent();
       check(!/Microsoft ou Google|Microsoft or Google/.test(before ?? ''), `${n}: the window explains app passwords, not Microsoft/Google sign-in`);
       await form.locator('input[type=email]').fill('martin.test@gmail.com');
-      await form.locator('input[type=password]').fill('abcd efgh ijkl mnop');
+      // pasted from Google's page on a phone: non-breaking and invisible spaces, a line break
+      await form.locator('input[type=password]').fill('abcd\u00A0efgh\u200Bijkl mnop');
+      await form.locator('input[type=email]').fill('martin.test@gmail.com ');
       await form.locator('button[data-provider="imap"]').click();
       await dlg.locator('.ml-acc-list li').first().waitFor({ timeout: 8000 }).catch(() => {});
       check((await dlg.locator('.ml-acc-list').textContent().catch(() => '')).includes('martin.test@gmail.com'), `${n}: Gmail connected through the app's engine`);

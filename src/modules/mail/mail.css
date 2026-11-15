@@ -164,7 +164,7 @@
 .ml-acc button.primary { background: var(--ml-accent, #4F5FD0); border-color: transparent; color: #fff; font-weight: 600; }
 .ml-acc button:disabled { opacity: .5; cursor: default; }
 .ml-acc .ml-danger { border-color: #C62828; color: #C62828; }
-.ml-acc-error { color: #C62828; font-weight: 600; }
+.ml-acc-error { color: #C62828; font-weight: 600; white-space: pre-line; overflow-wrap: anywhere; }
 .ml-acc-note { font-size: 12.5px; color: var(--muted); border-left: 3px solid var(--ml-accent, #4F5FD0); padding-left: 8px; }
 .ml-key { display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
 .ml-fpr { display: block; padding: 6px 8px; border-radius: 8px; background: rgba(var(--fg-rgb), .06); font: 600 13px/1.5 ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
