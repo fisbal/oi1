@@ -108,11 +108,13 @@ async function newPage(d) {
   await ctx.route('https://oauth2.googleapis.com/**', route => route.fulfill({ status: 200, headers: cors, body: '{}' }));
   await ctx.route(/pixel\.example\.org|desjardins-secure\.top/, route => { net.opened.push(route.request().url()); return route.fulfill({ status: 200, body: '' }); });
   // The installed app's IMAP/SMTP engine (Rust, src-tauri/src/mail.rs) played back: a Gmail mailbox with an app password.
-  if (d.gmail) await ctx.addInitScript(`(() => {
+  // d.engine: 'test' (window.__oi1Imap), 'android' (the Android app's MBMail bridge), 'tauri' (the Windows/Mac app).
+  if (d.gmail || d.engine) await ctx.addInitScript(`(() => {
     const MAIL = ${JSON.stringify(Buffer.from(GMAIL_ONE, 'utf8').toString('base64'))};
-    window.__imapSent = []; window.__imapSeen = [];
+    window.__imapSent = []; window.__imapSeen = []; window.__imapCalls = [];
     const okLogin = l => l && l.user === 'martin.test@gmail.com' && l.pass === 'abcdefghijklmnop';
-    window.__oi1Imap = async (cmd, a) => {
+    const fake = async (cmd, a) => {
+      window.__imapCalls.push(cmd);
       await new Promise(r => setTimeout(r, 150));
       if (!okLogin(a.login) || a.login.host !== (cmd === 'mail_smtp_send' ? 'smtp.gmail.com' : 'imap.gmail.com')) throw 'auth: [AUTHENTICATIONFAILED] Invalid credentials';
       if (cmd === 'mail_imap_check') return null;
@@ -122,6 +124,12 @@ async function newPage(d) {
       if (cmd === 'mail_imap_trash') return null;
       throw 'net: unknown ' + cmd;
     };
+    const kind = ${JSON.stringify(d.engine ?? 'test')};
+    if (kind === 'android') window.MBMail = { call(id, cmd, json) {
+      fake(cmd, JSON.parse(json)).then(r => window.__mbMailDone(id, true, JSON.stringify(r)), e => window.__mbMailDone(id, false, String(e)));
+    } };
+    else if (kind === 'tauri') window.__TAURI_INTERNALS__ = { invoke: (cmd, args) => fake(cmd, args), transformCallback: () => 0, metadata: {} };
+    else window.__oi1Imap = fake;
   })();`);
   // Every short status note is kept (they fade away by themselves), so a failure can say what the app said.
   await ctx.addInitScript(`window.__notes = []; new MutationObserver(() => { for (const n of document.querySelectorAll('.dr-note')) { const t = n.textContent || ''; if (t && window.__notes.at(-1) !== t) window.__notes.push(t); } }).observe(document, { subtree: true, childList: true, characterData: true });`);
@@ -299,8 +307,16 @@ try {
       const c2 = page.locator(`${P} .ml-compose`);
       await c2.waitFor({ timeout: 4000 });
       const sendWith = d.gmail ? 'martin.test@gmail.com' : ME;
-      await c2.locator('.ml-field input').first().fill(ME);
-      await c2.locator('.ml-field input').last().fill('Code du coffre');
+      // To is the first address box, Subject the box without inputmode; check each holds what was typed
+      // (on a slow tablet the new mail could still be settling and the subject landed in To).
+      const toBox = c2.locator('.ml-field input[inputmode="email"]').first(), subjBox = c2.locator('.ml-field input:not([inputmode])').first();
+      for (let i = 0; i < 3; i++) {
+        await toBox.fill(ME);
+        await subjBox.fill('Code du coffre');
+        await page.waitForTimeout(300);
+        if (await toBox.inputValue() === ME && await subjBox.inputValue() === 'Code du coffre') break;
+      }
+      check(await toBox.inputValue() === ME, `${n}: the address is typed in To`);
       await c2.locator('.ml-text').click();
       await page.keyboard.type('Le code est 4321.');
       await c2.locator('.ml-lock-btn').click();
@@ -347,6 +363,66 @@ try {
       check((await page.locator('dialog.oi-dialog[open] .ml-acc-list').textContent().catch(() => '')).includes(ME), `${n}: after reopening, the account is still connected`);
       await page.keyboard.press('Escape');
       check(await overflow(page) <= 1, `${n}: no sideways scrolling at the end`);
+    } catch (e) {
+      problems.push(`${n}: ${String(e).split('\n')[0]}`);
+    }
+    await ctx.close();
+  }
+} finally { /* the installed apps below */ }
+
+// ---- the installed apps (Android app's bridge, Windows/Mac app): no Microsoft/Google sign-in, Gmail by app password ----
+const APPS = [
+  { name: 'Android phone app', viewport: { width: 390, height: 844 }, mobile: true, engine: 'android', lang: 'fr' },
+  { name: 'Android tablet app sideways', viewport: { width: 1180, height: 820 }, mobile: true, engine: 'android' },
+  { name: 'Windows app', viewport: { width: 1366, height: 768 }, ua: WIN_UA, engine: 'tauri' },
+];
+try {
+  for (const d of APPS.filter(x => !process.env.ONLY || x.name.includes(process.env.ONLY))) {
+    const n = d.name, lang = d.lang ?? 'en';
+    const phone = d.viewport.width < 760;
+    const { ctx, page } = await newPage(d);
+    try {
+      await page.goto(url);
+      await page.waitForTimeout(400);
+      await page.locator('.slab:has-text("In 1 Mail")').first().click();
+      await page.locator(`${P} .ml-compose, ${P} .ml-list`).first().waitFor({ timeout: 10000 });
+      await ribbon(page, 'mail.accounts', lang);
+      const dlg = page.locator('dialog.oi-dialog[open]');
+      await dlg.waitFor({ timeout: 4000 });
+      check(await dlg.locator('button[data-provider="outlook"], button[data-provider="gmail"]').count() === 0, `${n}: no Microsoft/Google sign-in button that cannot work here`);
+      const form = dlg.locator('.ml-imap');
+      check(await form.isVisible().catch(() => false), `${n}: the Gmail / IMAP form is there`);
+      check(await dlg.locator('.ml-imap-steps li').count() === 3, `${n}: three clear steps for Gmail`);
+      check(await dlg.locator('.ml-imap-steps a[href*="myaccount.google.com/apppasswords"]').count() === 1, `${n}: a link to make the app password`);
+      check(await fits(page, form, d), `${n}: the form fits the screen`);
+      const before = await page.locator('dialog.oi-dialog[open] .ml-acc-lead').textContent();
+      check(!/Microsoft ou Google|Microsoft or Google/.test(before ?? ''), `${n}: the window explains app passwords, not Microsoft/Google sign-in`);
+      await form.locator('input[type=email]').fill('martin.test@gmail.com');
+      await form.locator('input[type=password]').fill('abcd efgh ijkl mnop');
+      await form.locator('button[data-provider="imap"]').click();
+      await dlg.locator('.ml-acc-list li').first().waitFor({ timeout: 8000 }).catch(() => {});
+      check((await dlg.locator('.ml-acc-list').textContent().catch(() => '')).includes('martin.test@gmail.com'), `${n}: Gmail connected through the app's engine`);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200);
+      await closePeek(page);
+      await ribbon(page, 'mail.receive', lang);
+      await page.locator(`${P} .ml-item:has-text("Photos du chalet")`).waitFor({ timeout: 10000 }).catch(() => {});
+      await closePeek(page);
+      check(await page.locator(`${P} .ml-item:has-text("Photos du chalet")`).count() === 1, `${n}: Receive brings the Gmail inbox`);
+      const calls = await page.evaluate(() => window.__imapCalls);
+      check(calls.includes('mail_imap_check') && calls.includes('mail_imap_fetch'), `${n}: it went through the app's IMAP engine (${calls.join(', ')})`);
+      await page.locator(`${P} .ml-item:has-text("Photos du chalet")`).click();
+      await page.locator(`${P} .ml-actions button`).first().click();
+      const c = page.locator(`${P} .ml-compose`);
+      await c.waitFor({ timeout: 4000 });
+      await c.locator('.ml-text').click();
+      await page.keyboard.type('Merci!');
+      await c.locator('.ml-send').click();
+      await page.waitForFunction(() => window.__imapSent.length > 0, null, { timeout: 15000 }).catch(() => {});
+      const s1 = (await page.evaluate(() => window.__imapSent))[0];
+      check(!!s1 && s1.to.join() === 'paul@example.net', `${n}: the answer leaves by SMTP`);
+      check(await overflow(page) <= 1, `${n}: no sideways scrolling`);
+      void phone;
     } catch (e) {
       problems.push(`${n}: ${String(e).split('\n')[0]}`);
     }

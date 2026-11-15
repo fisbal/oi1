@@ -23,7 +23,7 @@ export function errText(e: unknown, acc?: Account | AccountKind): string {
   return ms('err.net', { p });
 }
 
-function ImapForm({ onAdd, busy, setBusy, setError }: { onAdd: (a: Account) => void; busy: boolean; setBusy: (b: boolean) => void; setError: (s: string) => void }) {
+function ImapForm({ onAdd, busy, setBusy, setError, lead }: { lead: boolean; onAdd: (a: Account) => void; busy: boolean; setBusy: (b: boolean) => void; setError: (s: string) => void }) {
   const [preset, setPreset] = useState('gmail');
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
@@ -45,16 +45,26 @@ function ImapForm({ onAdd, busy, setBusy, setError }: { onAdd: (a: Account) => v
     // Not a <form>: the dialog itself is one (its submit would close it). Enter in a box connects.
     <div className="ml-imap" role="group" aria-label={ms('imapTitle')} onKeyDown={e => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') { e.preventDefault(); if (ok && !busy) void go(); } }}>
       <b>{ms('imapTitle')}</b>
-      <small>{ms('imapLead')}</small>
+      {lead && <small>{ms('imapLead')}</small>}
       <label><span>{ms('provider')}</span>
         <select value={preset} onChange={e => setPreset(e.target.value)} aria-label={ms('provider')}>
           {PRESETS.map(p => <option key={p.id} value={p.id}>{p.id === 'other' ? ms('other') : p.name}</option>)}
         </select>
       </label>
+      {pr.id === 'gmail' ? (
+        <ol className="ml-imap-steps" aria-label={ms('stepsTitle', { p: 'Gmail' })}>
+          <li><a href="https://myaccount.google.com/signinoptions/twosv" target="_blank" rel="noopener noreferrer">{ms('gStep1')}</a></li>
+          <li><a href={pr.help} target="_blank" rel="noopener noreferrer">{ms('gStep2Link')} ↗</a> {ms('gStep2After')}</li>
+          <li>{ms('gStep3')}</li>
+        </ol>
+      ) : pr.help ? (
+        <ol className="ml-imap-steps" aria-label={ms('stepsTitle', { p: pr.name })}>
+          <li><a href={pr.help} target="_blank" rel="noopener noreferrer">{ms('oStep', { p: pr.name })} ↗</a></li>
+          <li>{ms('oStep2')}</li>
+        </ol>
+      ) : null}
       <label><span>{ms('address')}</span><input type="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} aria-label={ms('address')} /></label>
       <label><span>{ms('appPass')}</span><input type="password" autoComplete="new-password" spellCheck={false} value={pass} onChange={e => setPass(e.target.value)} aria-label={ms('appPass')} /></label>
-      {pr.help && <a className="ml-imap-help" href={pr.help} target="_blank" rel="noopener noreferrer">{ms('makeAppPass', { p: pr.name })}</a>}
-      {preset === 'gmail' && <small>{ms('gmailAppPass')}</small>}
       {other && <div className="ml-imap-servers">
         <label><span>{ms('imapServer')}</span><input value={imapHost} onChange={e => setImapHost(e.target.value)} placeholder="imap.example.com" aria-label={ms('imapServer')} /></label>
         <label className="ml-port"><span>{ms('port')}</span><input type="number" min={1} max={65535} value={imapPort} onChange={e => setImapPort(Number(e.target.value) || 993)} aria-label={`${ms('imapServer')} ${ms('port')}`} /></label>
@@ -84,7 +94,7 @@ export function AccountsDialog({ accounts, sendWith, onAdd, onRemove, onSendWith
   return (
     <Dialog title={ms('title')} onClose={onClose}>
       <div className="ml-acc">
-        <p className="ml-acc-lead">{ms('lead')}</p>
+        <p className="ml-acc-lead">{ms(web ? 'lead' : 'leadApp')}</p>
         {accounts.length ? (
           <ul className="ml-acc-list" aria-label={ms('title')}>
             {accounts.map(a => (
@@ -107,9 +117,10 @@ export function AccountsDialog({ accounts, sendWith, onAdd, onRemove, onSendWith
               {!ready(p) && <small>{ms('notReady', { p: PROVIDER_NAME[p] })}</small>}
               {ready(p) && p === 'gmail' && <small>{ms('gmailSend')}</small>}
             </div>
-          )) : <small className="ml-acc-imap">{ms('oauthWeb')}</small>}
-          {app ? <ImapForm onAdd={a => { onAdd(a); onNote(ms('connected', { email: a.email })); }} busy={!!busy} setBusy={b => setBusy(b ? 'imap' : null)} setError={setError} />
+          )) : null}
+          {app ? <ImapForm lead={web} onAdd={a => { onAdd(a); onNote(ms('connected', { email: a.email })); }} busy={!!busy} setBusy={b => setBusy(b ? 'imap' : null)} setError={setError} />
             : <small className="ml-acc-imap">{ms('imapApp')}</small>}
+          {!web && <small className="ml-acc-imap">{ms('oauthWeb')}</small>}
         </div>
         {busy && busy !== 'imap' && <p role="status" className="ml-acc-busy">{ms('signingIn', { p: PROVIDER_NAME[busy] })} <button type="button" onClick={() => cancelSignIn()}>{ms('cancel')}</button></p>}
         {busy === 'imap' && <p role="status" className="ml-acc-busy">{ms('checking')}</p>}
