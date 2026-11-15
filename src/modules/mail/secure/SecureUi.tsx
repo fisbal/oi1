@@ -15,12 +15,25 @@ export function errText(e: unknown, acc?: Account | AccountKind): string {
   const p = kind === 'imap' && typeof acc === 'object' ? acc.servers?.imapHost ?? 'IMAP' : kind ? PROVIDER_NAME[kind] : 'Microsoft / Google';
   const email = typeof acc === 'object' ? acc.email : '';
   if (e instanceof MailError) {
-    if (e.kind === 'auth') return kind === 'imap' && !email ? ms('err.badPass') : ms('err.auth', { email: email || p });
+    if (e.kind === 'auth' && kind === 'imap' && !email) return badPassText(e);
+    if (e.kind === 'auth') return ms('err.auth', { email: email || p });
     if (e.kind === 'net') return ms('err.net', { p });
     return ms(`err.${e.kind}` as SKey);
   }
   if (/confidential/i.test(String(e))) return ms('err.blocked');
   return ms('err.net', { p });
+}
+
+/** A refused app password, in plain words, with the server's own reply so a wrong password and a bug look different. */
+function badPassText(e: MailError): string {
+  const said = e.server;
+  const why = /application-specific password required|app password/i.test(said) ? ms('err.gNormalPass')
+    : /web ?login|WEBALERT|sign in via your web browser/i.test(said) ? ms('err.gWebLogin')
+    : /too many|rate|try again later|THROTTLED/i.test(said) ? ms('err.gTooMany')
+    : /invalid credentials|AUTHENTICATIONFAILED|username and password not accepted|535/i.test(said) ? ms('err.gInvalid')
+    : ms('err.badPass');
+  const len = e.sentLength !== undefined ? ` ${ms('err.sentLen', { n: String(e.sentLength) })}` : '';
+  return `${why}${len}${said ? `\n${ms('err.serverSaid')} « ${said.slice(0, 200)} »` : ''}`;
 }
 
 function ImapForm({ onAdd, busy, setBusy, setError, lead }: { lead: boolean; onAdd: (a: Account) => void; busy: boolean; setBusy: (b: boolean) => void; setError: (s: string) => void }) {
@@ -63,8 +76,8 @@ function ImapForm({ onAdd, busy, setBusy, setError, lead }: { lead: boolean; onA
           <li>{ms('oStep2')}</li>
         </ol>
       ) : null}
-      <label><span>{ms('address')}</span><input type="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} aria-label={ms('address')} /></label>
-      <label><span>{ms('appPass')}</span><input type="password" autoComplete="new-password" spellCheck={false} value={pass} onChange={e => setPass(e.target.value)} aria-label={ms('appPass')} /></label>
+      <label><span>{ms('address')}</span><input type="email" autoComplete="username" autoCapitalize="off" autoCorrect="off" spellCheck={false} value={email} onChange={e => setEmail(e.target.value)} aria-label={ms('address')} /></label>
+      <label><span>{ms('appPass')}</span><input type="password" autoComplete="new-password" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={pass} onChange={e => setPass(e.target.value)} aria-label={ms('appPass')} /></label>
       {other && <div className="ml-imap-servers">
         <label><span>{ms('imapServer')}</span><input value={imapHost} onChange={e => setImapHost(e.target.value)} placeholder="imap.example.com" aria-label={ms('imapServer')} /></label>
         <label className="ml-port"><span>{ms('port')}</span><input type="number" min={1} max={65535} value={imapPort} onChange={e => setImapPort(Number(e.target.value) || 993)} aria-label={`${ms('imapServer')} ${ms('port')}`} /></label>
