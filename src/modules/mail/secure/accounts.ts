@@ -251,16 +251,42 @@ export const PRESETS: { id: string; name: string; imap: [string, number]; smtp: 
   { id: 'other', name: 'IMAP', imap: ['', 993], smtp: ['', 465], help: '' },
 ];
 type ImapFn = (cmd: string, args: Record<string, unknown>) => Promise<unknown>;
-/** The installed app's mail engine (Tauri); tests may put a stand-in on window.__oi1Imap. */
+/** The Android app's bridge (fisbal.github.io factory, MailBridge.java): call(id, cmd, json), answer via __mbMailDone. */
+type MBMail = { call: (id: string, cmd: string, args: string) => void };
+type EngineWin = { __oi1Imap?: ImapFn; __TAURI_INTERNALS__?: unknown; MBMail?: MBMail; __mbMailDone?: (id: string, ok: boolean, answer: string) => void };
+const waiting = new Map<string, { ok: (v: unknown) => void; ko: (e: unknown) => void }>();
+let seq = 0;
+function viaBridge(bridge: MBMail): ImapFn {
+  const w = window as unknown as EngineWin;
+  w.__mbMailDone ??= (id, ok, answer) => {
+    const p = waiting.get(id);
+    if (!p) return;
+    waiting.delete(id);
+    if (!ok) { p.ko(answer); return; }
+    try { p.ok(JSON.parse(answer)); } catch { p.ko('net: bad answer'); }
+  };
+  return (cmd, args) => new Promise((ok, ko) => {
+    const id = `m${++seq}`;
+    waiting.set(id, { ok, ko });
+    try { bridge.call(id, cmd, JSON.stringify(args)); } catch (e) { waiting.delete(id); ko(`net: ${String(e)}`); }
+  });
+}
+/** The installed app's mail engine: Tauri (Windows, Mac, Android from this repo) or the Android app's MBMail bridge;
+ *  tests may put a stand-in on window.__oi1Imap. */
 function engine(): ImapFn | null {
-  const w = window as unknown as { __oi1Imap?: ImapFn; __TAURI_INTERNALS__?: unknown };
+  const w = window as unknown as EngineWin;
   if (w.__oi1Imap) return w.__oi1Imap;
   if (w.__TAURI_INTERNALS__) return async (cmd, args) => (await import('@tauri-apps/api/core')).invoke(cmd, args);
+  if (w.MBMail && typeof w.MBMail.call === 'function') return viaBridge(w.MBMail);
   return null;
 }
 export const imapAvailable = () => typeof window !== 'undefined' && !!engine();
-/** Sign-in pages of Microsoft and Google come back to the web site only: in the installed app use IMAP instead. */
-export const oauthAvailable = () => typeof window !== 'undefined' && !(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+/** Sign-in pages of Microsoft and Google come back to the web site only: in the installed apps use IMAP instead. */
+export const oauthAvailable = () => {
+  if (typeof window === 'undefined') return false;
+  const w = window as unknown as EngineWin;
+  return !w.__TAURI_INTERNALS__ && !w.MBMail;
+};
 async function imapCall<T>(cmd: string, args: Record<string, unknown>): Promise<T> {
   const run = engine();
   if (!run) throw new MailError('notReady');

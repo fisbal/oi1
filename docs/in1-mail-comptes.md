@@ -15,7 +15,7 @@
 Hors champ, volontairement : les courriels de travail ou d'école (Microsoft 365 / Google Workspace d'un employeur, réseaux de la santé ou du gouvernement). Ils restent dans les outils fournis par l'employeur (Loi 25, politiques TI).
 
 Code : `src/modules/mail/secure/` (accounts.ts, vault.ts, phish.ts, pgp.ts, SecureUi.tsx, strings.ts), `public/oauth.html`.
-Code de l'appli installée : `src-tauri/src/mail.rs` + commandes `mail_imap_*`, `mail_smtp_send` dans `src-tauri/src/lib.rs`.
+Code de l'appli installée : Windows/Mac `src-tauri/src/mail.rs` + commandes `mail_imap_*`, `mail_smtp_send` dans `src-tauri/src/lib.rs` ; appli Android du hub (celle de Martin) : `MailEngine.java` + `MailBridge.java` (`window.MBMail`) dans fisbal/fisbal.github.io `factory/android`, activé par `android.mail` dans apps.json.
 Tests : `src/modules/mail/__tests__/secure.test.ts`, `npm run check:mailsecure` (port 4245 ; Microsoft, Google et le moteur IMAP/SMTP rejoués via `window.__oi1Imap`, 6 écrans).
 
 ## Étapes pour Martin (une seule fois)
@@ -52,7 +52,7 @@ Les identifiants obtenus (« client ID ») ne sont pas secrets : envoie-les simp
 
 1. Active la **validation en deux étapes** sur ton compte Google (obligatoire pour les mots de passe d'application).
 2. Va sur https://myaccount.google.com/apppasswords → nom `In 1 Mail` → **Créer**. Google affiche 16 lettres (ex. `abcd efgh ijkl mnop`).
-3. Dans l'appli Office In 1 installée (Windows, Mac ou Android) : **In 1 Mail** → onglet **Envoi** → **Comptes** → partie « Autre boîte (IMAP) » → Fournisseur **Gmail**, ton adresse, colle les 16 lettres → **Connecter**. Puis **Recevoir**.
+3. Dans l'appli Office In 1 installée (Windows, Mac ou Android) : **In 1 Mail** → onglet **Envoi** → **Comptes** → partie « Gmail, Yahoo, iCloud et autres (IMAP) » → Fournisseur **Gmail**, ton adresse, colle les 16 lettres → **Connecter**. Puis **Recevoir**. Ne colle jamais ce mot de passe ailleurs (courriel, clavardage).
 4. Pour couper l'accès : supprime le mot de passe d'application sur la même page Google (ou retire le compte dans In 1 Mail).
 
 Même chose pour Yahoo, iCloud, AOL, GMX, Zoho, Fastmail (le lien vers leur page « mot de passe d'application » est dans la fenêtre).
