@@ -728,6 +728,7 @@ const en = {
   'letter.close': 'Close',
 
   'prodfos.note': 'ProDFos runs inside OI1 from its web version.',
+  'prodfos.saved': 'Saved: {name}',
   'prodfos.openWindow': 'Open in its own window',
   'shell.apps': 'Office In 1 apps',
   'home.kicker': 'Your office, in one place',
@@ -4359,6 +4360,7 @@ const fr: Messages = {
   'letter.close': 'Fermer',
 
   'prodfos.note': 'ProDFos fonctionne dans OI1 à partir de sa version web.',
+  'prodfos.saved': 'Enregistré : {name}',
   'prodfos.openWindow': 'Ouvrir dans sa propre fenêtre',
   'shell.apps': 'Applis Office In 1',
   'home.kicker': 'Tout votre bureau, au même endroit',
@@ -7987,6 +7989,7 @@ const es: Messages = {
   'letter.close': 'Cerrar',
 
   'prodfos.note': 'ProDFos funciona dentro de OI1 desde su versión web.',
+  'prodfos.saved': 'Guardado: {name}',
   'prodfos.openWindow': 'Abrir en su propia ventana',
   'shell.apps': 'Apps de Office In 1',
   'home.kicker': 'Toda tu oficina, en un solo lugar',
@@ -11615,6 +11618,7 @@ const pt: Messages = {
   'letter.close': 'Fechar',
 
   'prodfos.note': 'O ProDFos funciona dentro do OI1 a partir da versão web.',
+  'prodfos.saved': 'Guardado: {name}',
   'prodfos.openWindow': 'Abrir em uma janela própria',
   'shell.apps': 'Apps do Office In 1',
   'home.kicker': 'Todo o seu escritório, num só lugar',
@@ -15243,6 +15247,7 @@ const de: Messages = {
   'letter.close': 'Schließen',
 
   'prodfos.note': 'ProDFos läuft in OI1 über seine Web-Version.',
+  'prodfos.saved': 'Gespeichert: {name}',
   'prodfos.openWindow': 'In eigenem Fenster öffnen',
   'shell.apps': 'Office In 1 Apps',
   'home.kicker': 'Ihr ganzes Büro an einem Ort',

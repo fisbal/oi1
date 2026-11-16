@@ -205,7 +205,7 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
 // its open PDF, and never prints the Office In 1 window. ProDFos itself is a stand-in page here that records what it is told.
 for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, false], ['Phone', { width: 390, height: 844 }, true]]) {
   const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
-  await ctx.route('https://fisbal.github.io/prodfos/**', r => r.fulfill({ contentType: 'text/html', body: '<!doctype html><title>ProDFos</title><body>PDF<script>window.addEventListener("message", e => { if (e.data && e.data.type === "oi1-print") { window.printed = (window.printed || 0) + 1; document.title = "printed " + window.printed; const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="; parent.postMessage({ type: "prodfos-print-pages", name: "test.pdf", pages: [png, png] }, "*"); } });</script>' }));
+  await ctx.route('https://fisbal.github.io/prodfos/**', r => r.fulfill({ contentType: 'text/html', body: '<!doctype html><title>ProDFos</title><body>PDF<script>window.addEventListener("message", e => { if (e.data && e.data.type === "oi1-print") { window.printed = (window.printed || 0) + 1; document.title = "printed " + window.printed; const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="; parent.postMessage({ type: "prodfos-print-pages", name: "test.pdf", pages: [png, png] }, "*"); } if (e.data && e.data.type === "oi1-hello") { window.hostSaves = e.data.save === true; } }); parent.postMessage({ type: "prodfos-hello" }, "*"); window.saveScan = () => parent.postMessage({ type: "prodfos-save", name: "Scan 1.pdf", mime: "application/pdf", bytes: new TextEncoder().encode("%PDF-1.4 scan") }, "*");</script>' }));
   const page = await ctx.newPage();
   await page.addInitScript(`try { if (!sessionStorage.getItem('set')) { localStorage.setItem('oi1:language', 'fr'); sessionStorage.setItem('set', '1'); } } catch {} window.print = () => { window.__oi1Printed = (window.__oi1Printed || 0) + 1; };`);
   await page.goto(url);
@@ -228,6 +228,15 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
   const printed = await page.frames().find(f => f.url().startsWith('https://fisbal.github.io/prodfos/'))?.evaluate(() => window.printed || 0).catch(() => 0);
   check(printed === 1, `${name} ProDFos: Ctrl+P asks ProDFos to print the open PDF (${printed})`);
   check(!(await page.evaluate(() => window.__oi1Printed || 0)), `${name} ProDFos: Ctrl+P does not print the Office In 1 window`);
+  // The scanner's PDF (Martin, 2026-11-16: "ne fonctionne pas dans Office In 1"): a download made inside the frame is lost
+  // in the Android apps, so ProDFos hands the file to Office In 1, which saves it with its own Save.
+  const pf = page.frames().find(f => f.url().startsWith('https://fisbal.github.io/prodfos/'));
+  check(await pf?.evaluate(() => window.hostSaves === true).catch(() => false), `${name} ProDFos: Office In 1 tells ProDFos it saves its files`);
+  await page.evaluate(() => { window.showSaveFilePicker = undefined; });
+  const dl = page.waitForEvent('download', { timeout: 5000 }).catch(() => null);
+  await pf?.evaluate(() => window.saveScan()).catch(() => {});
+  const got = await dl;
+  check(got?.suggestedFilename() === 'Scan 1.pdf', `${name} ProDFos: a scanned PDF is saved by Office In 1 (${got?.suggestedFilename() ?? 'nothing'})`);
   await ctx.close();
 }
 
