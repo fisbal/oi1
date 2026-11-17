@@ -107,7 +107,10 @@ export function where(lib: Library) {
 
 /** True when a page holds nothing yet: no title, no text, no picture or table. */
 export function isBlankPage(p: Pick<Page, 'title' | 'html'>): boolean {
-  return !p.title.trim() && !/<(img|table|hr|iframe|video|audio|svg)\b/i.test(p.html) && !p.html.replace(/<[^>]*>/g, '').replace(/&nbsp;|\u00a0/g, '').trim();
+  if (p.title.trim()) return false;
+  // Read only (never turned back into HTML): the page's text and whether it holds a picture, table, etc.
+  const body = new DOMParser().parseFromString(p.html, 'text/html').body;
+  return !body.querySelector('img, table, hr, iframe, video, audio, svg') && !(body.textContent ?? '').replace(/\u00a0/g, '').trim();
 }
 
 /** The library with one page changed (immutably). A blank page (like the one a new notebook or section opens
