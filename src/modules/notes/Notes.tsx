@@ -24,6 +24,7 @@ import { getLanguage, t, type MessageKey } from '../../shell/i18n';
 import { useLanguage } from '../../shell/useLanguage';
 import { myNotes } from '../../shell/chatText';
 import { idb } from '../../shell/db';
+import { localDay } from '../../shell/localDay';
 import { safeHtml } from '../../shell/safeHtml';
 import { printWindow } from '../../shell/printWindow';
 import { Btn, ColorGrid, Dialog, Drop, Group, Icon, MenuItem, RibbonToggle } from '../../ui/kit';
@@ -417,7 +418,7 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
     if (f === 'txt') await shell.saveFile(`${baseName()}.txt`, `${title}\n\n${textOf(ed?.getHTML() ?? page.html)}`, 'text/plain', { saveAs: true });
     if (f === 'md') await shell.saveFile(`${baseName()}.md`, `# ${title}\n\n${textOf(ed?.getHTML() ?? page.html)}\n`, 'text/markdown', { saveAs: true });
     if (f === 'nbmd') await shell.saveFile(`${baseName(nb.name)}.md`, notebookMarkdown(where(l).nb, untitled), 'text/markdown', { saveAs: true });
-    if (f === 'backup') await shell.saveFile(`in1-notes-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ app: 'In 1 Notes', ...l }), 'application/json', { saveAs: true });
+    if (f === 'backup') await shell.saveFile(`in1-notes-${localDay()}.json`, JSON.stringify({ app: 'In 1 Notes', ...l }), 'application/json', { saveAs: true });
   };
   const loadFile = async (f: OpenedFile) => {
     const name = f.name.toLowerCase();
@@ -808,7 +809,7 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
           <article className={`nt-page nt-paper-${page.paper}${dark ? ' dark' : ''}`} style={{ backgroundColor: page.color, zoom } as CSSProperties}>
             <input className="nt-title" value={page.title} placeholder={title === untitled ? untitled : title} aria-label={t('notes.pageTitle')}
               onChange={e => setPage({ title: e.target.value })} onKeyDown={e => { if (e.key === 'Enter' && ed) { e.preventDefault(); ed.view.focus(); ed.commands.setTextSelection(1); } }} />
-            <div className="nt-when">{new Date(page.created).toLocaleString(lang, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+            <PageDates created={page.created} updated={page.updated} lang={lang} />
             <EditorContent editor={editor} onPointerDown={e => { lastPointer.current = e.pointerType; }}
               onContextMenu={e => { if (!ed || e.nativeEvent.defaultPrevented || lastPointer.current === 'touch') return; e.preventDefault(); caretAt(ed, e.clientX, e.clientY); textMenu.setMenu({ x: e.clientX, y: e.clientY, ed }); }}
               onKeyDown={e => { if (ed && (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey))) { e.preventDefault(); textMenu.setMenu({ ...caretPoint(ed), ed }); } }} />
@@ -983,5 +984,18 @@ function LinkDialog({ initial, onDone, onClose }: { initial: string; onDone: (hr
     }}>
       <label className="nt-ask"><span>{t('notes.linkAddress')}</span><input autoFocus value={v} placeholder="https://" onChange={e => setV(e.target.value)} /></label>
     </Dialog>
+  );
+}
+
+/** The dates under a page title, in the device's own time zone: when the page was created and, once it was
+ *  changed later, when it was last modified (the same date the page list shows). */
+function PageDates({ created, updated, lang }: { created: number; updated: number; lang: string }) {
+  const long = (n: number) => new Date(n).toLocaleString(lang, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const changed = updated - created >= 60_000;
+  return (
+    <div className="nt-when">
+      <time dateTime={new Date(created).toISOString()} title={t('notes.createdOn', { when: long(created) })}>{long(created)}</time>
+      {changed && <> · <time className="nt-modified" dateTime={new Date(updated).toISOString()} title={t('notes.modifiedOn', { when: long(updated) })}>{t('notes.modifiedOn', { when: new Date(updated).toLocaleString(lang, { dateStyle: 'short', timeStyle: 'short' }) })}</time></>}
+    </div>
   );
 }

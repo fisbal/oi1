@@ -1,10 +1,27 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { cleanLibrary, flashcards, newLibrary, newPage, search, tagSummary, titleOf, updatePage, where, PAPERS, TAGS, COLORS, ICONS, PAGE_COLORS } from '../model';
+import { cleanLibrary, flashcards, newLibrary, newPage, search, tagSummary, titleOf, updatePage, isBlankPage, where, PAPERS, TAGS, COLORS, ICONS, PAGE_COLORS } from '../model';
 import { NOTE_TEMPLATES } from '../templates';
 import { answerHtml } from '../Notes';
 
 describe('In 1 Notes model', () => {
+  it('dates a blank page from when you first write in it, not from when the empty page was made', () => {
+    let lib = newLibrary('Mine', 'Quick');
+    const id = where(lib).page.id;
+    const sunday = Date.UTC(2026, 10, 15, 13, 41), tuesday = Date.UTC(2026, 10, 17, 15, 20);
+    lib = updatePage(lib, id, { created: sunday, updated: sunday }, sunday);
+    expect(isBlankPage(where(lib).page)).toBe(true);
+    lib = updatePage(lib, id, { paper: 'lines' }, sunday + 1000);
+    expect(where(lib).page.created).toBe(sunday);
+    lib = updatePage(lib, id, { html: '<p>C’est quelque chose</p>' }, tuesday);
+    expect(where(lib).page.created).toBe(tuesday);
+    expect(where(lib).page.updated).toBe(tuesday);
+    lib = updatePage(lib, id, { html: '<p>C’est quelque chose de plus</p>' }, tuesday + 3_600_000);
+    expect(where(lib).page.created).toBe(tuesday);
+    expect(where(lib).page.updated).toBe(tuesday + 3_600_000);
+    expect(isBlankPage({ title: '', html: '<p><img src="x.png"></p>' })).toBe(false);
+    expect(isBlankPage({ title: '', html: '<p>&nbsp;</p><p></p>' })).toBe(true);
+  });
   it('has 20+ choices in every list', () => {
     for (const list of [PAPERS, TAGS, COLORS, ICONS, PAGE_COLORS, NOTE_TEMPLATES]) expect(list.length).toBeGreaterThanOrEqual(20);
   });
