@@ -113,6 +113,18 @@ for (const [name, viewport, mobile] of [['PC', { width: 1280, height: 800 }, fal
   await dlg.locator('button.primary').click().catch(() => {});
   await page.waitForTimeout(300);
   check(popups.length === 0, `${name}: "Stay here" goes nowhere`);
+  // 5. Mail and phone links are not web sites: the shield lets the app open them (In 1 Mail writes a new mail).
+  const passedOn = await page.evaluate(() => ['mailto:ami@example.com', 'tel:+15145550000'].map(href => {
+    const a = Object.assign(document.createElement('a'), { href, textContent: href });
+    document.querySelector('.app-frame:not([hidden]) .module-host').appendChild(a);
+    let seen = false;
+    const own = (e) => { seen = !e.defaultPrevented; e.preventDefault(); };
+    a.addEventListener('click', own);
+    a.click();
+    a.remove();
+    return seen;
+  }));
+  check(passedOn.every(Boolean), `${name}: mailto: and tel: links reach the app (not swallowed by the shield)`);
   await ctx.close();
 }
 

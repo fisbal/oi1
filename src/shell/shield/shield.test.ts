@@ -4,6 +4,7 @@ import { scanFile } from './scan';
 import { checkLink, linksIn } from './links';
 import { checkText } from './scam';
 import { disinfect } from './vaccine';
+import { hostKeys } from './feed';
 
 const docx = async (extra: (z: JSZip) => void) => {
   const z = new JSZip();
@@ -80,5 +81,13 @@ describe('scam text', () => {
   it('leaves normal mail alone', () => {
     expect(checkText('Bonjour, voici le compte rendu de la réunion de mardi. Bonne journée.').level).toBe('ok');
     expect(checkText('Your parcel was delivered today.').level).toBe('ok');
+  });
+});
+
+describe('world list keys', () => {
+  it('checks the host and every parent up to its site, so a fresh sub-domain of a listed site is caught', () => {
+    expect(hostKeys('www.a.b.evil.com')).toEqual(['a.b.evil.com', 'b.evil.com', 'evil.com']);
+    expect(hostKeys('login.secure.bank.co.uk')).toEqual(['login.secure.bank.co.uk', 'secure.bank.co.uk', 'bank.co.uk']);
+    expect(hostKeys('evil.com')).toEqual(['evil.com']);
   });
 });

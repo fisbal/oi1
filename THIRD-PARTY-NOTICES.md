@@ -248,3 +248,4 @@ Generated with `npx license-checker-rseidelsohn --production`. Run it again afte
 
 - Citation Style Language styles and locales (citationstyles.org, github.com/citation-style-language/styles and /locales): CC BY-SA 3.0. Downloaded when a person picks a CSL style in In 1 Letter, kept on their device, not changed.
 - Crossref, Open Library and Google Books answer DOI and ISBN look-ups (only the identifier is sent).
+- The shield's daily list of dangerous sites (https://fisbal.github.io/oi1/shield/) is built from HaGeZi's Threat Intelligence Feeds (github.com/hagezi/dns-blocklists, GPL-3.0), Phishing.Database (MIT) and the Block List Project (Unlicense). Only SHA-256 fingerprints of the site names are published; the lists are not shipped inside the app.
