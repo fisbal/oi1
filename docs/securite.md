@@ -8,6 +8,7 @@
 | Lettres et classeurs importés (.docx, .xlsx, collage) | L'éditeur (ProseMirror/TipTap) ne garde que les éléments de son schéma ; les cellules sont du texte | `src/modules/letter`, `src/modules/class` |
 | Code de l'utilisateur dans Code+ | Aperçus dans des iframes `sandbox` sans `allow-same-origin` : ils ne peuvent pas lire les clés ni les documents | `src/modules/code` |
 | Injection de plug-ins ou de `<base>` | Content-Security-Policy `object-src 'none'; base-uri 'self'` | `index.html` |
+| Script glissé dans la page (XSS) qui volerait les clés | Content-Security-Policy stricte : `script-src 'self'` + empreinte SHA-256 du petit script du thème + WebAssembly + Puter, sans `unsafe-inline` ni `eval`. Le code des gens dans In 1 Code+ tourne sur sa propre page `preview.html`, dans un cadre « sandbox » sans accès à Office In 1 (comme CodePen), aussi hors ligne. Vérifié par `check:csp` (toutes les applis, injection bloquée, PC/tablette/téléphone) | `vite.config.ts`, `public/preview.html`, `src/modules/code/sandboxFrame.ts` |
 | Bibliothèques avec failles connues | Dependabot (npm, Actions, Rust). `npm audit` signale seulement nanoid 2 dans le correcteur Hunspell : appelé avec une taille fixe (45), il n’est pas touché par ces failles ; la mise à jour casserait le correcteur | `.github/dependabot.yml` |
 | Erreurs de sécurité dans le code | CodeQL (security-extended) à chaque PR et chaque semaine | `.github/workflows/codeql.yml` |
 | Note globale de sécurité | OpenSSF Scorecard chaque semaine | `.github/workflows/scorecard.yml` |

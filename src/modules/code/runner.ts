@@ -2,6 +2,7 @@
 
 import { buildPreview, resolvePath } from './build';
 import { unpackRun } from './project';
+import { loadSandboxed, PREVIEW_SANDBOX } from './sandboxFrame';
 
 export async function startRunner(packed: string) {
   document.title = 'In 1 Code+';
@@ -10,14 +11,13 @@ export async function startRunner(packed: string) {
   const root = document.getElementById('root')!;
   root.replaceChildren();
   const frame = Object.assign(document.createElement('iframe'), { title: 'In 1 Code+' });
-  frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-modals allow-popups allow-downloads');
   frame.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0';
   root.append(frame);
   try {
     const { files, page: first } = await unpackRun(packed);
     let page = first;
     let storage: Record<string, string> = {};
-    const show = async () => { frame.srcdoc = (await buildPreview(files, page, storage)).html; };
+    const show = async () => { loadSandboxed(frame, (await buildPreview(files, page, storage)).html, PREVIEW_SANDBOX); };
     addEventListener('message', e => {
       const m = e.data as { __oi1?: number; type?: string; href?: string; data?: Record<string, string> };
       if (e.source !== frame.contentWindow || !m?.__oi1) return;

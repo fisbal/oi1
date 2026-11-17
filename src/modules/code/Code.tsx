@@ -16,6 +16,7 @@ import { Btn, Drop, Group, Icon, MenuItem, RibbonToggle } from '../../ui/kit';
 import { AppKeys, appColor } from '../../ui/AppKeys';
 import { TutoTab } from '../../ui/tuto/Tuto';
 import { qrDataUrl } from '../../ui/qr';
+import { loadSandboxed, PREVIEW_SANDBOX } from './sandboxFrame';
 import { buildPreview, buildSite, dirname, extOf, isBinary, normalize, resolvePath, type BuildError, type Files } from './build';
 import { CodeEditor, type EditorApi } from './Editor';
 import * as github from './github';
@@ -205,7 +206,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
   const upload = useRef<HTMLInputElement>(null);
   const uploadDir = useRef<HTMLInputElement>(null);
   const uploadTarget = useRef('');
-  const frame = useRef<HTMLIFrameElement>(null);
+  const frame = useRef<HTMLIFrameElement | null>(null);
   const work = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (!narrow()) prefs.set('tree', showTree); }, [showTree]);
@@ -335,6 +336,18 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.files, autoRun, page, showPreview, mobileView]);
 
+  // The preview runs on its own sandbox page (sandboxFrame.ts), never as srcdoc inside Office In 1: loaded when the
+  // frame appears (a new run, or the preview shown again) and when the page to show changes.
+  const shownIn = useRef(new WeakMap<HTMLIFrameElement, string>());
+  const previewHtml = useRef('');
+  previewHtml.current = preview?.html ?? '';
+  const show = useCallback((el: HTMLIFrameElement | null) => {
+    if (!el || !previewHtml.current || shownIn.current.get(el) === previewHtml.current) return;
+    shownIn.current.set(el, previewHtml.current);
+    loadSandboxed(el, previewHtml.current, PREVIEW_SANDBOX);
+  }, []);
+  const frameRef = useCallback((el: HTMLIFrameElement | null) => { frame.current = el; show(el); }, [show]);
+  useEffect(() => { show(frame.current); }, [preview, show]);
   useEffect(() => {
     const listen = (e: MessageEvent) => {
       const m = e.data as { __oi1?: number; type?: string; level?: string; text?: string; file?: string; line?: number; href?: string; data?: Record<string, string> };
@@ -374,11 +387,10 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
     if (!w) return;
     w.document.title = title;
     const f = w.document.createElement('iframe');
-    f.setAttribute('sandbox', 'allow-scripts allow-forms allow-modals allow-popups allow-downloads');
     f.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0';
-    f.srcdoc = preview.html;
     w.document.body.style.margin = '0';
     w.document.body.append(f);
+    loadSandboxed(f, preview.html, PREVIEW_SANDBOX);
   };
 
   const showQr = async (kind: 'preview' | 'site') => {
@@ -1223,7 +1235,7 @@ function CodeApp({ shell, initial, initialRef }: { shell: ShellApi; initial: Pro
               </div>
               <DeviceFrame device={device} landscape={landscape}>
                 {preview
-                  ? <iframe key={runs} ref={frame} title={t('code.preview')} srcDoc={preview.html} sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads" />
+                  ? <iframe key={runs} ref={frameRef} title={t('code.preview')} />
                   : <div className="preview-empty"><Icon name="web" size={32} /><p>{t('code.noHtml')}</p>
                       <button type="button" className="gold-pill small" onClick={() => create('', 'file', 'index.html')}>{t('code.addIndex')}</button></div>}
               </DeviceFrame>

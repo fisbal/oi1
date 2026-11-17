@@ -2,6 +2,7 @@
 // sandboxed page with describe / it / expect (the Jest and Vitest words), and returns one result per test.
 
 import { buildPreview, extOf, type Files } from './build';
+import { loadSandboxed } from './sandboxFrame';
 
 export interface TestResult { suite: string; name: string; ok: boolean; error?: string; ms: number; file?: string }
 export interface TestRun { results: TestResult[]; errors: string[]; ms: number }
@@ -101,7 +102,6 @@ export async function runTests(files: Files, only?: string[]): Promise<TestRun> 
   const built = await buildPreview({ ...files, [PAGE]: testPage(paths) }, PAGE);
   const buildErrors = built.errors.map(e => `${e.path}${e.line ? `:${e.line}` : ''} ${e.message}`);
   const frame = document.createElement('iframe');
-  frame.setAttribute('sandbox', 'allow-scripts');
   frame.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;top:0;border:0;opacity:0';
   frame.title = 'tests';
   return new Promise(resolve => {
@@ -113,7 +113,7 @@ export async function runTests(files: Files, only?: string[]): Promise<TestRun> 
     };
     const timer = window.setTimeout(() => done({ results: [], errors: [...buildErrors, 'Timed out after 20 s'], ms: 20000 }), 20000);
     window.addEventListener('message', onMessage);
-    frame.srcdoc = built.html;
+    loadSandboxed(frame, built.html);
     document.body.append(frame);
   });
 }
