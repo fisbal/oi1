@@ -22,7 +22,8 @@ function strictCsp(): Plugin {
     transformIndexHtml: {
       order: 'post',
       handler(html) {
-        const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`);
+        // Hashes our own index.html inline scripts (any case), not a filter of outside HTML (that is safeHtml.ts).
+        const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script\s*>/gi)].map(m => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`);
         const policy = `object-src 'none'; base-uri 'self'; script-src ${[...SCRIPT_SRC, ...hashes].join(' ')}`;
         const out = html.replace(/(<meta http-equiv="Content-Security-Policy" content=")[^"]*(")/, `$1${policy}$2`);
         if (out === html) throw new Error('index.html lost its Content-Security-Policy meta tag');
