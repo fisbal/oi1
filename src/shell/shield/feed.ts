@@ -1,7 +1,8 @@
 // Bouclier, part 4: the world lists of dangerous sites (updated every day) and the "vaccine" memory.
 //
 // World lists: a GitHub workflow (.github/workflows/shield-feed.yml) downloads every day the public lists of
-// phishing and malware sites (Phishing.Database, MIT; URLhaus by abuse.ch, CC0; Block List Project, Unlicense),
+// phishing and malware sites (HaGeZi Threat Intelligence Feeds, GPL-3.0, rebuilt several times a day from URLhaus,
+// OpenPhish, PhishTank, ThreatFox…; Phishing.Database, MIT; Block List Project, Unlicense),
 // keeps only a short fingerprint of each site (SHA-256), splits them in 256 small files and publishes them on the
 // site, next to the app (https://fisbal.github.io/oi1/shield/), so they stay public even with a private repo. To check a site, Office In 1 downloads only the small file for the first two letters of its
 // fingerprint: the site you visit is never sent anywhere (the same idea as Google Safe Browsing's hash prefixes
@@ -81,8 +82,17 @@ async function shard(prefix: string): Promise<Set<string> | null> {
   }
 }
 
-/** The host and its parent site, the way the daily lists write them. */
-export const hostKeys = (host: string) => [...new Set([host.replace(/^www\./, ''), siteOf(host.replace(/^www\./, ''))])];
+/** The host and every parent up to its site: "a.b.evil.com" -> a.b.evil.com, b.evil.com, evil.com. The daily lists
+ *  name a domain for all its sub-domains (HaGeZi's "wildcard" lists), so a trap on a fresh sub-domain is still caught. */
+export function hostKeys(host: string): string[] {
+  const h = host.replace(/^www\./, '').replace(/\.$/, '');
+  const site = siteOf(h);
+  const out = [h];
+  let cur = h;
+  while (cur !== site && cur.includes('.') && out.length < 8) { cur = cur.slice(cur.indexOf('.') + 1); out.push(cur); }
+  if (!out.includes(site)) out.push(site);
+  return [...new Set(out)];
+}
 
 /** True when a world list or an antibody names this site. */
 export async function hostListed(host: string): Promise<'list' | 'antibody' | null> {

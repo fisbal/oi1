@@ -92,6 +92,8 @@ function onClick(e: MouseEvent) {
   try { u = new URL(href, location.href); } catch { /* checked below as text */ }
   if (u && u.origin === location.origin) return;
   if (u && u.protocol === 'blob:') return;
+  // Mail, phone and SMS links are not web sites: let the app open them (In 1 Mail answers mailto: with a new mail).
+  if (u && ['mailto:', 'tel:', 'sms:'].includes(u.protocol)) return;
   e.preventDefault();
   e.stopPropagation();
   void (async () => {

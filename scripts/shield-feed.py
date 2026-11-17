@@ -5,15 +5,20 @@ Downloads public lists of phishing and malware sites, keeps only a 7-byte SHA-25
 and splits them into 256 small files (h/00.txt .. h/ff.txt) so an app downloads only the file it needs and never
 tells anyone which site it checks. Adds the antidotes Martin approved (GitHub issues labelled "antidote" AND
 "approved"). Sources and licences:
+  HaGeZi Threat Intelligence Feeds, medium (GPL-3.0) https://github.com/hagezi/dns-blocklists
+      rebuilt several times a day from URLhaus, OpenPhish, PhishTank, ThreatFox, CERTs and more (the live part)
   Phishing.Database (Mitchell Krog, MIT)       https://github.com/Phishing-Database/Phishing.Database
-  URLhaus (abuse.ch, CC0)                       https://urlhaus.abuse.ch
-  Block List Project phishing + scam (Unlicense) https://github.com/blocklistproject/Lists
+  Block List Project phishing + scam (Unlicense) https://github.com/blocklistproject/Lists (no longer updated: kept as history)
+URLhaus' own text_online download answers "410 Gone" since 2026 (abuse.ch now wants an Auth-Key): its sites still
+arrive through HaGeZi. The list is only worth something if it moves: FRESH lists must work every day, or the
+workflow fails so the breakage is seen (it went unnoticed for weeks in November 2026).
 """
 import hashlib, json, os, re, sys, urllib.request, datetime
 
 SOURCES = [
+    ('HaGeZi Threat Intelligence Feeds (GPL-3.0)', 'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/tif.medium-onlydomains.txt'),
     ('Phishing.Database (MIT)', 'https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-ACTIVE.txt'),
-    ('URLhaus (CC0)', 'https://urlhaus.abuse.ch/downloads/text_online/'),
+    ('Phishing.Database new today (MIT)', 'https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-NEW-today.txt'),
     ('Block List Project phishing (Unlicense)', 'https://raw.githubusercontent.com/blocklistproject/Lists/master/alt-version/phishing-nl.txt'),
     ('Block List Project scam (Unlicense)', 'https://raw.githubusercontent.com/blocklistproject/Lists/master/alt-version/scam-nl.txt'),
 ]
@@ -23,6 +28,8 @@ NEVER = {'google.com', 'docs.google.com', 'sites.google.com', 'drive.google.com'
          'amazon.com', 'amazonaws.com', 's3.amazonaws.com', 'cloudfront.net', 'facebook.com', 'instagram.com', 'linkedin.com', 'twitter.com', 'x.com',
          'youtube.com', 'wikipedia.org', 'fisbal.github.io', 'canada.ca', 'gouv.fr', 'weebly.com', 'wixsite.com', 'blogspot.com', 'firebaseapp.com',
          'web.app', 'pages.dev', 'workers.dev', 'netlify.app', 'vercel.app', 'herokuapp.com', 'azurewebsites.net', 'windows.net', 'godaddysites.com', 'ipfs.io'}
+# Lists that are updated every day: without one of them the shield would only remember old threats.
+FRESH = {'HaGeZi Threat Intelligence Feeds (GPL-3.0)'}
 HOST = re.compile(r'^[a-z0-9.-]+\.[a-z]{2,}$')
 
 def fetch(url):
@@ -69,7 +76,7 @@ def approved_antidotes():
     return sorted(set(files)), sorted(set(hosts))
 
 def main(out):
-    all_hosts, used = set(), []
+    all_hosts, used, counts = set(), [], {}
     for name, url in SOURCES:
         try:
             got = set(hosts_of(fetch(url)))
@@ -77,8 +84,11 @@ def main(out):
             if got:
                 all_hosts |= got
                 used.append(name)
+                counts[name] = len(got)
         except Exception as e:
             print(f'{name} failed: {e}', file=sys.stderr)
+    if not FRESH & set(used):
+        sys.exit('no daily-updated list worked: keeping yesterday\'s list and failing so it is seen')
     files, hosts = approved_antidotes()
     all_hosts |= set(hosts)
     if len(all_hosts) < 1000:
@@ -92,7 +102,7 @@ def main(out):
         with open(os.path.join(out, 'h', f'{p}.txt'), 'w') as f:
             f.write('\n'.join(sorted(set(items))) + '\n')
     meta = {'updated': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'), 'count': len(all_hosts),
-            'sources': used, 'antidotes': {'files': files, 'hosts': hosts}, 'format': 'sha256(host)[2:16] in h/<sha256[:2]>.txt'}
+            'sources': used, 'perSource': counts, 'antidotes': {'files': files, 'hosts': hosts}, 'format': 'sha256(host)[2:16] in h/<sha256[:2]>.txt'}
     with open(os.path.join(out, 'meta.json'), 'w') as f:
         json.dump(meta, f, indent=1)
     print(json.dumps({k: meta[k] for k in ('updated', 'count', 'sources')}))
