@@ -8,6 +8,7 @@ import { lockNow, openVault, sealedCounts, turnOff, turnOn } from './session';
 import { journal, onJournal, readJournal, type JournalEntry } from './journal';
 import { onBlocked } from './netGuard';
 import { downloadFile } from '../files';
+import { localDay } from '../localDay';
 import './confidential.css';
 
 function useConfidential() {
@@ -246,7 +247,7 @@ function Journal() {
   useEffect(() => { const load = () => void readJournal().then(setRows); load(); return onJournal(load); }, []);
   const exportCsv = () => {
     const lines = [['date', 'action', 'detail'].join(','), ...(rows ?? []).map(r => [csvCell(new Date(r.t).toISOString()), csvCell(ct(`a.${r.a}`)), csvCell(r.d ?? '')].join(','))];
-    downloadFile(`Office In 1 journal ${new Date().toISOString().slice(0, 10)}.csv`, `﻿${lines.join('\r\n')}`, 'text/csv');
+    downloadFile(`Office In 1 journal ${localDay()}.csv`, `﻿${lines.join('\r\n')}`, 'text/csv');
   };
   return (
     <div className="sh-body">

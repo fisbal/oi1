@@ -56,7 +56,7 @@ async function openNotes(page) {
   await page.waitForTimeout(300);
 }
 async function newPage(d, setup) {
-  const ctx = await browser.newContext({ viewport: d.viewport, isMobile: !!d.mobile, hasTouch: !!d.mobile, userAgent: d.ua, locale: d.locale ?? 'en-US' });
+  const ctx = await browser.newContext({ viewport: d.viewport, isMobile: !!d.mobile, hasTouch: !!d.mobile, userAgent: d.ua, locale: d.locale ?? 'en-US', ...(d.tz ? { timezoneId: d.tz } : {}) });
   const page = await ctx.newPage();
   page.on('pageerror', e => problems.push(`${d.name}: script error: ${e.message}`));
   page.on('dialog', x => x.dismiss());
@@ -217,6 +217,38 @@ try {
     check(await page.locator(`${N} .nt-text:has-text("énergie chimique")`).count() === 1, `${n}: the summary is added to the page`);
     check(await overflow(page) <= 1, `${n}: no sideways scrolling`);
     if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/notes-web-${d.name.replace(/ /g, '-')}.png` });
+    await ctx.close();
+  }
+
+  // ---------- 4. The date under the title is today's (Martin, 2026-11-17) ----------
+  // The empty first page was made on Sunday; writing in it on Tuesday must show Tuesday, in the device's own time
+  // zone, the same day as the page list. A later edit adds "Modified ..." next to it.
+  for (const d of [DEVICES[0], DEVICES[4]].filter(x => !process.env.ONLY || x.name.includes(process.env.ONLY))) {
+    const n = `${d.name} (date)`;
+    const { ctx, page } = await newPage({ ...d, lang: 'fr', locale: 'fr-CA', tz: 'America/Toronto' });
+    try {
+      await page.clock.setFixedTime(new Date('2026-11-15T08:41:00-05:00'));
+      await openNotes(page);
+      await page.clock.setFixedTime(new Date('2026-11-17T21:30:00-05:00'));
+      await page.locator(`${N} .nt-text`).click();
+      await page.keyboard.type('C’est quelque chose d’intéressant');
+      await page.waitForTimeout(1000);
+      const when = await page.locator(`${N} .nt-when`).textContent();
+      check(when.includes('mardi 17 novembre 2026') && !when.includes('dimanche'), `${n}: the page is dated the day you wrote in it (got "${when}")`);
+      await closeSideOnPhone(page, d);
+      await openSide(page);
+      check((await page.locator(`${N} .nt-pages li small`).first().textContent()).includes('17'), `${n}: the page list shows the same day`);
+      await closeSideOnPhone(page, d);
+      await page.clock.setFixedTime(new Date('2026-11-17T22:45:00-05:00'));
+      await page.locator(`${N} .nt-text`).click();
+      await page.keyboard.press('End');
+      await page.keyboard.type(' encore');
+      await page.waitForTimeout(1000);
+      const later = await page.locator(`${N} .nt-when`).textContent();
+      check(later.includes('mardi 17 novembre 2026') && /Modifiée le .*22/.test(later), `${n}: a later edit shows when it was modified (got "${later}")`);
+      check(await overflow(page) <= 1, `${n}: no sideways scrolling`);
+      if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/notes-date-${d.name.replace(/ /g, '-')}.png` });
+    } catch (e) { problems.push(`${n}: ${e.message.split('\n')[0]}`); }
     await ctx.close();
   }
 } finally {

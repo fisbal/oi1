@@ -105,13 +105,28 @@ export function where(lib: Library) {
   return { nb, sec, page };
 }
 
-/** The library with one page changed (immutably). */
-export function updatePage(lib: Library, pageId: string, patch: Partial<Page>): Library {
+/** True when a page holds nothing yet: no title, no text, no picture or table. */
+export function isBlankPage(p: Pick<Page, 'title' | 'html'>): boolean {
+  if (p.title.trim()) return false;
+  // Read only (never turned back into HTML): the page's text and whether it holds a picture, table, etc.
+  const body = new DOMParser().parseFromString(p.html, 'text/html').body;
+  return !body.querySelector('img, table, hr, iframe, video, audio, svg') && !(body.textContent ?? '').replace(/\u00a0/g, '').trim();
+}
+
+/** The library with one page changed (immutably). A blank page (like the one a new notebook or section opens
+ *  with) is born when you first write in it: its creation date moves to that moment, so the date under the
+ *  title never shows the day the empty page was made days earlier (Martin, 2026-11-17). */
+export function updatePage(lib: Library, pageId: string, patch: Partial<Page>, now = Date.now()): Library {
+  const write = (p: Page): Page => {
+    const next = { ...p, ...patch, updated: now };
+    if (('html' in patch || 'title' in patch) && isBlankPage(p) && !isBlankPage(next)) next.created = now;
+    return next;
+  };
   return {
     ...lib,
     notebooks: lib.notebooks.map(nb => ({
       ...nb,
-      sections: nb.sections.map(sec => (sec.pages.some(p => p.id === pageId) ? { ...sec, pages: sec.pages.map(p => (p.id === pageId ? { ...p, ...patch, updated: Date.now() } : p)) } : sec)),
+      sections: nb.sections.map(sec => (sec.pages.some(p => p.id === pageId) ? { ...sec, pages: sec.pages.map(p => (p.id === pageId ? write(p) : p)) } : sec)),
     })),
   };
 }
