@@ -217,6 +217,9 @@ jobs:
       - name: The shield checks files, links and pasted scams, makes vaccines (PC + phone)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:shield
+      - name: Only Office In 1's own scripts run (strict CSP), injected scripts are blocked, Code+ still runs people's code in its own sandbox, also offline (PC, tablet, phone, both ways) (check:csp)
+        if: env.FULL_CHECKS == 'true'
+        run: npm run check:csp
       - name: In 1 Draw works on phone, tablet, PC and Mac, both ways (check:draw)
         if: env.FULL_CHECKS == 'true'
         run: npm run check:draw

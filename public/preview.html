@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>In 1 Code+</title>
+<style>html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; } iframe { display: block; width: 100%; height: 100%; border: 0; }</style>
+<!-- In 1 Code+'s sandbox page (src/modules/code/sandboxFrame.ts).
+     Office In 1 itself only runs its own scripts (Content-Security-Policy script-src 'self'), and a frame made with
+     srcdoc, data: or blob: inherits that rule, so people's code could not run in it. This page has its own address,
+     so it does not inherit the rule; it puts the code in a frame sandboxed WITHOUT allow-same-origin (an opaque
+     origin: no access to Office In 1's storage, keys or files), like CodePen and StackBlitz. Being a normal page of
+     the site, it is kept by the service worker, so the preview also works offline. It relays the frame's messages
+     (console, storage, links) to Code+ and back. -->
+</head>
+<body>
+<script>
+(function () {
+  if (window.parent === window) { document.body.textContent = 'In 1 Code+'; return; }
+  var SAFE = /^(allow-(scripts|forms|modals|popups|downloads|pointer-lock))( allow-(scripts|forms|modals|popups|downloads|pointer-lock))*$/;
+  var inner = null;
+  function fromCodePlus(src) {
+    if (src === window.parent) return true;
+    try { return !!window.parent.opener && src === window.parent.opener; } catch (x) { return false; }
+  }
+  window.addEventListener('message', function (e) {
+    var m = e.data;
+    if (inner && e.source === inner.contentWindow) { window.parent.postMessage(m, '*'); return; }
+    if (!fromCodePlus(e.source)) return;
+    if (m && m.oi1sandbox === 'run' && typeof m.html === 'string') {
+      var f = document.createElement('iframe');
+      // Never allow-same-origin or top navigation, whatever is asked.
+      f.setAttribute('sandbox', typeof m.sandbox === 'string' && SAFE.test(m.sandbox) ? m.sandbox : 'allow-scripts');
+      f.setAttribute('title', document.title);
+      f.srcdoc = m.html;
+      if (inner) inner.remove();
+      inner = f;
+      document.body.append(f);
+    } else if (inner) {
+      inner.contentWindow.postMessage(m, '*');
+    }
+  });
+  window.parent.postMessage({ oi1sandbox: 'ready' }, '*');
+})();
+</script>
+</body>
+</html>

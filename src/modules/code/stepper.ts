@@ -3,6 +3,7 @@
 // a sandboxed iframe; then the programmer moves through the steps and watches the variables change.
 
 import { parse } from 'acorn';
+import { loadSandboxed } from './sandboxFrame';
 import { compile } from './build';
 
 export interface Step { line: number; vars: Record<string, string>; out: string[] }
@@ -102,7 +103,6 @@ export function trace(instrumented: string): Promise<Trace> {
 catch (e) { if (e instanceof __Stop) __end(undefined, true); else { __steps.push({ line: __steps.length ? __steps[__steps.length - 1].line : 1, vars: __steps.length ? __steps[__steps.length - 1].vars : {}, out: __out.slice() }); __end(String(e && e.message || e)); } } })();
 </script></body></html>`;
   const frame = document.createElement('iframe');
-  frame.setAttribute('sandbox', 'allow-scripts');
   frame.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;top:0;border:0;opacity:0';
   frame.title = 'simulation';
   return new Promise(resolve => {
@@ -116,7 +116,7 @@ catch (e) { if (e instanceof __Stop) __end(undefined, true); else { __steps.push
     };
     const timer = window.setTimeout(() => done({ steps: [], error: 'Timed out after 10 s (an endless loop?)' }), 10000);
     window.addEventListener('message', on);
-    frame.srcdoc = html;
+    loadSandboxed(frame, html);
     document.body.append(frame);
   });
 }
