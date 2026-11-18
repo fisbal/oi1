@@ -16,6 +16,8 @@ const APPS = ['Letter', 'Class', 'Stage', 'Code+', 'Draw', 'Notes', 'Plan', 'For
 // Lists that are short by nature, with the reason. Everything else needs MIN_CHOICES.
 const SHORT_BY_NATURE = {
   'Orientation': 'portrait or landscape',
+  'Page order': 'down then over, or over then down: Excel has exactly these two',
+  'Breaks': 'insert, remove or reset page breaks at the active cell, like Excel',
   'Print area': 'set, add to or clear the print area, like Excel',
   'Clear': 'everything, formats or contents, like Excel',
   'Freeze Panes': 'at the cell, the top row or the first column',
