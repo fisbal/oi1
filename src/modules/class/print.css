@@ -44,3 +44,53 @@
   .print-panel .pp-wrap { grid-template-columns: minmax(240px, 46%) 1fr; grid-template-rows: none; }
   .print-panel .pp-side { border-bottom: 0; border-right: 1px solid var(--hair); }
 }
+
+/* The Page Setup window (Excel's four tabs). */
+.page-setup { width: min(560px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); overflow: auto; }
+.page-setup form { padding: 20px 22px; }
+.ps-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 14px; border-bottom: 1px solid var(--hair); }
+.ps-tabs button { min-height: 36px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; opacity: .75; }
+.ps-tabs button.on { border-bottom-color: var(--accent, #c9a227); opacity: 1; }
+.ps-body { display: grid; gap: 12px; min-height: 300px; align-content: start; }
+.ps-field { display: grid; gap: 4px; font-size: 12px; font-weight: 600; min-width: 0; }
+.ps-body select, .ps-body input[type=text], .ps-body input[type=number] { min-height: 34px; border-radius: 10px; border: 1px solid var(--hair); background: var(--surface-2, var(--surface)); color: var(--ink); padding: 4px 8px; font: inherit; font-weight: 400; font-size: 13px; min-width: 0; }
+.ps-body input[type=number] { width: 76px; }
+.ps-body input[aria-invalid=true] { border-color: #d9534f; }
+.ps-box { border: 1px solid var(--hair); border-radius: 14px; padding: 8px 12px 12px; margin: 0; display: grid; gap: 8px; min-width: 0; }
+.ps-box legend { font-size: 12px; font-weight: 700; padding: 0 4px; }
+.ps-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13.5px; }
+.ps-check { display: flex; align-items: center; gap: 8px; min-height: 30px; font-size: 13.5px; cursor: pointer; }
+.ps-pick { display: flex; gap: 6px; min-width: 0; }
+.ps-pick input { flex: 1; }
+.ps-pick button, .ps-breaks button { min-height: 34px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--hair); background: none; color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.ps-breaks { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.ps-breaks button:disabled { opacity: .45; cursor: default; }
+.ps-margins { display: grid; grid-template-columns: 1fr auto 1fr; grid-template-areas: ". top ." "left page right" ". bottom ."; gap: 8px; align-items: center; justify-items: center; }
+.ps-m-top { grid-area: top; } .ps-m-right { grid-area: right; } .ps-m-bottom { grid-area: bottom; } .ps-m-left { grid-area: left; }
+.ps-m-page { grid-area: page; width: 84px; height: 110px; background: #fff; border: 1px solid #999; position: relative; border-radius: 3px; }
+.ps-m-page i { position: absolute; border: 1px dashed #3b6fb6; background: repeating-linear-gradient(0deg, #eef3fb 0 6px, #fff 6px 9px); }
+.ps-hf { display: grid; gap: 8px; }
+.ps-hf label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; }
+.ps-sample { margin: 0; padding: 8px 10px; border-radius: 10px; background: #fff; color: #333; font-size: 12.5px; text-align: center; min-height: 18px; border: 1px solid var(--hair); overflow-wrap: anywhere; }
+.ps-note { margin: 0; font-size: 12px; opacity: .8; }
+.ps-order { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ps-order-choice { display: grid; justify-items: center; gap: 4px; padding: 8px; border-radius: 12px; border: 1px solid var(--hair); cursor: pointer; font-size: 13px; font-weight: 600; text-align: center; }
+.ps-order-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.ps-order-choice.on { border-color: var(--accent, #c9a227); background: rgba(201, 162, 39, .14); }
+.ps-order-pic { color: var(--ink); }
+.ps-buttons { flex-wrap: wrap; align-items: center; }
+.ps-buttons .ps-preview { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 760px), (max-height: 520px) and (orientation: landscape) {
+  .page-setup { width: 100vw; max-height: 100dvh; height: 100dvh; border-radius: 0; }
+  .page-setup form { padding: 14px 14px 18px; }
+  .ps-buttons .pp-gap { flex-basis: 100%; height: 0; }
+}
+
+/* The map of the pages in the Print window: where each page sits in the sheet and its number, in the page order. */
+.pp-map { margin-top: 14px; }
+.pp-map-title { font-size: 12px; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.pp-map-grid { display: grid; gap: 4px; max-width: 100%; overflow: auto; padding: 2px; }
+.pp-map-grid button { min-width: 34px; min-height: 30px; border-radius: 6px; border: 1px solid var(--hair); background: #fff; color: #222; font: inherit; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; padding: 0 4px; }
+.pp-map-grid button.on { outline: 2px solid var(--accent, #c9a227); outline-offset: 1px; background: #fff7dc; }
+.pp-more { margin-top: 14px; min-height: 36px; width: 100%; border-radius: 12px; border: 1px solid var(--hair); background: none; color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.ps-body input[data-ps=firstPage] { width: 150px; }

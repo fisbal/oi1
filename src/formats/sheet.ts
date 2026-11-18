@@ -165,6 +165,22 @@ export interface PrintSetup {
   order?: 'down' | 'over';
   header?: string;
   footer?: string;
+  /** Manual page breaks, like Excel's Breaks > Insert Page Break: the first row (column) of each new page, from 0.
+   * Kept in the .xlsx as rowBreaks / colBreaks. Ignored when the sheet is fitted to pages, like Excel. */
+  breaks?: { rows?: number[]; cols?: number[] };
+  /** Custom margins in inches, used when `margins` is 'custom': top, right, bottom, left. */
+  custom?: [number, number, number, number];
+  /** Center vertically on the page (`center` is horizontally). */
+  vcenter?: boolean;
+  /** Print in black and white: no fills, black text. */
+  bw?: boolean;
+  /** Cell errors as: shown (#DIV/0!), blank, -- or #N/A, like Excel's Sheet tab. */
+  errors?: 'shown' | 'blank' | 'dash' | 'na';
+  /** The number of the first page (Excel's First page number); none means 1. */
+  firstPage?: number;
+  /** Where the repeated rows (columns) start, from 0: rows to repeat $3:$4 are titleRowStart 2, titleRows 2. */
+  titleRowStart?: number;
+  titleColStart?: number;
 }
 
 export interface WorkbookData {

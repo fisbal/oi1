@@ -3,7 +3,8 @@
 // 21 headers and footers), the Print window fits the screen, every "Print what" choice gives the right pages in the
 // preview (selection, active cell, columns, rows, the page of the active cell, the print area, formulas, the whole
 // workbook), "Fit sheet on one page", repeated title rows, A/1 headings, landscape, and Save as PDF downloads a PDF.
-// The page setup is kept with the sheet.
+// The page setup is kept with the sheet. Page order, page breaks and the Page Setup window like Excel's (Martin,
+// 2026-11-18: "l'ordre de page tableau n'est pas respecté comme dans Excel. On n'a pas d'options").
 // Run after `npm run build`:
 //   node scripts/check-print.mjs
 import { spawn } from 'node:child_process';
@@ -65,7 +66,7 @@ async function pick(page, what, value) {
   await page.waitForTimeout(250);
 }
 
-for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, false], ['Phone', { width: 390, height: 844 }, true], ['Phone sideways', { width: 844, height: 390 }, true]]) {
+for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, false], ['Tablet', { width: 820, height: 1180 }, true], ['Phone', { width: 390, height: 844 }, true], ['Phone sideways', { width: 844, height: 390 }, true]]) {
   const ctx = await browser.newContext({ viewport, locale: 'en-US', isMobile: mobile, hasTouch: mobile, acceptDownloads: true });
   const page = await ctx.newPage();
   page.on('pageerror', e => problems.push(`${name}: script error: ${e.message}`));
@@ -94,6 +95,84 @@ for (const [name, viewport, mobile] of [['PC', { width: 1440, height: 900 }, fal
     check(await menuCount(page, 'Footer') >= 20, `${name}: Footer offers 20+ choices`);
     check(await menuCount(page, 'Print Titles') >= 20, `${name}: Print Titles offers 20+ choices`);
   }
+
+  // Page order from the Page Layout tab: "Over, then down" makes page 2 the columns on the right (G, H).
+  await layoutTab(page);
+  await page.locator(`${H} .ribbon-panel button[aria-label="Page order"]`).first().click();
+  await page.waitForTimeout(200);
+  check(await page.locator(`${H} .drop-panel .menu-item`).count() === 2, `${name}: Page order offers Excel's two orders`);
+  // The last choice of a list is really on screen, not cut by the ribbon (phones start with the ribbon folded).
+  const lastSeen = await page.locator(`${H} .drop-panel .menu-item`).last().evaluate(el => {
+    const r = el.getBoundingClientRect();
+    return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+  });
+  check(lastSeen, `${name}: every choice of the Page order list can be seen and tapped`);
+  await page.locator(`${H} .drop-panel .menu-item`, { hasText: 'Over, then down' }).click();
+  await goTo(page, 'A1');
+  await openPrint(page);
+  let total0 = (await count(page)).total;
+  check(await page.locator(`${D} [data-pp="map"] button`).count() === total0, `${name}: the page map shows every page (${total0})`);
+  check(await page.locator(`${D} select[data-pp="order"]`).inputValue() === 'over', `${name}: the Print window shows the order chosen in the ribbon`);
+  await page.locator(`${D} [data-pp="map"] button`).nth(1).click();
+  await page.waitForTimeout(250);
+  let p2 = await previewText(page);
+  check((await count(page)).at === 2 && /HeadG/.test(p2) && !/HeadA/.test(p2), `${name}: over then down, page 2 is the columns on the right (G, H)`);
+  await pick(page, 'order', 'down');
+  await page.locator(`${D} [data-pp="map"] button`).nth(1).click();
+  await page.waitForTimeout(250);
+  p2 = await previewText(page);
+  check(!/Head/.test(p2) && /\dA/.test(p2) && !/\dG/.test(p2), `${name}: down then over (Excel's default), page 2 is the rows below in columns A to F`);
+  await page.locator(`${D} button:has-text("Close")`).click();
+  await page.waitForTimeout(200);
+
+  // A manual page break before row 21: page 1 ends at row 20, the grid shows a solid line.
+  await goTo(page, 'A21');
+  await layoutTab(page);
+  await page.locator(`${H} .ribbon-panel button[aria-label="Breaks"]`).first().click();
+  await page.locator(`${H} .drop-panel .menu-item`, { hasText: 'Insert Page Break' }).click();
+  await page.waitForTimeout(250);
+  check(await page.locator(`${H} .pb-h.man`).count() >= 1, `${name}: the manual page break shows on the grid`);
+  await goTo(page, 'A1');
+  await openPrint(page);
+  let p1 = await previewText(page);
+  check(/20A/.test(p1) && !/21A/.test(p1), `${name}: the manual break ends page 1 at row 20`);
+  await page.locator(`${D} button:has-text("Close")`).click();
+  await page.waitForTimeout(200);
+
+  // The Page Setup window: Excel's four tabs, the page order pictures, rows to repeat typed as $1:$1, reset breaks.
+  await layoutTab(page);
+  await page.locator(`${H} .ribbon-panel button[aria-label="Page Setup…"]`).first().click();
+  const PS = 'dialog.page-setup[open]';
+  await page.locator(PS).waitFor({ timeout: 4000 });
+  const psBox = await page.locator(PS).boundingBox();
+  check(!!psBox && psBox.x >= 0 && psBox.y >= 0 && psBox.x + psBox.width <= viewport.width + 1 && psBox.y + psBox.height <= viewport.height + 1, `${name}: the Page Setup window fits the screen`);
+  for (const tab of ['page', 'margins', 'hf', 'sheet']) {
+    await page.locator(`${PS} [data-ps-tab="${tab}"]`).click();
+    await page.waitForTimeout(120);
+    const n = await page.locator(`${PS} .ps-body`).locator('input, select, button').count();
+    check(n >= 3, `${name}: Page Setup tab "${tab}" has real settings (${n})`);
+  }
+  await page.locator(`${PS} [data-ps-tab="margins"]`).click();
+  await page.locator(`${PS} [data-ps="m-top"]`).fill('3');
+  check(await page.locator(`${PS} select[data-ps="margins"]`).inputValue() === 'custom', `${name}: typing a margin makes them custom`);
+  await page.locator(`${PS} [data-ps-tab="sheet"]`).click();
+  check(await page.locator(`${PS} .ps-order-choice svg`).count() === 2, `${name}: the page order is drawn like Excel's picture`);
+  await page.locator(`${PS} .ps-order-choice`).filter({ hasText: 'Down, then over' }).click();
+  await page.locator(`${PS} [data-ps="titleRows"]`).fill('$1:$1');
+  await page.locator(`${PS} [data-ps="resetBreaks"]`).click();
+  await page.locator(`${PS} [data-ps="ok"]`).click();
+  await page.waitForTimeout(250);
+  check(await page.locator(`${H} .pb-h.man`).count() === 0, `${name}: Reset All Page Breaks removes the break`);
+  await openPrint(page);
+  check(await page.locator(`${D} select[data-pp="margins"]`).inputValue() === 'custom', `${name}: the custom margins reach the Print window`);
+  await page.locator(`${D} [data-pp="map"] button`).nth(1).click();
+  await page.waitForTimeout(250);
+  check(/HeadA/.test(await previewText(page)), `${name}: rows to repeat $1:$1 print on page 2`);
+  // Back to the plain setup for the checks below.
+  await pick(page, 'titleRows', '0');
+  await pick(page, 'margins', 'normal');
+  await page.locator(`${D} button:has-text("Close")`).click();
+  await page.waitForTimeout(200);
 
   // A selection: the window opens on it, one page, only those cells.
   await goTo(page, 'B3:C6');
