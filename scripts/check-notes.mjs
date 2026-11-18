@@ -230,6 +230,10 @@ try {
       await page.clock.setFixedTime(new Date('2026-11-15T08:41:00-05:00'));
       await openNotes(page);
       await page.clock.setFixedTime(new Date('2026-11-17T21:30:00-05:00'));
+      await page.reload();
+      await page.locator(`${N} .nt-text`).waitFor({ timeout: 10000 });
+      const blank = await page.locator(`${N} .nt-when`).textContent();
+      check(blank.includes('mardi 17 novembre 2026') && !blank.includes('dimanche'), `${n}: an empty page made days ago shows today before anything is written (got "${blank}")`);
       await page.locator(`${N} .nt-text`).click();
       await page.keyboard.type('C’est quelque chose d’intéressant');
       await page.waitForTimeout(1000);

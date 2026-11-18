@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { cleanLibrary, flashcards, newLibrary, newPage, search, tagSummary, titleOf, updatePage, isBlankPage, where, PAPERS, TAGS, COLORS, ICONS, PAGE_COLORS } from '../model';
+import { cleanLibrary, flashcards, newLibrary, newPage, search, tagSummary, titleOf, updatePage, isBlankPage, shownDates, where, PAPERS, TAGS, COLORS, ICONS, PAGE_COLORS } from '../model';
 import { NOTE_TEMPLATES } from '../templates';
 import { answerHtml } from '../Notes';
 
@@ -19,6 +19,8 @@ describe('In 1 Notes model', () => {
     lib = updatePage(lib, id, { html: '<p>C’est quelque chose de plus</p>' }, tuesday + 3_600_000);
     expect(where(lib).page.created).toBe(tuesday);
     expect(where(lib).page.updated).toBe(tuesday + 3_600_000);
+    expect(shownDates(where(lib).page, tuesday + 9e7)).toEqual({ created: tuesday, updated: tuesday + 3_600_000 });
+    expect(shownDates({ title: '', html: '<p></p>', created: sunday, updated: sunday }, tuesday)).toEqual({ created: tuesday, updated: tuesday });
     expect(isBlankPage({ title: '', html: '<p><img src="x.png"></p>' })).toBe(false);
     expect(isBlankPage({ title: '', html: '<p>&nbsp;</p><p></p>' })).toBe(true);
   });

@@ -113,6 +113,12 @@ export function isBlankPage(p: Pick<Page, 'title' | 'html'>): boolean {
   return !body.querySelector('img, table, hr, iframe, video, audio, svg') && !(body.textContent ?? '').replace(/\u00a0/g, '').trim();
 }
 
+/** The dates a page shows. A blank page has no story yet: it shows "now" (the page list and the title area agree,
+ *  in the device's time zone), so an empty page made days ago never shows that old day (Martin, 2026-11-17). */
+export function shownDates(p: Pick<Page, 'title' | 'html' | 'created' | 'updated'>, now = Date.now()): { created: number; updated: number } {
+  return isBlankPage(p) ? { created: now, updated: now } : { created: p.created, updated: p.updated };
+}
+
 /** The library with one page changed (immutably). A blank page (like the one a new notebook or section opens
  *  with) is born when you first write in it: its creation date moves to that moment, so the date under the
  *  title never shows the day the empty page was made days earlier (Martin, 2026-11-17). */
