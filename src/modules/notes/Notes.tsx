@@ -45,7 +45,7 @@ import { aiTranslator, bestTranslator } from '../../shell/translate';
 import { FONTS, TEXT_SIZES } from '../draw/model';
 import {
   COLORS, ICONS, PAGE_COLORS, PAPERS, TAGS, cleanLibrary, escapeHtml, fixAt, flashcards, newLibrary, newNotebook, newPage, newSection,
-  notebookMarkdown, search, sectionHtml, tagSummary, textOf, titleOf, updateNotebook, updatePage, updateSection, where,
+  notebookMarkdown, search, sectionHtml, shownDates, tagSummary, textOf, titleOf, updateNotebook, updatePage, updateSection, where,
   type Library, type Page, type PaperId,
 } from './model';
 import { NOTE_TEMPLATES } from './templates';
@@ -269,6 +269,7 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
   }));
   const duplicatePage = () => { flush.current(); const cur = where(libRef.current).page; addPage({ ...newPage(`${titleOf(cur, untitled)} (2)`, cur.html, cur.paper), color: cur.color }); };
   const setPage = (patch: Partial<Page>) => setLib(l => updatePage(l, l.at.page, patch));
+  const now = useNow();
 
   // ---------- templates (a new page) ----------
   const addTemplate = async (id: string) => {
@@ -777,7 +778,7 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
           {pages.map(p => (
             <li key={p.id} className={p.id === page.id ? 'on' : ''}>
               <button type="button" onClick={() => go({ page: p.id })} onDoubleClick={renamePage}>
-                <b>{p.pinned ? '📌 ' : ''}{titleOf(p, untitled)}</b><small>{new Date(p.updated).toLocaleDateString(lang)}</small>
+                <b>{p.pinned ? '📌 ' : ''}{titleOf(p, untitled)}</b><small>{new Date(shownDates(p, now).updated).toLocaleDateString(lang)}</small>
               </button>
             </li>
           ))}
@@ -809,7 +810,7 @@ function NotesApp({ shell, file, handoff, initial }: { shell: ShellApi; file?: O
           <article className={`nt-page nt-paper-${page.paper}${dark ? ' dark' : ''}`} style={{ backgroundColor: page.color, zoom } as CSSProperties}>
             <input className="nt-title" value={page.title} placeholder={title === untitled ? untitled : title} aria-label={t('notes.pageTitle')}
               onChange={e => setPage({ title: e.target.value })} onKeyDown={e => { if (e.key === 'Enter' && ed) { e.preventDefault(); ed.view.focus(); ed.commands.setTextSelection(1); } }} />
-            <PageDates created={page.created} updated={page.updated} lang={lang} />
+            <PageDates {...shownDates(page, now)} lang={lang} />
             <EditorContent editor={editor} onPointerDown={e => { lastPointer.current = e.pointerType; }}
               onContextMenu={e => { if (!ed || e.nativeEvent.defaultPrevented || lastPointer.current === 'touch') return; e.preventDefault(); caretAt(ed, e.clientX, e.clientY); textMenu.setMenu({ x: e.clientX, y: e.clientY, ed }); }}
               onKeyDown={e => { if (ed && (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey))) { e.preventDefault(); textMenu.setMenu({ ...caretPoint(ed), ed }); } }} />
@@ -998,4 +999,11 @@ function PageDates({ created, updated, lang }: { created: number; updated: numbe
       {changed && <> · <time className="nt-modified" dateTime={new Date(updated).toISOString()} title={t('notes.modifiedOn', { when: long(updated) })}>{t('notes.modifiedOn', { when: new Date(updated).toLocaleString(lang, { dateStyle: 'short', timeStyle: 'short' }) })}</time></>}
     </div>
   );
+}
+
+/** The time now, refreshed every minute, so dates shown as "now" (a blank page) stay right past midnight. */
+function useNow(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 60_000); return () => window.clearInterval(id); }, []);
+  return now;
 }
