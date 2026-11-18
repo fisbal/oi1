@@ -1,0 +1,1 @@
+import{a as n,a8 as o,c as s,B as u,a9 as e}from"./index-DJKt9jMA.js";function c(){const[t,a]=n.useState(o);return s.jsx(u,{big:!0,icon:"sparkle",title:"dictation.auto",active:t,onClick:()=>{e(!t),a(!t)}})}export{c as A};

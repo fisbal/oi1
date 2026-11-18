@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-TZIBORs9aXFbe4UX/idgYCesy+y8TVUND52f68Gy2o8='; style-src 'unsafe-inline'">
+<title>Office In 1</title>
+<style>body{margin:0;display:grid;place-items:center;min-height:100vh;font:16px/1.5 system-ui,sans-serif;background:#07070A;color:#eee;text-align:center;padding:16px;box-sizing:border-box}</style>
+</head>
+<body>
+<p class="notranslate">Office In 1 · In 1 Mail ✓</p>
+<script>
+// Sign-in answer from Microsoft or Google: handed to the Office In 1 window of the same site, then this window closes.
+// Nothing is stored here and nothing is sent anywhere else.
+(function () {
+  var p = {}, src = (location.search.slice(1) + '&' + location.hash.slice(1)).split('&');
+  for (var i = 0; i < src.length; i++) { if (!src[i]) continue; var kv = src[i].split('='); p[decodeURIComponent(kv[0])] = decodeURIComponent((kv[1] || '').replace(/\+/g, ' ')); }
+  var msg = { oi1oauth: p };
+  history.replaceState(null, '', location.pathname);
+  try { if (window.opener) window.opener.postMessage(msg, location.origin); } catch (e) {}
+  if (typeof BroadcastChannel === 'function') { try { var bc = new BroadcastChannel('oi1-oauth'); bc.postMessage(msg); bc.close(); } catch (e) {} }
+  else try { localStorage.setItem('oi1.oauth.answer', JSON.stringify(msg)); setTimeout(function () { localStorage.removeItem('oi1.oauth.answer'); }, 3000); } catch (e) {}
+  setTimeout(function () { window.close(); }, 300);
+})();
+</script>
+</body>
+</html>
