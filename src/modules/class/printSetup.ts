@@ -5,7 +5,7 @@
 // browser, so the preview shows exactly the pages that print, numbered "Page 2 of 5".
 
 import type { Scalar } from '../../formats/formula';
-import { cellName, colName } from '../../formats/formula';
+import { cellName, colIndex, colName } from '../../formats/formula';
 import { display, key, usedRange, type PrintSetup, type SheetData } from '../../formats/sheet';
 import type { CondLook } from './cond';
 import { esc, tdHtml } from './print';
@@ -64,14 +64,75 @@ export const MARGINS: Record<string, [number, number, number, number]> = {
 export const HEADER_PRESET_COUNT = 21;
 
 /** Scaling choices: none, fit to pages, or a fixed size. */
-export const FITS: string[] = ['none', 'page', 'width', 'height', '2x1', '1x2', '2x2',
+export const FITS: string[] = ['none', 'page', 'width', 'height', '2x1', '1x2', '2x2', '3x1', '1x3', '3x2', '2x3',
   '25', '30', '40', '50', '60', '70', '75', '80', '85', '90', '95', '100', '110', '125', '150', '175', '200', '250', '300'];
 
-export const DEFAULT_SETUP: Required<Omit<PrintSetup, 'area' | 'header' | 'footer'>> & Pick<PrintSetup, 'area' | 'header' | 'footer'> = {
+type Optional = 'area' | 'header' | 'footer' | 'breaks' | 'custom' | 'vcenter' | 'bw' | 'errors' | 'firstPage' | 'titleRowStart' | 'titleColStart';
+export const DEFAULT_SETUP: Required<Omit<PrintSetup, Optional>> & Pick<PrintSetup, Optional> = {
   paper: 'a4', orientation: 'portrait', margins: 'normal', fit: 'none', grid: true, headings: false,
   titleRows: 0, titleCols: 0, center: false, order: 'down', header: '', footer: '{page} / {pages}',
 };
 export const setupOf = (sheet: SheetData) => ({ ...DEFAULT_SETUP, ...sheet.print });
+
+/** "W pages wide × H tall" scaling, like Excel's Fit to: '2x3'; 0 is "automatic", as in Excel. */
+export const fitPages = (fit: string | undefined): [number, number] | null => {
+  const f = fit ?? 'none';
+  if (f === 'page') return [1, 1];
+  if (f === 'width') return [1, 0];
+  if (f === 'height') return [0, 1];
+  const m = /^(\d+)x(\d+)$/.exec(f);
+  return m ? [Number(m[1]), Number(m[2])] : null;
+};
+
+/** The margins in pixels: [top, right, bottom, left]. */
+export const marginPx = (setup: PrintSetup): [number, number, number, number] =>
+  setup.margins === 'custom' && setup.custom ? setup.custom.map(v => Math.max(0, v) * IN) as [number, number, number, number]
+    : MARGINS[setup.margins ?? 'normal'] ?? MARGINS.normal;
+/** The margins in inches, for the Page Setup window. */
+export const marginInches = (setup: PrintSetup): [number, number, number, number] =>
+  marginPx(setup).map(v => Math.round((v / IN) * 100) / 100) as [number, number, number, number];
+
+/** The rows (columns) repeated on every page, from 0. */
+export const titleRowList = (setup: PrintSetup) => Array.from({ length: setup.titleRows ?? 0 }, (_, i) => (setup.titleRowStart ?? 0) + i);
+export const titleColList = (setup: PrintSetup) => Array.from({ length: setup.titleCols ?? 0 }, (_, i) => (setup.titleColStart ?? 0) + i);
+/** "$1:$2" and "$A:$B", like the boxes of Excel's Sheet tab. */
+export const titleRowsText = (setup: PrintSetup) => (setup.titleRows ? `$${(setup.titleRowStart ?? 0) + 1}:$${(setup.titleRowStart ?? 0) + setup.titleRows}` : '');
+export const titleColsText = (setup: PrintSetup) => (setup.titleCols ? `$${colName(setup.titleColStart ?? 0)}:$${colName((setup.titleColStart ?? 0) + setup.titleCols - 1)}` : '');
+/** Reads "$3:$4", "3", "3:4" (rows) or "$A:$B", "B" (columns); undefined when it is not one. Empty clears. */
+export function parseTitles(text: string, kind: 'rows' | 'cols'): { start: number; n: number } | undefined {
+  const s = text.replace(/\$/g, '').replace(/^.*!/, '').trim().toUpperCase();
+  if (!s) return { start: 0, n: 0 };
+  const m = kind === 'rows' ? /^(\d+)(?::(\d+))?$/.exec(s) : /^([A-Z]{1,3})(?::([A-Z]{1,3}))?$/.exec(s);
+  if (!m) return undefined;
+  const at = (x: string) => (kind === 'rows' ? Number(x) - 1 : colIndex(x));
+  const a = at(m[1]), b = at(m[2] ?? m[1]);
+  if (a < 0 || b < 0) return undefined;
+  return { start: Math.min(a, b), n: Math.abs(b - a) + 1 };
+}
+/** Reads a print area like "A1:D20" or "$B$2:$F$40". */
+export function parseArea(text: string): Box | undefined | null {
+  const s = text.replace(/\$/g, '').replace(/^.*!/, '').trim().toUpperCase();
+  if (!s) return null;
+  const m = /^([A-Z]{1,3})(\d+)(?::([A-Z]{1,3})(\d+))?$/.exec(s);
+  if (!m) return undefined;
+  const c1 = colIndex(m[1]), r1 = Number(m[2]) - 1, c2 = colIndex(m[3] ?? m[1]), r2 = Number(m[4] ?? m[2]) - 1;
+  if (r1 < 0 || r2 < 0) return undefined;
+  return { c1: Math.min(c1, c2), r1: Math.min(r1, r2), c2: Math.max(c1, c2), r2: Math.max(r1, r2) };
+}
+
+/** Excel's Breaks: a break before the active cell's row and column (only the row in column A, only the column in row 1). */
+export function insertBreak(setup: PrintSetup, at: { c: number; r: number }): PrintSetup['breaks'] {
+  const rows = new Set(setup.breaks?.rows ?? []), cols = new Set(setup.breaks?.cols ?? []);
+  if (at.r > 0) rows.add(at.r);
+  if (at.c > 0) cols.add(at.c);
+  return { rows: [...rows].sort((a, b) => a - b), cols: [...cols].sort((a, b) => a - b) };
+}
+/** Removes the breaks that touch the active cell: the one above its row and the one left of its column. */
+export function removeBreak(setup: PrintSetup, at: { c: number; r: number }): PrintSetup['breaks'] {
+  return { rows: (setup.breaks?.rows ?? []).filter(r => r !== at.r), cols: (setup.breaks?.cols ?? []).filter(c => c !== at.c) };
+}
+export const hasBreakAt = (setup: PrintSetup, at: { c: number; r: number }) => !!setup.breaks?.rows?.includes(at.r) || !!setup.breaks?.cols?.includes(at.c);
+export const breakCount = (setup: PrintSetup) => (setup.breaks?.rows?.length ?? 0) + (setup.breaks?.cols?.length ?? 0);
 
 export interface Box { c1: number; r1: number; c2: number; r2: number }
 export interface PrintWhat {
@@ -139,13 +200,15 @@ export interface PageCut {
   titleCols: number[];
   zoom: number;
   charts?: boolean;
+  /** Where the page sits in the sheet: x-th column of pages, y-th row of pages, from 0 (for the page map). */
+  at?: { x: number; y: number };
 }
 
 /** The space for cells on a page, in pixels, before zoom. */
 export function pageBox(setup: PrintSetup) {
   const p = PAPERS[setup.paper ?? 'a4'] ?? PAPERS.a4;
   const [w, h] = setup.orientation === 'landscape' ? [Math.max(p.w, p.h), Math.min(p.w, p.h)] : [p.w, p.h];
-  const m = MARGINS[setup.margins ?? 'normal'] ?? MARGINS.normal;
+  const m = marginPx(setup);
   const foot = (setup.header ? FOOT_H : 0) + (setup.footer ? FOOT_H : 0);
   return { w, h, m, innerW: w - m[1] - m[3], innerH: h - m[0] - m[2] - foot };
 }
@@ -154,8 +217,8 @@ export function pageBox(setup: PrintSetup) {
 export function cutPages(sheet: SheetData, sheetIndex: number, cols: number[], rows: number[], setupIn: PrintSetup): PageCut[] {
   const setup = { ...DEFAULT_SETUP, ...setupIn };
   const box = pageBox(setup);
-  const tRows = Array.from({ length: setup.titleRows ?? 0 }, (_, i) => i);
-  const tCols = Array.from({ length: setup.titleCols ?? 0 }, (_, i) => i);
+  const tRows = titleRowList(setup);
+  const tCols = titleColList(setup);
   const bodyRows = rows.filter(r => !tRows.includes(r));
   const bodyCols = cols.filter(c => !tCols.includes(c));
   const head = setup.headings ? 1 : 0;
@@ -170,28 +233,33 @@ export function cutPages(sheet: SheetData, sheetIndex: number, cols: number[], r
   if (fit === 'page') zoom = Math.min(1, across(1), down(1));
   else if (fit === 'width') zoom = Math.min(1, across(1));
   else if (fit === 'height') zoom = Math.min(1, down(1));
-  else if (/^\dx\d$/.test(fit)) zoom = Math.min(1, across(Number(fit[0])), down(Number(fit[2])));
+  else if (fitPages(fit)) { const [w, h] = fitPages(fit)!; zoom = Math.min(1, w ? across(w) : 1, h ? down(h) : 1); }
   else if (/^\d+$/.test(fit)) zoom = Number(fit) / 100;
   zoom = Math.max(0.1, Math.min(4, zoom));
+  // Manual page breaks count unless the sheet is fitted to pages (Excel ignores them then).
+  const manual = !fitPages(fit);
+  const rowBreaks = new Set(manual ? setup.breaks?.rows ?? [] : []), colBreaks = new Set(manual ? setup.breaks?.cols ?? [] : []);
 
   // Greedy cuts: as many columns (rows) as fit in the page's width (height), at least one per page.
-  const cut = (items: number[], size: (i: number) => number, room: number) => {
+  const cut = (items: number[], size: (i: number) => number, room: number, breaks: Set<number>) => {
     const out: number[][] = [];
     let cur: number[] = [], used = 0;
     for (const i of items) {
       const s = size(i) * zoom;
-      if (cur.length && used + s > room + 0.5) { out.push(cur); cur = []; used = 0; }
+      if (cur.length && (used + s > room + 0.5 || breaks.has(i))) { out.push(cur); cur = []; used = 0; }
       cur.push(i); used += s;
     }
     if (cur.length || !out.length) out.push(cur);
     return out;
   };
-  const colChunks = cut(bodyCols, c => colW(sheet, c), box.innerW - (titleW + head * HEAD_W) * zoom);
-  const rowChunks = cut(bodyRows, r => rowH(sheet, r), box.innerH - (titleH + head * HEAD_H) * zoom);
+  const colChunks = cut(bodyCols, c => colW(sheet, c), box.innerW - (titleW + head * HEAD_W) * zoom, colBreaks);
+  const rowChunks = cut(bodyRows, r => rowH(sheet, r), box.innerH - (titleH + head * HEAD_H) * zoom, rowBreaks);
   const pages: PageCut[] = [];
-  const add = (cs: number[], rs: number[]) => pages.push({ sheet: sheetIndex, cols: cs, rows: rs, titleRows: tRows, titleCols: tCols, zoom });
-  if (setup.order === 'over') for (const rs of rowChunks) for (const cs of colChunks) add(cs, rs);
-  else for (const cs of colChunks) for (const rs of rowChunks) add(cs, rs);
+  const add = (x: number, y: number) => pages.push({ sheet: sheetIndex, cols: colChunks[x], rows: rowChunks[y], titleRows: tRows, titleCols: tCols, zoom, at: { x, y } });
+  // Excel's Page order: "Down, then over" numbers the pages down the first columns, then the next columns;
+  // "Over, then down" numbers them across the first rows, then the next rows.
+  if (setup.order === 'over') rowChunks.forEach((_, y) => colChunks.forEach((__, x) => add(x, y)));
+  else colChunks.forEach((_, x) => rowChunks.forEach((__, y) => add(x, y)));
   return pages;
 }
 
@@ -241,7 +309,8 @@ export function pagesHtml(input: PrintBookInput, pages: PageCut[], setupIn: Prin
   const html = pages.map((p, i) => {
     if (only !== undefined && i !== only) return '';
     const sh = input.sheets[p.sheet];
-    const vars = { page: i + 1, pages: pages.length, sheet: sh.name, file: input.file, date, time };
+    const first = Math.max(1, setup.firstPage ?? 1);
+    const vars = { page: first + i, pages: first - 1 + pages.length, sheet: sh.name, file: input.file, date, time };
     const head = setup.header ? `<div class="hf top">${esc(fillHf(setup.header, vars))}</div>` : '';
     const foot = setup.footer ? `<div class="hf bottom">${esc(fillHf(setup.footer, vars))}</div>` : '';
     let body: string;
@@ -251,7 +320,7 @@ export function pagesHtml(input: PrintBookInput, pages: PageCut[], setupIn: Prin
     } else {
       body = tableHtml(input, p, setup, formulas);
     }
-    return `<section class="page" style="width:${box.w}px;height:${box.h}px;padding:${box.m.map(v => `${v}px`).join(' ')}">${head}<div class="cells${setup.center ? ' center' : ''}"><div class="zoom" style="zoom:${p.zoom}">${body}</div></div>${foot}</section>`;
+    return `<section class="page" style="width:${box.w}px;height:${box.h}px;padding:${box.m.map(v => `${v}px`).join(' ')}">${head}<div class="cells${setup.center ? ' center' : ''}${setup.vcenter ? ' vcenter' : ''}"><div class="zoom" style="zoom:${p.zoom}">${body}</div></div>${foot}</section>`;
   }).join('');
   const grid = setup.grid;
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(input.file)}</title><style>
@@ -261,7 +330,11 @@ body { font: 11pt Calibri, Carlito, Arial, sans-serif; color: #000; }
 .page { box-sizing: border-box; position: relative; overflow: hidden; break-after: page; display: flex; flex-direction: column; background: #fff; }
 .page:last-child { break-after: auto; }
 .cells { flex: 1; min-height: 0; overflow: hidden; }
-.cells.center { display: flex; justify-content: center; }
+.cells.center, .cells.vcenter { display: flex; }
+.cells.center { justify-content: center; }
+.cells.vcenter { align-items: center; }${setup.bw ? `
+.cells td { background: none !important; color: #000 !important; border-color: #000 !important; }
+.cells td i { display: none; }` : ''}
 .hf { height: ${FOOT_H}px; line-height: ${FOOT_H}px; font-size: 9pt; color: #444; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 table { border-collapse: collapse; table-layout: fixed; }
 td, th { position: relative; padding: 2px 5px; white-space: nowrap; overflow: hidden; vertical-align: bottom; box-sizing: border-box; ${grid ? 'border: 1px solid #c8c8c8;' : ''} }
@@ -275,8 +348,11 @@ function tableHtml(input: PrintBookInput, p: PageCut, setup: PrintSetup, formula
   const sh = input.sheets[p.sheet];
   const values = input.values[p.sheet] ?? new Map<string, Scalar>();
   const looks = input.looks(p.sheet);
-  const cols = [...p.titleCols, ...p.cols];
-  const rows = [...p.titleRows, ...p.rows];
+  // Repeated rows sit at the top of each page; on the page where they are in their own place (rows above them print
+  // on that page too), they keep it, like Excel.
+  const inPlace = (titles: number[], body: number[]) => (titles.length && body.length && body[0] < titles[0] ? [...body, ...titles].sort((a, b) => a - b) : [...titles, ...body]);
+  const cols = inPlace(p.titleCols, p.cols);
+  const rows = inPlace(p.titleRows, p.rows);
   // Merged cells: drawn from their first cell when it is on the page, clipped to the page.
   const anchor = new Map<string, { cs: number; rs: number }>();
   const covered = new Set<string>();
@@ -295,7 +371,7 @@ function tableHtml(input: PrintBookInput, p: PageCut, setup: PrintSetup, formula
     for (const c of cols) {
       const k = key(c, r);
       if (covered.has(k)) continue;
-      tds += tdHtml(sh, values, looks, input.lang, input.currency, c, r, anchor.get(k), formulas);
+      tds += tdHtml(sh, values, looks, input.lang, input.currency, c, r, anchor.get(k), formulas, setup.errors);
     }
     out += `<tr style="height:${rowH(sh, r)}px">${tds}</tr>`;
   }

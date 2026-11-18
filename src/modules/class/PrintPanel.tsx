@@ -11,8 +11,9 @@ import { offscreen, pagesToPdf, settle } from '../../ui/convert/render';
 import { printHtml } from './print';
 import {
   FITS, HEADER_PRESET_COUNT, MARGINS, PAPERS, PRINT_SCOPES, boxName, fillHf, pageBox, pagesHtml, planPages, setupOf,
-  type PrintBookInput, type PrintScope, type PrintSetup, type PrintWhat,
+  type PageCut, type PrintBookInput, type PrintScope, type PrintSetup, type PrintWhat,
 } from './printSetup';
+import { OrderPicture } from './PageSetup';
 import './print.css';
 
 export const paperLabel = (id: string) => {
@@ -21,21 +22,24 @@ export const paperLabel = (id: string) => {
   return p.label.replace('Envelope', t('class.print.paper.envelope')).replace('Photo', t('class.print.paper.photo')).replace('Index card', t('class.print.paper.card'));
 };
 export const marginLabel = (m: string) => {
+  if (m === 'custom') return t('class.print.margin.custom');
   const v = /^([\d.]+)(cm|in)$/.exec(m);
   return v ? t('class.print.margin.all', { v: `${v[1]} ${v[2]}` }) : t(`class.print.margin.${m}` as MessageKey);
 };
 export const fitLabel = (f: string) =>
   f === 'none' || f === 'page' || f === 'width' || f === 'height' ? t(`class.print.fit.${f}` as MessageKey)
-    : /^\dx\d$/.test(f) ? t('class.print.fit.pages', { a: f[0], b: f[2] }) : `${f} %`;
+    : /^\d+x\d+$/.test(f) ? t('class.print.fit.pages', { a: f.split('x')[0] === '0' ? t('class.print.auto') : f.split('x')[0], b: f.split('x')[1] === '0' ? t('class.print.auto') : f.split('x')[1] }) : `${f} %`;
 export const hfTemplates = () => Array.from({ length: HEADER_PRESET_COUNT }, (_, i) => t(`class.print.hf.${i + 1}` as MessageKey));
 /** A template shown with sample values, like Excel's header list. */
 export const hfSample = (tpl: string, sheet: string, file: string, lang: string) =>
   tpl ? fillHf(tpl, { page: 1, pages: 3, sheet, file, date: new Date().toLocaleDateString(lang), time: new Date().toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' }) }) : t('class.print.hf.none');
 
-export function PrintPanel({ input, what: whatIn, onSetup, onSave, onClose }: {
+export function PrintPanel({ input, what: whatIn, onSetup, onSave, onClose, onMore }: {
   input: PrintBookInput;
   what: PrintWhat;
   onSetup: (setup: PrintSetup) => void;
+  /** Opens the Page Setup window (Excel's "Page Setup" link under the print settings). */
+  onMore?: () => void;
   onSave: (name: string, blob: Blob) => Promise<void> | void;
   onClose: () => void;
 }) {
@@ -131,11 +135,12 @@ export function PrintPanel({ input, what: whatIn, onSetup, onSave, onClose }: {
             <label>{t('class.print.margins')}
               <select value={setup.margins} onChange={e => set({ margins: e.target.value })} data-pp="margins">
                 {Object.keys(MARGINS).map(k => <option key={k} value={k}>{marginLabel(k)}</option>)}
+                {setup.margins === 'custom' && <option value="custom">{marginLabel('custom')}</option>}
               </select>
             </label>
             <label>{t('class.print.fit')}
               <select value={setup.fit} onChange={e => set({ fit: e.target.value })} data-pp="fit">
-                {FITS.map(f => <option key={f} value={f}>{fitLabel(f)}</option>)}
+                {(FITS.includes(setup.fit) ? FITS : [...FITS, setup.fit]).map(f => <option key={f} value={f}>{fitLabel(f)}</option>)}
               </select>
             </label>
             <label>{t('class.print.titleRows')}
@@ -166,6 +171,8 @@ export function PrintPanel({ input, what: whatIn, onSetup, onSave, onClose }: {
             <label><input type="checkbox" checked={!!setup.headings} onChange={e => set({ headings: e.target.checked })} data-pp="headings" /> {t('class.print.headings')}</label>
             <label><input type="checkbox" checked={!!setup.center} onChange={e => set({ center: e.target.checked })} data-pp="center" /> {t('class.print.center')}</label>
           </div>
+          <PageMap pages={pages} shown={shown} order={setup.order} onPick={setPage} />
+          {onMore && <button type="button" className="pp-more" data-pp="more" onClick={onMore}><Icon name="pagesetup" /> {t('class.setup.open')}</button>}
         </div>
         <div className="pp-main">
           <div className="pp-preview" ref={holder} aria-label={t('class.print.preview')}>
@@ -188,5 +195,24 @@ export function PrintPanel({ input, what: whatIn, onSetup, onSave, onClose }: {
         </div>
       </div>
     </dialog>
+  );
+}
+
+/** Where each page sits in the sheet, numbered in the page order (Excel only shows this in Page Break Preview). */
+function PageMap({ pages, shown, order, onPick }: { pages: PageCut[]; shown: number; order: 'down' | 'over'; onPick: (i: number) => void }) {
+  const first = pages[0]?.sheet;
+  const list = pages.map((p, i) => ({ p, i })).filter(({ p }) => p.at && p.sheet === first);
+  if (list.length < 2) return null;
+  const w = Math.max(...list.map(({ p }) => p.at!.x)) + 1, h = Math.max(...list.map(({ p }) => p.at!.y)) + 1;
+  return (
+    <div className="pp-map" data-pp="map">
+      <div className="pp-map-title"><OrderPicture order={order} size={28} /> {t('class.print.map', { order: t(`class.print.order.${order}` as MessageKey) })}</div>
+      <div className="pp-map-grid" style={{ gridTemplateColumns: `repeat(${w}, minmax(34px, 1fr))`, gridTemplateRows: `repeat(${h}, 30px)` }}>
+        {list.map(({ p, i }) => (
+          <button key={i} type="button" className={i === shown ? 'on' : ''} style={{ gridColumn: p.at!.x + 1, gridRow: p.at!.y + 1 }}
+            aria-label={t('class.print.pageOf', { n: i + 1, total: pages.length })} aria-current={i === shown} onClick={() => onPick(i)}>{i + 1}</button>
+        ))}
+      </div>
+    </div>
   );
 }

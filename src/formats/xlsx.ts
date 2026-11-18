@@ -204,7 +204,7 @@ export async function xlsxBytes(book: WorkbookData, lang = 'en'): Promise<ArrayB
       zip.file(`xl/drawings/_rels/drawing${d}.xml.rels`, `${XML_HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join('')}</Relationships>`);
       contentOverrides.push(`<Override PartName="/xl/drawings/drawing${d}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`);
     }
-    return `${XML_HEAD}<worksheet xmlns="${NS}" xmlns:r="${R_NS}">${pr}${views}<sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${rows}</sheetData>${autoFilter}${merges}${cond}${validationsXml(sheet)}${px.printOptions}${px.pageMargins || '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'}${px.pageSetup}${px.headerFooter}${drawing}</worksheet>`;
+    return `${XML_HEAD}<worksheet xmlns="${NS}" xmlns:r="${R_NS}">${pr}${views}<sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${rows}</sheetData>${autoFilter}${merges}${cond}${validationsXml(sheet)}${px.printOptions}${px.pageMargins || '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'}${px.pageSetup}${px.headerFooter}${px.breaks}${drawing}</worksheet>`;
   };
 
   const condXml = (rule: CondRule, priority: number): string => {

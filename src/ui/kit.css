@@ -281,7 +281,9 @@
   .ribbon-tabs > button { height: 30px; }
   .ribbon-panel {
     position: absolute; left: 0; right: 0; top: 100%; display: none; min-height: 0;
-    background: var(--bar-gradient); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    /* Opaque, and no backdrop-filter: a blur makes the panel the box of its fixed lists, so they were cut at its
+       bottom edge (Martin's phone, 2026-11-18: only the first choice of a list showed). */
+    background: var(--bar-gradient), var(--bg);
     border-bottom: 1px solid var(--hair); box-shadow: 0 16px 34px rgba(var(--shade-rgb), calc(.45 * var(--shade-k)));
   }
   .ribbon:focus-within .ribbon-panel, .ribbon.open .ribbon-panel { display: flex; }
@@ -294,7 +296,8 @@
 :root.ribbon-min .ribbon-tabs { padding-bottom: 4px; }
 :root.ribbon-min .ribbon-panel {
   position: absolute; left: 0; right: 0; top: 100%; display: none; min-height: 0;
-  background: var(--bar-gradient), var(--bg); /* opaque: the page never shows through the buttons */ backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  /* Opaque: the page never shows through the buttons. No backdrop-filter: it would cut the lists that open from them. */
+  background: var(--bar-gradient), var(--bg);
   border-bottom: 1px solid var(--hair); box-shadow: 0 16px 34px rgba(var(--shade-rgb), calc(.45 * var(--shade-k)));
 }
 :root.ribbon-min .ribbon.open .ribbon-panel { display: flex; }

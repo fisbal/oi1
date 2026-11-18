@@ -44,7 +44,8 @@ import { tx, type Lang } from './pro/build';
 import { CondDialog, FilterMenu, FindPanel, HIGHLIGHT_KINDS, TOP_KINDS, type CondKind, type FindOptions } from './panels';
 import { borderCss, printHtml, sheetHtml } from './print';
 import { PrintPanel, fitLabel, hfSample, hfTemplates, marginLabel, paperLabel } from './PrintPanel';
-import { FITS, MARGINS, PAPERS, cutPages, filteredRows, pagesHtml, planPages, setupOf, type PrintScope, type PrintSetup } from './printSetup';
+import { FITS, MARGINS, PAPERS, breakCount, cutPages, filteredRows, hasBreakAt, insertBreak, pagesHtml, planPages, removeBreak, setupOf, type PrintScope, type PrintSetup } from './printSetup';
+import { OrderPicture, PageSetupDialog, type SetupTab } from './PageSetup';
 import { ConvertPanel } from '../../ui/convert/ConvertPanel';
 import type { ConvertSource } from '../../shell/convert';
 import { GoalSeekDialog, ScenarioDialog, SolverDialog, ValidationAlert, ValidationDialog, setRule } from './whatIfUi';
@@ -154,6 +155,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   const [sel, setSel] = useState<Sel>({ a: { c: 0, r: 0 }, f: { c: 0, r: 0 } });
   const [edit, setEdit] = useState<{ text: string; mode: 'enter' | 'edit'; where: 'cell' | 'bar' } | null>(null);
   const [panel, setPanel] = useState<null | 'file'>(null);
+  const [pageSetup, setPageSetup] = useState<null | SetupTab>(null);
   const [tab, setTab] = useState<Tab>('home');
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
@@ -1001,6 +1003,13 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const b = { c1: range.c1, r1: range.r1, c2: range.c2, r2: range.r2 };
     s.print = { ...s.print, area: how === 'add' && a ? { c1: Math.min(a.c1, b.c1), r1: Math.min(a.r1, b.r1), c2: Math.max(a.c2, b.c2), r2: Math.max(a.r2, b.r2) } : b };
   });
+  /** Excel's Breaks: insert or remove a page break at the active cell, or reset them all. */
+  const changeBreaks = (how: 'insert' | 'remove' | 'reset') => changeSheet(s => {
+    const cur = setupOf(s);
+    const b = how === 'insert' ? insertBreak(cur, sel.a) : how === 'remove' ? removeBreak(cur, sel.a) : undefined;
+    s.print = { ...s.print, breaks: b && ((b.rows?.length ?? 0) + (b.cols?.length ?? 0)) ? b : undefined };
+    if (!s.print.breaks) delete s.print.breaks;
+  });
   const printInput = (charts: string[][]) => ({
     sheets: book.sheets, values: allValues, active, lang, currency, file: fileName || `${title}.xlsx`,
     looks: (i: number) => (i === active ? looks : condLooks(book.sheets[i], allValues[i] ?? new Map())),
@@ -1196,7 +1205,9 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
   // a dashed line after the last column and the last row of each page. Over the whole grid, so an empty sheet shows
   // the limits too.
   const pageBreaks = useMemo(() => {
-    if (!pageLines) return { cols: new Set<number>(), rows: new Set<number>() };
+    // Manual breaks show as solid lines, always (Excel draws them in Normal view too), the automatic ones dashed.
+    const manCols = new Set((ps.breaks?.cols ?? []).map(c => c - 1)), manRows = new Set((ps.breaks?.rows ?? []).map(r => r - 1));
+    if (!pageLines) return { cols: manCols, rows: manRows, manCols, manRows };
     const area = ps.area;
     const span = (a: number, b: number) => Array.from({ length: Math.max(0, b - a + 1) }, (_, i) => a + i);
     const cs = area ? span(area.c1, area.c2) : span(0, cols - 1);
@@ -1206,7 +1217,7 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     const lastRows = [...new Set(pages.map(p => p.rows[p.rows.length - 1]).filter(r => r !== undefined))].sort((a, b) => a - b);
     // Without a print area the last page simply runs to the end of the grid: no line there.
     if (!area) { lastCols.pop(); lastRows.pop(); }
-    return { cols: new Set(lastCols), rows: new Set(lastRows) };
+    return { cols: new Set([...lastCols, ...manCols]), rows: new Set([...lastRows, ...manRows]), manCols, manRows };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageLines, sheet.widths, sheet.heights, sheet.print, cols, rows, hiddenRows]);
   const search = (arr: number[], n: number, v: number) => { let lo = 0, hi = n - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (arr[mid] <= v) lo = mid; else hi = mid - 1; } return lo; };
@@ -1855,8 +1866,8 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
     }
     if (pageBreaks.cols.size || pageBreaks.rows.size) {
       const marks: ReactNode[] = [];
-      for (let c = ca; c <= cb; c++) if (pageBreaks.cols.has(c)) marks.push(<i key={`pv${c}`} className="pb-v" style={{ left: lefts[c + 1] - 1, top: tops[ra], height: tops[rb + 1] - tops[ra] }} />);
-      for (let r = ra; r <= rb; r++) if (pageBreaks.rows.has(r)) marks.push(<i key={`ph${r}`} className="pb-h" style={{ top: tops[r + 1] - 1, left: lefts[ca], width: lefts[cb + 1] - lefts[ca] }} />);
+      for (let c = ca; c <= cb; c++) if (pageBreaks.cols.has(c)) marks.push(<i key={`pv${c}`} className={pageBreaks.manCols.has(c) ? 'pb-v man' : 'pb-v'} style={{ left: lefts[c + 1] - 1, top: tops[ra], height: tops[rb + 1] - tops[ra] }} />);
+      for (let r = ra; r <= rb; r++) if (pageBreaks.rows.has(r)) marks.push(<i key={`ph${r}`} className={pageBreaks.manRows.has(r) ? 'pb-h man' : 'pb-h'} style={{ top: tops[r + 1] - 1, left: lefts[ca], width: lefts[cb + 1] - lefts[ca] }} />);
       if (marks.length) out.push(<div key="pages" className="page-lines" aria-hidden="true">{marks}</div>);
     }
     const drawn = new Set<string>();
@@ -2425,7 +2436,10 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
           {shownTab === 'layout' && <>
             <Group label="class.group.pageSetup">
               <Drop big icon="margins" title="class.print.margins">
-                {close => Object.keys(MARGINS).map(m => <MenuItem key={m} active={ps.margins === m} label={marginLabel(m)} onClick={() => { close(); changePrint({ margins: m }); }} />)}
+                {close => <>
+                  {Object.keys(MARGINS).map(m => <MenuItem key={m} active={ps.margins === m} label={marginLabel(m)} onClick={() => { close(); changePrint({ margins: m }); }} />)}
+                  <MenuItem active={ps.margins === 'custom'} label={t('class.setup.customMargins')} onClick={() => { close(); setPageSetup('margins'); }} />
+                </>}
               </Drop>
               <Drop big icon="orientation" title="class.print.orientation">
                 {close => (['portrait', 'landscape'] as const).map(o => <MenuItem key={o} active={ps.orientation === o} label={t(`class.print.${o}` as MessageKey)} onClick={() => { close(); changePrint({ orientation: o }); }} />)}
@@ -2447,12 +2461,31 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
                   {Array.from({ length: 12 }, (_, i) => i + 1).map(n => <MenuItem key={`r${n}`} active={ps.titleRows === n && !ps.titleCols} label={t('class.print.firstRows', { n })} onClick={() => { close(); changePrint({ titleRows: n, titleCols: 0 }); }} />)}
                   {Array.from({ length: 6 }, (_, i) => i + 1).map(n => <MenuItem key={`c${n}`} active={ps.titleCols === n && !ps.titleRows} label={t('class.print.firstCols', { n, col: colName(n - 1) })} onClick={() => { close(); changePrint({ titleCols: n, titleRows: 0 }); }} />)}
                   <MenuItem active={ps.titleRows === 1 && ps.titleCols === 1} label={t('class.print.bothFirst')} onClick={() => { close(); changePrint({ titleRows: 1, titleCols: 1 }); }} />
+                  <MenuItem label={t('class.setup.otherTitles')} onClick={() => { close(); setPageSetup('sheet'); }} />
                 </>}
               </Drop>
+              <Drop big icon="pagebreak" title="class.breaks">
+                {close => <>
+                  <span className="kicker">{t('class.setup.breaks', { n: breakCount(ps) })}</span>
+                  <MenuItem label={t('class.breaks.insert')} hint={cellName(sel.a.c, sel.a.r)} onClick={() => { close(); changeBreaks('insert'); }} />
+                  {hasBreakAt(ps, sel.a) && <MenuItem label={t('class.breaks.remove')} hint={cellName(sel.a.c, sel.a.r)} onClick={() => { close(); changeBreaks('remove'); }} />}
+                  {breakCount(ps) > 0 && <MenuItem label={t('class.breaks.reset')} onClick={() => { close(); changeBreaks('reset'); }} />}
+                  <MenuItem active={pageLines} label={t('class.pageLines')} onClick={() => { close(); togglePageLines(); }} />
+                </>}
+              </Drop>
+              <Drop big icon={ps.order === 'over' ? 'pageover' : 'pagedown'} title="class.print.order">
+                {close => (['down', 'over'] as const).map(o => (
+                  <MenuItem key={o} active={ps.order === o} label={<span className="order-item"><OrderPicture order={o} size={40} /> {t(`class.print.order.${o}` as MessageKey)}</span>} onClick={() => { close(); changePrint({ order: o }); }} />
+                ))}
+              </Drop>
+              <Btn big icon="pagesetup" title="class.setup.open" onClick={() => setPageSetup('page')} />
             </Group>
             <Group label="class.group.scale">
               <Drop big icon="onepage" title="class.print.fit">
-                {close => FITS.map(f => <MenuItem key={f} active={ps.fit === f} label={fitLabel(f)} onClick={() => { close(); changePrint({ fit: f }); }} />)}
+                {close => <>
+                  {FITS.map(f => <MenuItem key={f} active={ps.fit === f} label={fitLabel(f)} onClick={() => { close(); changePrint({ fit: f }); }} />)}
+                  <MenuItem active={!FITS.includes(ps.fit)} label={t('class.setup.moreScale')} onClick={() => { close(); setPageSetup('page'); }} />
+                </>}
               </Drop>
             </Group>
             <Group label="class.group.sheetOptions">
@@ -2732,8 +2765,15 @@ function ClassEditor({ shell, file, handoff, initial }: { shell: ShellApi; file?
       {printing && (
         <PrintPanel input={printInput(printing.charts)} what={{ scope: printing.scope, sel: range, at: sel.a }}
           onSetup={p => changePrint(p)}
+          onMore={() => { setPrinting(null); setPageSetup('sheet'); }}
           onSave={async (name, blob) => { await shell.saveFile(name, blob, 'application/pdf', { saveAs: true }); }}
           onClose={() => { setPrinting(null); gridRef.current?.focus(); }} />
+      )}
+      {pageSetup && (
+        <PageSetupDialog sheet={sheet} file={fileName || `${title}.xlsx`} lang={lang} start={pageSetup} selection={range}
+          onOk={p => { changeSheet(s => { s.print = p; }); setPageSetup(null); gridRef.current?.focus(); }}
+          onPreview={p => { changeSheet(s => { s.print = p; }); setPageSetup(null); void print(); }}
+          onClose={() => { setPageSetup(null); gridRef.current?.focus(); }} />
       )}
       {panel === 'file' && (
         <FileMenu fileName={fileName || `${title}.xlsx`} onClose={() => setPanel(null)}

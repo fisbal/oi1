@@ -1,7 +1,7 @@
 // Printing a sheet (and saving it as PDF from the print window): the used area as an HTML table with its
 // formatting, merged cells and conditional colors, then the charts as pictures.
 
-import type { Scalar } from '../../formats/formula';
+import { isError, type Scalar } from '../../formats/formula';
 import { display, key, naturalAlign, usedRange, type BorderLine, type SheetData } from '../../formats/sheet';
 import { cssFont } from '../letter/model';
 import type { CondLook } from './cond';
@@ -12,7 +12,7 @@ export const borderCss = (b?: BorderLine) =>
 
 /** One cell as a printed <td>, with its formatting, conditional colors and data bar. `span` overrides its merge size. */
 export function tdHtml(sheet: SheetData, values: Map<string, Scalar>, looks: Map<string, CondLook>, lang: string, currency: string,
-  c: number, r: number, span?: { cs: number; rs: number }, formulas = false): string {
+  c: number, r: number, span?: { cs: number; rs: number }, formulas = false, errors: 'shown' | 'blank' | 'dash' | 'na' = 'shown'): string {
   const k = key(c, r);
   const cell = sheet.cells[k];
   const st = cell?.style;
@@ -32,7 +32,8 @@ export function tdHtml(sheet: SheetData, values: Map<string, Scalar>, looks: Map
   if (st?.indent) css.push(`padding-left:${4 + st.indent * 9}px`);
   for (const side of ['top', 'right', 'bottom', 'left'] as const) { const b = borderCss(st?.borders?.[side]); if (b) css.push(`border-${side}:${b}`); }
   const attrs = span ? `${span.cs > 1 ? ` colspan="${span.cs}"` : ''}${span.rs > 1 ? ` rowspan="${span.rs}"` : ''}` : '';
-  const text = cell ? display(v, st, lang, currency) : '';
+  // Excel's "Cell errors as": shown, blank, -- or #N/A.
+  const text = !cell ? '' : isError(v) && errors !== 'shown' ? (errors === 'blank' ? '' : errors === 'dash' ? '--' : '#N/A') : display(v, st, lang, currency);
   const bar = look?.bar ? `<i style="position:absolute;left:1px;top:3px;bottom:3px;width:${Math.round(look.bar.pct * 100)}%;background:${look.bar.color};opacity:.55"></i>` : '';
   const shown = formulas && cell?.input?.startsWith('=') ? cell.input : text;
   return `<td${attrs} style="${css.join(';')}">${bar}<span>${esc(shown)}</span></td>`;
