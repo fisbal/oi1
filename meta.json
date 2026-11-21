@@ -1,0 +1,23 @@
+{
+ "updated": "2026-11-21T11:03:33+00:00",
+ "count": 906106,
+ "sources": [
+  "HaGeZi Threat Intelligence Feeds (GPL-3.0)",
+  "Phishing.Database (MIT)",
+  "Phishing.Database new today (MIT)",
+  "Block List Project phishing (Unlicense)",
+  "Block List Project scam (Unlicense)"
+ ],
+ "perSource": {
+  "HaGeZi Threat Intelligence Feeds (GPL-3.0)": 405902,
+  "Phishing.Database (MIT)": 386069,
+  "Phishing.Database new today (MIT)": 3,
+  "Block List Project phishing (Unlicense)": 120384,
+  "Block List Project scam (Unlicense)": 8098
+ },
+ "antidotes": {
+  "files": [],
+  "hosts": []
+ },
+ "format": "sha256(host)[2:16] in h/<sha256[:2]>.txt"
+}
