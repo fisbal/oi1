@@ -1,6 +1,6 @@
 {
- "updated": "2026-11-26T12:36:07+00:00",
- "count": 767287,
+ "updated": "2026-11-27T12:22:45+00:00",
+ "count": 774638,
  "sources": [
   "HaGeZi Threat Intelligence Feeds (GPL-3.0)",
   "Phishing.Database (MIT)",
@@ -9,7 +9,7 @@
   "Block List Project scam (Unlicense)"
  ],
  "perSource": {
-  "HaGeZi Threat Intelligence Feeds (GPL-3.0)": 261854,
+  "HaGeZi Threat Intelligence Feeds (GPL-3.0)": 269412,
   "Phishing.Database (MIT)": 386069,
   "Phishing.Database new today (MIT)": 3,
   "Block List Project phishing (Unlicense)": 120384,
